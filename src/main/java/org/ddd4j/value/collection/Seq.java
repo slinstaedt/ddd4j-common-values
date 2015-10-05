@@ -115,6 +115,9 @@ public interface Seq<E> extends Iterable<E> {
 			this.filter = requireNonNull(predicate);
 		}
 
+		void apply(Seq<E> seq, Function<? super E, ? extends T> childMapping, Predicate<T> childFilter) {
+		}
+
 		public Filtered<E, T> by(Predicate<? super T> predicate) {
 			// TODO Auto-generated method stub
 			return null;
@@ -146,7 +149,7 @@ public interface Seq<E> extends Iterable<E> {
 
 		public Filtered<E, T> matches(Supplier<Predicate<? super T>> predicateSupplier) {
 			// TODO
-			return null;
+			return () ->;
 		}
 
 		public Seq<E> skipUntil(Predicate<? super E> predicate) {
