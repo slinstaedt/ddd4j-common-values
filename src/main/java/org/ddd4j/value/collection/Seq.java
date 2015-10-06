@@ -50,7 +50,7 @@ public interface Seq<E> extends Iterable<E> {
 		}
 	}
 
-	class Filtered<E, T> {
+	class Filterer<E, T> {
 
 		private static class Contains<T> implements Supplier<Predicate<T>> {
 
@@ -101,29 +101,27 @@ public interface Seq<E> extends Iterable<E> {
 			}
 		}
 
-		public static <E> Filtered<E, E> on(Seq<E> seq) {
-			return new Filtered<>(seq, Function.identity(), t -> true);
+		static <E> Filterer<E, E> on(Seq<E> seq) {
+			requireNonNull(seq);
+			return new Filterer<>(seq, Function.identity(), t -> true);
 		}
 
 		private final Seq<E> sequence;
-		private final Function<? super E, ? extends T> mapping;
-		private final Predicate<T> filter;
+		private final Function<? super E, ? extends T> childMapping;
+		private final Predicate<T> childFilter;
 
-		public Filtered(Seq<E> sequence, Function<? super E, ? extends T> mapping, Predicate<T> predicate) {
+		public Filterer(Seq<E> sequence, Function<? super E, ? extends T> childMapping, Predicate<T> childFilter) {
 			this.sequence = requireNonNull(sequence);
-			this.mapping = requireNonNull(mapping);
-			this.filter = requireNonNull(predicate);
+			this.childMapping = requireNonNull(childMapping);
+			this.childFilter = requireNonNull(childFilter);
 		}
 
-		void apply(Seq<E> seq, Function<? super E, ? extends T> childMapping, Predicate<T> childFilter) {
-		}
-
-		public Filtered<E, T> by(Predicate<? super T> predicate) {
-			// TODO Auto-generated method stub
+		public Seq<E> by(Predicate<? super T> predicate) {
+			// TODO
 			return null;
 		}
 
-		public <X> Filtered<E, X> byType(Class<X> type) {
+		public <X> Filterer<E, X> byType(Class<X> type) {
 			return matches(type::isInstance).where(type::cast);
 		}
 
@@ -143,13 +141,13 @@ public interface Seq<E> extends Iterable<E> {
 			return matches(new Match<>(predicate, true));
 		}
 
-		public Filtered<E, T> matches(Predicate<? super T> predicate) {
-			return new Filtered<>(sequence, mapping, filter.and(predicate));
+		public Filterer<E, T> matches(Predicate<? super T> predicate) {
+			return new Filterer<>(sequence, childMapping, childFilter.and(predicate));
 		}
 
-		public Filtered<E, T> matches(Supplier<Predicate<? super T>> predicateSupplier) {
+		public Filterer<E, T> matches(Supplier<Predicate<? super T>> predicateSupplier) {
 			// TODO
-			return () ->;
+			return null;
 		}
 
 		public Seq<E> skipUntil(Predicate<? super E> predicate) {
@@ -160,29 +158,24 @@ public interface Seq<E> extends Iterable<E> {
 			return skipUntil(predicate.negate());
 		}
 
-		@Override
-		public Stream<E> stream() {
-			return sequence.stream().filter(e -> filter.test(mapping.apply(e)));
+		public <X> Filterer<E, X> where(Function<? super T, ? extends X> expression) {
+			return new Filterer<E, X>(sequence, childMapping.andThen(expression), childFilter);
 		}
 
-		public <X> Filtered<E, X> where(Function<? super T, ? extends X> expression) {
-			return new Filtered<>(sequence, mapping.andThen(expression), t -> true);
-		}
-
-		public <X> Filtered<E, Seq<X>> whereArray(Function<? super T, X[]> mapper) {
+		public <X> Filterer<E, Seq<X>> whereArray(Function<? super T, X[]> mapper) {
 			return whereStream(mapper.andThen(Stream::of));
 		}
 
-		public <X> Filtered<E, Seq<X>> whereCollection(Function<? super T, Collection<X>> mapper) {
+		public <X> Filterer<E, Seq<X>> whereCollection(Function<? super T, Collection<X>> mapper) {
 			return whereStream(mapper.andThen(Collection::stream));
 		}
 
-		public Filtered<E, T> whereRecursive(Function<? super T, Stream<? extends T>> mapper) {
+		public Filterer<E, T> whereRecursive(Function<? super T, Stream<? extends T>> mapper) {
 			// TODO
 			return null;
 		}
 
-		public <X> Filtered<E, Seq<X>> whereStream(Function<? super T, Stream<X>> mapper) {
+		public <X> Filterer<E, Seq<X>> whereStream(Function<? super T, Stream<X>> mapper) {
 			requireNonNull(mapper);
 			return where(t -> () -> mapper.apply(t));
 		}
@@ -307,13 +300,19 @@ public interface Seq<E> extends Iterable<E> {
 		return stream().anyMatch(predicate);
 	}
 
-	default Filtered<E, E> filter() {
-		return Filtered.on(this);
+	default Filterer<E, E> filter() {
+		return Filterer.on(this);
 	}
 
 	default Seq<E> filter(Predicate<? super E> predicate) {
 		requireNonNull(predicate);
 		return () -> stream().filter(predicate);
+	}
+
+	default <X> Seq<E> filterWhere(Function<? super E, ? extends X> mapper, Predicate<? super X> filter) {
+		requireNonNull(mapper);
+		requireNonNull(filter);
+		return () -> stream().filter(e -> filter.test(mapper.apply(e)));
 	}
 
 	default <T> Optional<T> fold(Function<? super E, ? extends T> creator, BiFunction<? super T, ? super E, ? extends T> mapper) {
