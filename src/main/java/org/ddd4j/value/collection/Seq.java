@@ -142,10 +142,12 @@ public interface Seq<E> extends Iterable<E> {
 
 		default Filterer<E, T> matches(Supplier<Predicate<? super T>> predicateSupplier) {
 			requireNonNull(predicateSupplier);
-			return () -> sequences().mapRight(s -> {
-				Predicate<? super T> predicate = predicateSupplier.get();
-				return s.filter(predicate);
-			});
+			return () -> sequences().mapRight(s -> s.filter(predicateSupplier));
+		}
+
+		default Seq<E> result() {
+			// TODO
+			return null;
 		}
 
 		Tpl<Seq<E>, Seq<T>> sequences();
@@ -305,15 +307,9 @@ public interface Seq<E> extends Iterable<E> {
 		return Filterer.of(this);
 	}
 
-	default Seq<E> filter(Predicate<? super E> predicate) {
-		requireNonNull(predicate);
-		return () -> stream().filter(predicate);
-	}
-
-	default <X> Seq<E> filterWhere(Function<? super E, ? extends X> mapper, Predicate<? super X> filter) {
-		requireNonNull(mapper);
-		requireNonNull(filter);
-		return () -> stream().filter(e -> filter.test(mapper.apply(e)));
+	default Seq<E> filter(Supplier<Predicate<? super E>> predicateSupplier) {
+		requireNonNull(predicateSupplier);
+		return () -> stream().filter(predicateSupplier.get());
 	}
 
 	default <T> Optional<T> fold(Function<? super E, ? extends T> creator,
