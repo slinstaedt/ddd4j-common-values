@@ -108,14 +108,17 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default Seq<E> by(Predicate<? super E> predicate) {
-			return sequences().foldLeft(s -> s.filter(predicate));
+			requireNonNull(predicate);
+			return by(() -> predicate);
 		}
 
-		default Seq<E> by(Supplier<Predicate<? super T>> predicate) {
-			return sequences(Function.identity(), predicate);
+		default Seq<E> by(Supplier<Predicate<? super E>> predicateSupplier) {
+			requireNonNull(predicateSupplier);
+			return sequences().foldLeft(s -> s.filter(predicateSupplier));
 		}
 
 		default <X> Filterer<E, X> byType(Class<X> type) {
+			requireNonNull(type);
 			return matches(type::isInstance).where(type::cast);
 		}
 
@@ -312,8 +315,7 @@ public interface Seq<E> extends Iterable<E> {
 		return () -> stream().filter(predicateSupplier.get());
 	}
 
-	default <T> Optional<T> fold(Function<? super E, ? extends T> creator,
-			BiFunction<? super T, ? super E, ? extends T> mapper) {
+	default <T> Optional<T> fold(Function<? super E, ? extends T> creator, BiFunction<? super T, ? super E, ? extends T> mapper) {
 		Optional<T> identity = head().map(creator);
 		return tail().fold(identity, (o, e) -> o.map(t -> mapper.apply(t, e)));
 	}
