@@ -3,6 +3,7 @@ package org.ddd4j.value.collection;
 import static java.util.Objects.requireNonNull;
 
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -35,9 +36,10 @@ public class Tpl<L, R> {
 	}
 
 	private final L left;
+
 	private final R right;
 
-	public Tpl(L left, R right) {
+	private Tpl(L left, R right) {
 		this.left = left;
 		this.right = right;
 	}
@@ -58,6 +60,10 @@ public class Tpl<L, R> {
 	public <T> T foldRight(Function<? super R, ? extends T> mapper) {
 		requireNonNull(mapper);
 		return fold((l, r) -> mapper.apply(r));
+	}
+
+	public boolean isEqual() {
+		return fold(Objects::equals);
 	}
 
 	public <X, Y> Tpl<X, Y> map(Function<? super L, ? extends X> leftMap, Function<? super R, ? extends Y> rightMap) {
