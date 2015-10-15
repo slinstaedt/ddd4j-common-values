@@ -4,92 +4,112 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-public class Tpl<L, R> {
+@FunctionalInterface
+public interface Tpl<L, R> {
 
-	public static class Void extends Tpl<Void, Void> {
-
-		public Void() {
-			super(null, null);
-		}
+	@FunctionalInterface
+	interface Void extends Tpl<Void, Void> {
 
 		@Override
-		public <X> X fold(BiFunction<? super Void, ? super Void, ? extends X> mapper) {
+		default <X> X fold(BiFunction<? super Void, ? super Void, ? extends X> mapper) {
 			throw new NoSuchElementException("Tuple is empty");
 		}
+
+		Optional<Void> get();
 	}
 
-	public static final Void EMPTY = new Void();
+	Void EMPTY = Optional::empty;
 
-	public static <L, R> Tpl<L, R> of(L left, R right) {
-		return new Tpl<>(left, right);
+	static <L, R> Tpl<L, R> of(L left, R right) {
+		return new Tpl<L, R>() {
+
+			@Override
+			public <T> T fold(BiFunction<? super L, ? super R, ? extends T> function) {
+				return function.apply(left, right);
+			}
+		};
 	}
 
-	public static <L> Tpl<L, Void> ofLeft(L left) {
-		return new Tpl<>(left, EMPTY);
+	static <L> Tpl<L, Void> ofLeft(L left) {
+		return Tpl.of(left, EMPTY);
 	}
 
-	public static <R> Tpl<Void, R> ofRight(R right) {
-		return new Tpl<>(EMPTY, right);
+	static <R> Tpl<Void, R> ofRight(R right) {
+		return Tpl.of(EMPTY, right);
 	}
 
-	private final L left;
-
-	private final R right;
-
-	private Tpl(L left, R right) {
-		this.left = left;
-		this.right = right;
+	default <T> Tpl<Tpl<L, R>, T> append(T entry) {
+		return Tpl.of(this, entry);
 	}
 
-	public <T> Tpl<Tpl<L, R>, T> append(T entry) {
-		return new Tpl<>(this, entry);
+	default String asString() {
+		return fold((l, r) -> "<" + l + "," + r + ">");
 	}
 
-	public <T> T fold(BiFunction<? super L, ? super R, ? extends T> mapper) {
-		return mapper.apply(left, right);
+	default void consume(BiConsumer<? super L, ? super R> consumer) {
+		fold((l, r) -> {
+			consumer.accept(l, r);
+			return null;
+		});
 	}
 
-	public <T> T foldLeft(Function<? super L, ? extends T> mapper) {
-		requireNonNull(mapper);
-		return fold((l, r) -> mapper.apply(l));
+	<T> T fold(BiFunction<? super L, ? super R, ? extends T> function);
+
+	default <T> T foldLeft(Function<? super L, ? extends T> function) {
+		requireNonNull(function);
+		return fold((l, r) -> function.apply(l));
 	}
 
-	public <T> T foldRight(Function<? super R, ? extends T> mapper) {
-		requireNonNull(mapper);
-		return fold((l, r) -> mapper.apply(r));
+	default <T> T foldRight(Function<? super R, ? extends T> function) {
+		requireNonNull(function);
+		return fold((l, r) -> function.apply(r));
 	}
 
-	public boolean isEqual() {
+	default L getLeft() {
+		return foldLeft(Function.identity());
+	}
+
+	default R getRight() {
+		return foldRight(Function.identity());
+	}
+
+	default boolean isEqual() {
 		return fold(Objects::equals);
 	}
 
-	public <X, Y> Tpl<X, Y> map(Function<? super L, ? extends X> leftMap, Function<? super R, ? extends Y> rightMap) {
+	default <X, Y> Tpl<X, Y> map(Function<? super L, ? extends X> leftMap, Function<? super R, ? extends Y> rightMap) {
 		requireNonNull(leftMap);
 		requireNonNull(rightMap);
-		return fold((l, r) -> new Tpl<>(leftMap.apply(l), rightMap.apply(r)));
+		return fold((l, r) -> Tpl.of(leftMap.apply(l), rightMap.apply(r)));
 	}
 
-	public <X> Tpl<X, R> mapLeft(Function<? super L, ? extends X> leftMap) {
+	default <X> Tpl<X, R> mapLeft(Function<? super L, ? extends X> leftMap) {
 		return map(leftMap, Function.identity());
 	}
 
-	public <Y> Tpl<L, Y> mapRight(Function<? super R, ? extends Y> rightMap) {
+	default <Y> Tpl<L, Y> mapRight(Function<? super R, ? extends Y> rightMap) {
 		return map(Function.identity(), rightMap);
 	}
 
-	public <T> Tpl<T, Tpl<L, R>> prepend(T entry) {
-		return new Tpl<>(entry, this);
+	default <T> Tpl<T, Tpl<L, R>> prepend(T entry) {
+		return Tpl.of(entry, this);
 	}
 
-	public int size() {
+	default Tpl<R, L> reverse() {
+		return fold((l, r) -> Tpl.of(r, l));
+	}
+
+	default int size() {
 		// TODO
 		return 2;
 	}
 
-	public Object[] toArray() {
+	default Object[] toArray() {
 		// TODO
 		return null;
 	}

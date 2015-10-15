@@ -9,9 +9,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
@@ -25,9 +28,19 @@ public interface Seq<E> extends Iterable<E> {
 	@FunctionalInterface
 	interface Extender<E> {
 
-		Seq<E> apply(Supplier<? extends Stream<? extends E>> other);
+		Seq<E> apply(Supplier<Stream<? extends E>> other);
 
 		default Seq<E> array(E[] entries) {
+			return array(entries, entries.length);
+		}
+
+		default Seq<E> array(E[] entries, int newLength) {
+			entries = Arrays.copyOf(entries, newLength);
+			return apply(Arrays.asList(entries)::stream);
+		}
+
+		default Seq<E> array(E[] entries, int from, int to) {
+			entries = Arrays.copyOfRange(entries, from, to);
 			return apply(Arrays.asList(entries)::stream);
 		}
 
@@ -45,81 +58,33 @@ public interface Seq<E> extends Iterable<E> {
 			return apply(list::stream);
 		}
 
+		default Seq<E> repeated(int repeat, E entry) {
+			return apply(Collections.nCopies(repeat, entry)::stream);
+		}
+
 		default Seq<E> seq(Seq<? extends E> seq) {
 			return apply(requireNonNull(seq)::stream);
 		}
 	}
 
 	@FunctionalInterface
-	interface Filterer<E, T> {
+	interface Filter<E> {
 
-		class Contains<T> implements Supplier<Predicate<T>> {
-
-			private final Function<? super T, ?> keyMapper;
-
-			public Contains(Function<? super T, ?> keyMapper) {
-				this.keyMapper = requireNonNull(keyMapper);
-			}
-
-			@Override
-			public Predicate<T> get() {
-				return new Predicate<T>() {
-
-					private final Set<Object> visited = new HashSet<>();
-
-					@Override
-					public boolean test(T t) {
-						return visited.add(keyMapper.apply(t));
-					}
-				};
-			}
-		}
-
-		class Match<T> implements Supplier<Predicate<T>> {
-
-			private final Predicate<? super T> predicate;
-			private final boolean predicateOutcome;
-
-			public Match(Predicate<? super T> predicate, boolean predicateOutcome) {
-				this.predicate = requireNonNull(predicate);
-				this.predicateOutcome = predicateOutcome;
-			}
-
-			@Override
-			public Predicate<T> get() {
-				return new Predicate<T>() {
-
-					private boolean switched = false;
-
-					@Override
-					public boolean test(T t) {
-						if (!switched) {
-							switched = predicateOutcome ^ predicate.test(t);
-						}
-						return switched ? !predicateOutcome : predicateOutcome;
-					}
-				};
-			}
-		}
-
-		static <E> Filterer<E, E> of(Seq<E> seq) {
-			requireNonNull(seq);
-			return () -> Tpl.of(seq, seq);
-		}
+		<X> Seq<X> apply(Function<Seq<E>, Stream<X>> filter);
 
 		default Seq<E> by(Predicate<? super E> predicate) {
 			requireNonNull(predicate);
-			return by(() -> predicate);
+			return apply(s -> s.stream().filter(predicate));
 		}
 
 		default Seq<E> by(Supplier<Predicate<? super E>> predicateSupplier) {
 			requireNonNull(predicateSupplier);
-			return sequences().foldLeft(s -> s.filter(predicateSupplier));
+			return apply(s -> s.stream().filter(predicateSupplier.get()));
 		}
 
-		default <X> Filterer<E, X> byType(Class<X> type) {
+		default <X> Seq<X> byType(Class<? extends X> type) {
 			requireNonNull(type);
-			return matches(type::isInstance).where(type::cast);
+			return apply(s -> s.stream().filter(type::isInstance).map(type::cast));
 		}
 
 		default Seq<E> distinct() {
@@ -127,7 +92,15 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default Seq<E> distinct(Function<? super E, ?> keyMapper) {
-			return matches(new Contains<>(keyMapper));
+			requireNonNull(keyMapper);
+			return by(() -> {
+				Set<Object> visited = new HashSet<>();
+				return e -> visited.add(keyMapper.apply(e));
+			});
+		}
+
+		default Seq<E> limit(long count) {
+			return apply(s -> s.stream().limit(count));
 		}
 
 		default Seq<E> limitUntil(Predicate<? super E> predicate) {
@@ -135,60 +108,97 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default Seq<E> limitWhile(Predicate<? super E> predicate) {
-			return matches(new Match<>(predicate, true));
-		}
-
-		default Filterer<E, T> matches(Predicate<? super T> predicate) {
 			requireNonNull(predicate);
-			return matches(() -> predicate);
+			return by(() -> {
+				Ref<Boolean> filterOutcome = Ref.of(Boolean.TRUE);
+				return e -> filterOutcome.updateAndGet(b -> predicate.test(e), b -> b);
+			});
 		}
 
-		default Filterer<E, T> matches(Supplier<Predicate<? super T>> predicateSupplier) {
-			requireNonNull(predicateSupplier);
-			return () -> sequences().mapRight(s -> s.filter(predicateSupplier));
+		default Seq<E> nonNull() {
+			return by(Objects::nonNull);
 		}
 
-		default Seq<E> result() {
-			// TODO
-			return null;
+		default Seq<E> skip(long count) {
+			return apply(s -> s.stream().skip(count));
 		}
-
-		Tpl<Seq<E>, Seq<T>> sequences();
 
 		default Seq<E> skipUntil(Predicate<? super E> predicate) {
-			return matches(new Match<>(predicate, false));
+			requireNonNull(predicate);
+			return by(() -> {
+				Ref<Boolean> filterOutcome = Ref.of(Boolean.FALSE);
+				return e -> filterOutcome.updateAndGet(b -> predicate.test(e), b -> !b);
+			});
 		}
 
 		default Seq<E> skipWhile(Predicate<? super E> predicate) {
 			return skipUntil(predicate.negate());
 		}
 
-		default <X> Filterer<E, X> where(Function<? super T, X> mapper) {
+		default Seq<E> slice(long from, long to) {
+			return apply(s -> s.stream().skip(from).limit(to - from));
+		}
+
+		default <X> Seq<E> where(Function<Mapper<E>, X> mapper, Predicate<? super X> predicate) {
 			requireNonNull(mapper);
-			return () -> sequences().mapRight(s -> s.map(mapper));
+			requireNonNull(predicate);
+			return apply(s -> s.stream().filter(e -> predicate.test(mapper.apply(s.map()))));
+		}
+	}
+
+	@FunctionalInterface
+	interface Joiner<L> {
+
+		<R> Seq<Tpl<L, R>> apply(Seq<R> other, BiPredicate<? super L, ? super R> predicate);
+
+		default <R> Seq<Tpl<L, R>> inner(Seq<R> other) {
+			return inner(other, (l, r) -> true);
 		}
 
-		default <X> Filterer<E, Seq<X>> whereArray(Function<? super T, X[]> mapper) {
-			return whereStream(mapper.andThen(Stream::of));
+		default <R> Seq<Tpl<L, R>> inner(Seq<R> other, BiPredicate<? super L, ? super R> predicate) {
+			requireNonNull(predicate);
+			return apply(other, (l, r) -> l != null && r != null && Objects.equals(l, r) && predicate.test(l, r));
 		}
 
-		default <X> Filterer<E, Seq<X>> whereCollection(Function<? super T, Collection<X>> mapper) {
-			return whereStream(mapper.andThen(Collection::stream));
+		default <R> Seq<Tpl<L, R>> left(Seq<R> other) {
+			return left(other, (l, r) -> true);
 		}
 
-		default Filterer<E, T> whereRecursive(Function<? super T, Stream<? extends T>> mapper) {
-			// TODO
-			return null;
+		default <R> Seq<Tpl<L, R>> left(Seq<R> other, BiPredicate<? super L, ? super R> predicate) {
+			requireNonNull(predicate);
+			return apply(other, (l, r) -> (r == null || Objects.equals(l, r)) && predicate.test(l, r));
 		}
 
-		default <X> Filterer<E, Seq<X>> whereStream(Function<? super T, Stream<X>> mapper) {
-			requireNonNull(mapper);
-			return where(t -> () -> mapper.apply(t));
+		default <R> Seq<Tpl<L, R>> outer(Seq<R> other) {
+			return outer(other, (l, r) -> true);
+		}
+
+		default <R> Seq<Tpl<L, R>> outer(Seq<R> other, BiPredicate<? super L, ? super R> predicate) {
+			requireNonNull(predicate);
+			return apply(other, (l, r) -> (l == null || r == null || Objects.equals(l, r)) && predicate.test(l, r));
+		}
+
+		default <R> Seq<Tpl<L, R>> right(Seq<R> other) {
+			return right(other, (l, r) -> true);
+		}
+
+		default <R> Seq<Tpl<L, R>> right(Seq<R> other, BiPredicate<? super L, ? super R> predicate) {
+			requireNonNull(predicate);
+			return apply(other, (l, r) -> (l == null || Objects.equals(l, r)) && predicate.test(l, r));
 		}
 	}
 
 	@FunctionalInterface
 	interface Mapper<E> {
+
+		<X> Seq<X> apply(Function<Seq<E>, Seq<X>> mapper);
+
+		default Seq<Tpl<E, E>> consecutivePairwise() {
+			return to(() -> {
+				Ref<E> last = Ref.create();
+				return e -> last.update(t -> e);
+			}).filter().skip(1);
+		}
 
 		default <X> Seq<X> flat(Function<? super E, ? extends Seq<? extends X>> mapper) {
 			return flatStream(mapper.andThen(Seq::stream));
@@ -198,44 +208,77 @@ public interface Seq<E> extends Iterable<E> {
 			return flatStream(mapper.andThen(Stream::of));
 		}
 
-		default <X> Seq<X> flatCollection(Function<? super E, ? extends Collection<? extends X>> mapper) {
+		default <X> Seq<X> flatCollection(Function<? super E, Collection<? extends X>> mapper) {
 			return flatStream(mapper.andThen(Collection::stream));
 		}
 
-		default <X> Seq<X> flatStream(Function<? super E, ? extends Stream<? extends X>> mapper) {
+		default <X> Seq<X> flatStream(Function<? super E, Stream<? extends X>> mapper) {
 			requireNonNull(mapper);
-			return () -> sequence().stream().flatMap(mapper);
+			return apply(s -> () -> s.stream().flatMap(mapper));
 		}
 
-		default Seq<E> recursively(Function<? super E, ? extends Seq<E>> mapper) {
-			return sequence().append().seq(flat(mapper).map().recursively(mapper));
+		default <K> Seq<Tpl<K, Seq<E>>> grouped(Function<? super E, K> mapper) {
+			requireNonNull(mapper);
+			return apply(s -> s.map()
+					.to(mapper)
+					.filter()
+					.distinct()
+					.map()
+					.to(k -> Tpl.of(k, s.filter().by(e -> Objects.equals(k, mapper.apply(e))))));
+		}
+
+		default Seq<Seq<E>> partition(long partitionSize) {
+			return apply(s -> {
+				long index = 0L;
+				long size = s.size();
+				List<Seq<E>> partitions = new ArrayList<>((int) (size / partitionSize) + 1);
+				for (int i = 0; i < size; i++) {
+					partitions.add(s.filter().slice(index, index += partitionSize));
+				}
+				return partitions::stream;
+			});
+		}
+
+		default <P> Seq<Tpl<E, P>> project(Function<? super E, P> mapper) {
+			requireNonNull(mapper);
+			return to(e -> Tpl.of(e, mapper.apply(e)));
+		}
+
+		default Seq<E> recursively(Function<? super E, Seq<E>> mapper) {
+			requireNonNull(mapper);
+			return apply(s -> s.append().seq(flat(mapper).map().recursively(mapper)));
 		}
 
 		default Seq<E> recursivelyArray(Function<? super E, E[]> mapper) {
-			return sequence().append().seq(flatArray(mapper).map().recursivelyArray(mapper));
+			requireNonNull(mapper);
+			return apply(s -> s.append().seq(flatArray(mapper).map().recursivelyArray(mapper)));
 		}
 
-		default Seq<E> recursivelyCollection(Function<? super E, ? extends Collection<E>> mapper) {
-			return sequence().append().seq(flatCollection(mapper).map().recursivelyCollection(mapper));
+		default Seq<E> recursivelyCollection(Function<? super E, Collection<? extends E>> mapper) {
+			requireNonNull(mapper);
+			return apply(s -> s.append().seq(flatCollection(mapper).map().recursivelyCollection(mapper)));
 		}
 
-		default Seq<E> recursivelyStream(Function<? super E, ? extends Stream<E>> mapper) {
-			return sequence().append().seq(flatStream(mapper).map().recursivelyStream(mapper));
+		default Seq<E> recursivelyStream(Function<? super E, Stream<? extends E>> mapper) {
+			requireNonNull(mapper);
+			return apply(s -> s.append().seq(flatStream(mapper).map().recursivelyStream(mapper)));
 		}
-
-		Seq<E> sequence();
 
 		default <X> Seq<X> to(Function<? super E, ? extends X> mapper) {
 			requireNonNull(mapper);
-			return () -> sequence().stream().map(mapper);
+			return apply(s -> () -> s.stream().map(mapper));
 		}
 
-		default E[] toArray(IntFunction<E[]> generator) {
-			return sequence().stream().toArray(generator);
+		default <X> Seq<X> to(Supplier<Function<? super E, ? extends X>> mapperSupplier) {
+			requireNonNull(mapperSupplier);
+			return apply(s -> () -> s.stream().map(mapperSupplier.get()));
 		}
 
-		default List<E> toList() {
-			return sequence().stream().collect(Collectors.toList());
+		default Seq<Tpl<E, Long>> zipWithIndex() {
+			return to(() -> {
+				Ref<Long> index = Ref.of(0L);
+				return e -> Tpl.of(e, index.getAndUpdate(t -> t++));
+			});
 		}
 	}
 
@@ -251,6 +294,21 @@ public interface Seq<E> extends Iterable<E> {
 
 	static <E> Seq<E> empty() {
 		return Stream::empty;
+	}
+
+	public static void main(String[] args) {
+		Seq<Integer> a = Seq.of(1, 2, 3, 4, null);
+		Seq<Integer> b = Seq.of(3, 4, 5, 6, null);
+		a.join().left(b).map().to(Tpl::asString).stream().forEach(System.out::println);
+	}
+
+	@SafeVarargs
+	static <E> Seq<E> of(E... entries) {
+		return Arrays.asList(entries)::stream;
+	}
+
+	static <E> Seq<E> of(E entry) {
+		return Collections.singleton(entry)::stream;
 	}
 
 	static <E> Seq<E> of(Supplier<? extends Stream<E>> streamSupplier) {
@@ -271,7 +329,7 @@ public interface Seq<E> extends Iterable<E> {
 	}
 
 	default String asString() {
-		return map().toList().toString();
+		return toList().toString();
 	}
 
 	default <X> Seq<X> cast(Class<X> type) {
@@ -282,12 +340,12 @@ public interface Seq<E> extends Iterable<E> {
 		if (failFast && !stream().allMatch(type::isInstance)) {
 			throw new ClassCastException("Could not cast " + this + " to " + type);
 		} else {
-			return map(type::cast);
+			return map().to(type::cast);
 		}
 	}
 
 	default Seq<E> compact() {
-		return map().toList()::stream;
+		return isFinite() ? toList()::stream : this;
 	}
 
 	default <X> boolean contains(Class<X> type) {
@@ -306,13 +364,17 @@ public interface Seq<E> extends Iterable<E> {
 		return stream().anyMatch(predicate);
 	}
 
-	default Filterer<E, E> filter() {
-		return Filterer.of(this);
+	default Filter<E> filter() {
+		return this::filter;
 	}
 
-	default Seq<E> filter(Supplier<Predicate<? super E>> predicateSupplier) {
-		requireNonNull(predicateSupplier);
-		return () -> stream().filter(predicateSupplier.get());
+	default <X> Seq<X> filter(Function<Seq<E>, Stream<X>> filter) {
+		requireNonNull(filter);
+		return () -> filter.apply(this);
+	}
+
+	default Optional<E> fold(BiFunction<? super E, ? super E, ? extends E> mapper) {
+		return fold(Function.identity(), mapper);
 	}
 
 	default <T> Optional<T> fold(Function<? super E, ? extends T> creator, BiFunction<? super T, ? super E, ? extends T> mapper) {
@@ -332,12 +394,21 @@ public interface Seq<E> extends Iterable<E> {
 		return stream().skip(index).findFirst();
 	}
 
+	default <K> Map<K, Seq<E>> groupBy(Function<? super E, K> mapper) {
+		return map().grouped(mapper).toMap(tpl -> tpl.getLeft(), tpl -> tpl.getRight());
+	}
+
 	default Optional<E> head() {
 		return stream().findFirst();
 	}
 
 	default boolean isEmpty() {
 		return size() == 0L;
+	}
+
+	default boolean isFinite() {
+		long size = size();
+		return size >= 0L && size != Long.MAX_VALUE;
 	}
 
 	default boolean isNotEmpty() {
@@ -349,17 +420,39 @@ public interface Seq<E> extends Iterable<E> {
 		return stream().iterator();
 	}
 
+	default Joiner<E> join() {
+		return this::join;
+	}
+
+	default <X> Seq<Tpl<E, X>> join(Seq<X> other, BiPredicate<? super E, ? super X> predicate) {
+		requireNonNull(other);
+		requireNonNull(predicate);
+		Seq<E> left = this.filter().nonNull();
+		Seq<X> right = other.filter().nonNull();
+		return left.map().flat(e -> right.filter().by(x -> predicate.test(e, x)).map().to(x -> Tpl.of(e, x)));
+	}
+
 	default Optional<E> last() {
-		return this.<E> fold(Function.identity(), (t, e) -> e);
+		return fold((t, e) -> e);
 	}
 
 	default Mapper<E> map() {
-		return () -> this;
+		return this::map;
 	}
 
-	default <X> Seq<X> map(Function<? super E, ? extends X> mapper) {
+	default <X> Seq<X> map(Function<Seq<E>, Seq<X>> mapper) {
 		requireNonNull(mapper);
-		return () -> stream().map(mapper);
+		return mapper.apply(this);
+	}
+
+	default Joiner<E> pairwise() {
+		return this::pairwise;
+	}
+
+	default <X> Seq<Tpl<E, X>> pairwise(Seq<X> other, BiPredicate<? super E, ? super X> predicate) {
+		requireNonNull(other);
+		requireNonNull(predicate);
+		return () -> null;
 	}
 
 	default Extender<E> prepend() {
@@ -371,13 +464,21 @@ public interface Seq<E> extends Iterable<E> {
 	}
 
 	default Seq<E> reverse() {
-		List<E> result = map().toList();
+		List<E> result = toList();
 		Collections.reverse(result);
 		return result::stream;
 	}
 
 	default long size() {
 		return stream().spliterator().getExactSizeIfKnown();
+	}
+
+	default Tpl<Seq<E>, Seq<E>> splitAt(long position) {
+		return Tpl.of(filter().limit(position), filter().skip(position));
+	}
+
+	default Tpl<Optional<E>, Seq<E>> splitAtHead() {
+		return Tpl.of(head(), tail());
 	}
 
 	Stream<E> stream();
@@ -403,5 +504,21 @@ public interface Seq<E> extends Iterable<E> {
 				return Seq.this.stream().skip(1L);
 			}
 		};
+	}
+
+	default E[] toArray(IntFunction<E[]> generator) {
+		return stream().toArray(generator);
+	}
+
+	default List<E> toList() {
+		return stream().collect(Collectors.toList());
+	}
+
+	default <K> Map<K, E> toMap(Function<? super E, K> keyMapper) {
+		return stream().collect(Collectors.toMap(keyMapper, Function.identity()));
+	}
+
+	default <K, V> Map<K, V> toMap(Function<? super E, K> keyMapper, Function<? super E, V> valueMapper) {
+		return stream().collect(Collectors.toMap(keyMapper, valueMapper));
 	}
 }
