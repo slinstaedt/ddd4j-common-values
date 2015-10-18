@@ -21,6 +21,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 @FunctionalInterface
 public interface Seq<L> extends Iterable<L> {
@@ -72,19 +73,24 @@ public interface Seq<L> extends Iterable<L> {
 
 		<X> Seq<X> apply(Function<Seq<E>, Stream<X>> filter);
 
+		default <X> Seq<X> applyStream(Function<Stream<E>, Stream<X>> filter) {
+			requireNonNull(filter);
+			return apply(s -> filter.apply(s.stream()));
+		}
+
 		default Seq<E> by(Predicate<? super E> predicate) {
 			requireNonNull(predicate);
-			return apply(s -> s.stream().filter(predicate));
+			return applyStream(s -> s.filter(predicate));
 		}
 
 		default Seq<E> by(Supplier<Predicate<? super E>> predicateSupplier) {
 			requireNonNull(predicateSupplier);
-			return apply(s -> s.stream().filter(predicateSupplier.get()));
+			return applyStream(s -> s.filter(predicateSupplier.get()));
 		}
 
 		default <X> Seq<X> byType(Class<? extends X> type) {
 			requireNonNull(type);
-			return apply(s -> s.stream().filter(type::isInstance).map(type::cast));
+			return applyStream(s -> s.filter(type::isInstance).map(type::cast));
 		}
 
 		default Seq<E> distinct() {
@@ -100,7 +106,7 @@ public interface Seq<L> extends Iterable<L> {
 		}
 
 		default Seq<E> limit(long count) {
-			return apply(s -> s.stream().limit(count));
+			return applyStream(s -> s.limit(count));
 		}
 
 		default Seq<E> limitUntil(Predicate<? super E> predicate) {
@@ -120,7 +126,7 @@ public interface Seq<L> extends Iterable<L> {
 		}
 
 		default Seq<E> skip(long count) {
-			return apply(s -> s.stream().skip(count));
+			return applyStream(s -> s.skip(count));
 		}
 
 		default Seq<E> skipUntil(Predicate<? super E> predicate) {
@@ -136,7 +142,7 @@ public interface Seq<L> extends Iterable<L> {
 		}
 
 		default Seq<E> slice(long from, long to) {
-			return apply(s -> s.stream().skip(from).limit(to - from));
+			return applyStream(s -> s.skip(from).limit(to - from));
 		}
 
 		default <X> Seq<E> where(Function<Mapper<E>, X> mapper, Predicate<? super X> predicate) {
@@ -149,7 +155,8 @@ public interface Seq<L> extends Iterable<L> {
 	@FunctionalInterface
 	interface Joiner<L> {
 
-		<R> Seq<Tpl<L, R>> apply(Seq<R> other, Function<Seq<Tpl<L, R>>, Seq<Tpl<L, R>>> filter);
+		<R> Seq<Tpl<L, R>> apply(Seq<R> other, BiPredicate<L, R> predicate,
+				Function<Extender<Tpl<L, R>>, Seq<Tpl<L, R>>> appender);
 
 		default <R> Seq<Tpl<L, R>> inner(Seq<R> other) {
 			return inner(other, (l, r) -> true);
@@ -219,11 +226,7 @@ public interface Seq<L> extends Iterable<L> {
 
 		default <K> Seq<Tpl<K, Seq<E>>> grouped(Function<? super E, K> mapper) {
 			requireNonNull(mapper);
-			return apply(s -> s.map()
-					.to(mapper)
-					.filter()
-					.distinct()
-					.map()
+			return apply(s -> s.map().to(mapper).filter().distinct().map()
 					.to(k -> Tpl.of(k, s.filter().by(e -> Objects.equals(k, mapper.apply(e))))));
 		}
 
@@ -284,9 +287,9 @@ public interface Seq<L> extends Iterable<L> {
 
 	static <E> Seq<E> concat(Supplier<? extends Stream<? extends E>> a, Supplier<? extends Stream<? extends E>> b) {
 		if (Seq.of(a).isEmpty()) {
-			return Seq.ofAny(b);
+			return Seq.from(b);
 		} else if (Seq.of(b).isEmpty()) {
-			return Seq.ofAny(a);
+			return Seq.from(a);
 		} else {
 			return () -> Stream.concat(a.get(), b.get());
 		}
@@ -296,22 +299,29 @@ public interface Seq<L> extends Iterable<L> {
 		return Stream::empty;
 	}
 
-	@SafeVarargs
-	static <E> Seq<E> of(E... entries) {
-		return Arrays.asList(entries)::stream;
+	@SuppressWarnings("unchecked")
+	static <E> Seq<E> from(Supplier<? extends Stream<? extends E>> streamSupplier) {
+		return () -> {
+			return (Stream<E>) streamSupplier.get();
+		};
+	}
+
+	static <E> Seq<E> of(Collection<E> collection) {
+		return requireNonNull(collection)::stream;
 	}
 
 	static <E> Seq<E> of(E entry) {
 		return Collections.singleton(entry)::stream;
 	}
 
-	static <E> Seq<E> of(Supplier<? extends Stream<E>> streamSupplier) {
-		return requireNonNull(streamSupplier)::get;
+	@SafeVarargs
+	static <E> Seq<E> of(E entry, E... entries) {
+		return of(entry).append().array(entries);
 	}
 
-	@SuppressWarnings("unchecked")
-	static <E> Seq<E> ofAny(Supplier<? extends Stream<? extends E>> streamSupplier) {
-		return (Seq<E>) of(streamSupplier);
+	static <E> Seq<E> of(Iterable<E> iterable) {
+		requireNonNull(iterable);
+		return () -> StreamSupport.stream(iterable.spliterator(), false);
 	}
 
 	default Extender<L> append() {
@@ -376,7 +386,8 @@ public interface Seq<L> extends Iterable<L> {
 		return fold(Function.identity(), mapper);
 	}
 
-	default <T> Optional<T> fold(Function<? super L, ? extends T> creator, BiFunction<? super T, ? super L, ? extends T> mapper) {
+	default <T> Optional<T> fold(Function<? super L, ? extends T> creator,
+			BiFunction<? super T, ? super L, ? extends T> mapper) {
 		Optional<T> identity = head().map(creator);
 		return tail().fold(identity, (o, e) -> o.map(t -> mapper.apply(t, e)));
 	}
@@ -423,12 +434,14 @@ public interface Seq<L> extends Iterable<L> {
 		return this::join;
 	}
 
-	default <X> Seq<Tpl<L, X>> join(Seq<X> other, Function<Seq<Tpl<L, X>>, Seq<Tpl<L, X>>> filter) {
+	default <R> Seq<Tpl<L, R>> join(Seq<R> other, BiPredicate<L, R> predicate,
+			Function<Extender<Tpl<L, R>>, Seq<Tpl<L, R>>> appender) {
 		requireNonNull(other);
-		requireNonNull(filter);
-		Seq<L> left = this.filter().nonNull();
-		Seq<X> right = other.filter().nonNull();
-		return left.map().flat(e -> right.filter().by(x -> predicate.test(e, x)).map().to(x -> Tpl.of(e, x)));
+		requireNonNull(predicate);
+		requireNonNull(appender);
+		Seq<Tpl<L, R>> tuples = filter().nonNull().map()
+				.flat(l -> other.filter().by(r -> r != null && predicate.test(l, r)).map().to(r -> Tpl.of(l, r)));
+		return appender.apply(tuples.append());
 	}
 
 	default Optional<L> last() {
@@ -448,13 +461,16 @@ public interface Seq<L> extends Iterable<L> {
 		return this::pairwise;
 	}
 
-	default <X> Seq<Tpl<L, X>> pairwise(Seq<X> other, Function<Seq<Tpl<L, X>>, Seq<Tpl<L, X>>> filter) {
+	default <R> Seq<Tpl<L, R>> pairwise(Seq<R> other, BiPredicate<L, R> predicate,
+			Function<Extender<Tpl<L, R>>, Seq<Tpl<L, R>>> appender) {
 		requireNonNull(other);
-		requireNonNull(filter);
-		return () -> {
-			Iterator<L> i1 = this.iterator();
-			Iterator<X> i2 = other.iterator();
-		};
+		requireNonNull(predicate);
+		requireNonNull(appender);
+		Seq<Tpl<L, R>> tuples = map().to(() -> {
+			Iterator<R> right = other.iterator();
+			return left -> Tpl.of(left, right.next());
+		}).filter().by(tpl -> tpl.test(predicate));
+		return appender.apply(tuples.append());
 	}
 
 	default Extender<L> prepend() {

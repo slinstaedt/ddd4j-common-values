@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 @FunctionalInterface
@@ -107,6 +108,10 @@ public interface Tpl<L, R> {
 	default int size() {
 		// TODO
 		return 2;
+	}
+
+	default boolean test(BiPredicate<? super L, ? super R> predicate) {
+		return fold((l, r) -> predicate.test(l, r));
 	}
 
 	default Object[] toArray() {
