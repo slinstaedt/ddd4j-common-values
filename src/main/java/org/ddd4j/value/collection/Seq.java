@@ -29,7 +29,7 @@ public interface Seq<L> extends Iterable<L> {
 	@FunctionalInterface
 	interface Extender<E> {
 
-		Seq<E> apply(Supplier<Stream<? extends E>> other);
+		Seq<E> apply(Seq<? extends E> other);
 
 		default Seq<E> array(E[] entries) {
 			return array(entries, entries.length);
@@ -46,7 +46,7 @@ public interface Seq<L> extends Iterable<L> {
 		}
 
 		default Seq<E> collection(Collection<? extends E> entries) {
-			return apply(new ArrayList<>(entries)::stream);
+			return apply(new ArrayList<E>(entries)::stream);
 		}
 
 		default Seq<E> entry(E entry) {
@@ -64,7 +64,7 @@ public interface Seq<L> extends Iterable<L> {
 		}
 
 		default Seq<E> seq(Seq<? extends E> seq) {
-			return apply(requireNonNull(seq)::stream);
+			return apply(requireNonNull(seq));
 		}
 	}
 
@@ -285,13 +285,21 @@ public interface Seq<L> extends Iterable<L> {
 		}
 	}
 
-	static <E> Seq<E> concat(Supplier<? extends Stream<? extends E>> a, Supplier<? extends Stream<? extends E>> b) {
-		if (Seq.of(a).isEmpty()) {
-			return Seq.from(b);
-		} else if (Seq.of(b).isEmpty()) {
-			return Seq.from(a);
+	@SuppressWarnings("unchecked")
+	static <E> Seq<E> cast(Seq<? extends E> sequence) {
+		requireNonNull(sequence);
+		return () -> {
+			return (Stream<E>) sequence.stream();
+		};
+	}
+
+	static <E> Seq<E> concat(Seq<? extends E> a, Seq<? extends E> b) {
+		if (a.isEmpty()) {
+			return Seq.cast(b);
+		} else if (b.isEmpty()) {
+			return Seq.cast(a);
 		} else {
-			return () -> Stream.concat(a.get(), b.get());
+			return () -> Stream.concat(a.stream(), b.stream());
 		}
 	}
 
@@ -299,24 +307,13 @@ public interface Seq<L> extends Iterable<L> {
 		return Stream::empty;
 	}
 
-	@SuppressWarnings("unchecked")
-	static <E> Seq<E> from(Supplier<? extends Stream<? extends E>> streamSupplier) {
-		return () -> {
-			return (Stream<E>) streamSupplier.get();
-		};
-	}
-
 	static <E> Seq<E> of(Collection<E> collection) {
-		return requireNonNull(collection)::stream;
-	}
-
-	static <E> Seq<E> of(E entry) {
-		return Collections.singleton(entry)::stream;
+		return new ArrayList<>(collection)::stream;
 	}
 
 	@SafeVarargs
-	static <E> Seq<E> of(E entry, E... entries) {
-		return of(entry).append().array(entries);
+	static <E> Seq<E> of(E... entries) {
+		return Arrays.asList(entries)::stream;
 	}
 
 	static <E> Seq<E> of(Iterable<E> iterable) {
@@ -324,12 +321,16 @@ public interface Seq<L> extends Iterable<L> {
 		return () -> StreamSupport.stream(iterable.spliterator(), false);
 	}
 
+	static <E> Seq<E> singleton(E entry) {
+		return Collections.singleton(entry)::stream;
+	}
+
 	default Extender<L> append() {
-		return o -> concat(this::stream, o);
+		return o -> concat(this, o);
 	}
 
 	default Extender<Object> appendAny() {
-		return o -> concat(this::stream, o);
+		return o -> concat(this, o);
 	}
 
 	default String asString() {
@@ -474,11 +475,11 @@ public interface Seq<L> extends Iterable<L> {
 	}
 
 	default Extender<L> prepend() {
-		return o -> concat(o, this::stream);
+		return o -> concat(o, this);
 	}
 
 	default Extender<Object> prependAny() {
-		return o -> concat(o, this::stream);
+		return o -> concat(o, this);
 	}
 
 	default Seq<L> reverse() {
