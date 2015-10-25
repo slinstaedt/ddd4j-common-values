@@ -201,7 +201,7 @@ public interface Seq<L> extends Iterable<L> {
 		<X> Seq<X> apply(Function<Seq<E>, Seq<X>> mapper);
 
 		default Seq<Tpl<E, E>> consecutivePairwise() {
-			return to(() -> {
+			return toSupplied(() -> {
 				Ref<E> last = Ref.create();
 				return e -> last.update(t -> e);
 			}).filter().skip(1);
@@ -272,13 +272,13 @@ public interface Seq<L> extends Iterable<L> {
 			return apply(s -> () -> s.stream().map(mapper));
 		}
 
-		default <X> Seq<X> to(Supplier<Function<? super E, ? extends X>> mapperSupplier) {
+		default <X> Seq<X> toSupplied(Supplier<Function<? super E, ? extends X>> mapperSupplier) {
 			requireNonNull(mapperSupplier);
 			return apply(s -> () -> s.stream().map(mapperSupplier.get()));
 		}
 
 		default Seq<Tpl<E, Long>> zipWithIndex() {
-			return to(() -> {
+			return toSupplied(() -> {
 				Ref<Long> index = Ref.of(0L);
 				return e -> Tpl.of(e, index.getAndUpdate(t -> t++));
 			});
@@ -467,7 +467,7 @@ public interface Seq<L> extends Iterable<L> {
 		requireNonNull(other);
 		requireNonNull(predicate);
 		requireNonNull(appender);
-		Seq<Tpl<L, R>> tuples = map().to(() -> {
+		Seq<Tpl<L, R>> tuples = map().toSupplied(() -> {
 			Iterator<R> right = other.iterator();
 			return left -> Tpl.of(left, right.next());
 		}).filter().by(tpl -> tpl.test(predicate));
