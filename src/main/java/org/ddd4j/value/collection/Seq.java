@@ -27,6 +27,11 @@ import java.util.stream.StreamSupport;
 public interface Seq<E> extends Iterable<E> {
 
 	@FunctionalInterface
+	interface Consumer<E, T extends Throwable> {
+		void accept(E entry) throws T;
+	}
+
+	@FunctionalInterface
 	interface Extender<E> {
 
 		Seq<E> apply(Seq<? extends E> other);
@@ -399,6 +404,13 @@ public interface Seq<E> extends Iterable<E> {
 			result = mapper.apply(result, element);
 		}
 		return result;
+	}
+
+	default <T extends Throwable> void forEach(Consumer<? super E, T> action) throws T {
+		Iterator<E> iterator = iterator();
+		while (iterator.hasNext()) {
+			action.accept(iterator.next());
+		}
 	}
 
 	default Optional<E> get(long index) {
