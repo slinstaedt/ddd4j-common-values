@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 
 @FunctionalInterface
@@ -101,17 +102,20 @@ public interface Tpl<L, R> {
 		return Tpl.of(entry, this);
 	}
 
+	default <T> T recursiveFold(T id, BiFunction<Object, ? super T, ? extends T> f, BinaryOperator<T> op) {
+	}
+
 	default Tpl<R, L> reverse() {
 		return fold((l, r) -> Tpl.of(r, l));
 	}
 
 	default int size() {
 		// TODO
-		return 2;
+		return 0;
 	}
 
 	default boolean test(BiPredicate<? super L, ? super R> predicate) {
-		return fold((l, r) -> predicate.test(l, r));
+		return fold(predicate::test);
 	}
 
 	default Object[] toArray() {

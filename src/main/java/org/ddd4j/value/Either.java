@@ -3,6 +3,7 @@ package org.ddd4j.value;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public interface Either<L, R> {
 
@@ -93,5 +94,9 @@ public interface Either<L, R> {
 
 	default Either<R, L> swap() {
 		return fold(Either::<R, L> right, Either::<R, L> left);
+	}
+
+	default boolean test(Predicate<? super L> left, Predicate<? super R> right) {
+		return fold(left::test, right::test);
 	}
 }
