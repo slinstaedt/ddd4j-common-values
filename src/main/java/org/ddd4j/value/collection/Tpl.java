@@ -9,6 +9,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.BinaryOperator;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 @FunctionalInterface
@@ -26,6 +27,13 @@ public interface Tpl<L, R> {
 	}
 
 	Void EMPTY = Optional::empty;
+
+	static <L extends T, R extends T, T> void consume(Tpl<L, R> tuple, Consumer<T> consumer) {
+		tuple.consume((l, r) -> {
+			consumer.accept(l);
+			consumer.accept(r);
+		});
+	}
 
 	static <L, R> Tpl<L, R> of(L left, R right) {
 		return new Tpl<L, R>() {
