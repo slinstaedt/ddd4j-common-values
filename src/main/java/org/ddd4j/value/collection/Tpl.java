@@ -24,6 +24,11 @@ public interface Tpl<L, R> {
 		}
 
 		Optional<Void> get();
+
+		@Override
+		default <T> T recursiveFold(T identity, java.util.function.BiFunction<Object, Object, T> function) {
+			return identity;
+		}
 	}
 
 	Void EMPTY = Optional::empty;
@@ -111,6 +116,14 @@ public interface Tpl<L, R> {
 	}
 
 	default <T> T recursiveFold(T id, BiFunction<Object, ? super T, ? extends T> f, BinaryOperator<T> op) {
+		fold((l, r) -> f.apply(l instanceof Tpl ? ((Tpl<?, ?>) l).recursiveFold(id, f) : l,
+				r instanceof Tpl ? ((Tpl<?, ?>) r).recursiveFold(id, f) : r));
+		return recursiveFold(id, (l, r) -> op.apply(f.apply(l, id), f.apply(r, id)));
+	}
+
+	default <T> T recursiveFold(T identity, BiFunction<Object, Object, T> function) {
+		return fold((l, r) -> function.apply(l instanceof Tpl ? ((Tpl<?, ?>) l).recursiveFold(identity, function) : l,
+				r instanceof Tpl ? ((Tpl<?, ?>) r).recursiveFold(identity, function) : r));
 	}
 
 	default Tpl<R, L> reverse() {
@@ -119,7 +132,7 @@ public interface Tpl<L, R> {
 
 	default int size() {
 		// TODO
-		return 0;
+		return recursiveFold(0, (l, r) -> 0);
 	}
 
 	default boolean test(BiPredicate<? super L, ? super R> predicate) {
