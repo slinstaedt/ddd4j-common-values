@@ -8,9 +8,10 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
-import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 @FunctionalInterface
 public interface Tpl<L, R> {
@@ -26,7 +27,7 @@ public interface Tpl<L, R> {
 		Optional<Void> get();
 
 		@Override
-		default <T> T recursiveFold(T identity, java.util.function.BiFunction<Object, Object, T> function) {
+		default <T> T recursiveFold(T identity, BiFunction<Object, ? super T, ? extends T> function) {
 			return identity;
 		}
 	}
@@ -64,6 +65,28 @@ public interface Tpl<L, R> {
 
 	default String asString() {
 		return fold((l, r) -> "<" + l + "," + r + ">");
+	}
+
+	default <A, T> T collect(Collector<Object, A, T> collector) {
+		A accumulation = collector.supplier().get();
+		collect(accumulation, collector.accumulator());
+		return collector.finisher().apply(accumulation);
+	};
+
+	default <A, T> void collect(T accumulation, BiConsumer<? super T, Object> accumulator) {
+		fold((l, r) -> {
+			if (l instanceof Tpl) {
+				((Tpl<?, ?>) l).collect(accumulation, accumulator);
+			} else {
+				accumulator.accept(accumulation, l);
+			}
+			if (r instanceof Tpl) {
+				((Tpl<?, ?>) r).collect(accumulation, accumulator);
+			} else {
+				accumulator.accept(accumulation, r);
+			}
+			return accumulation;
+		});
 	}
 
 	default void consume(BiConsumer<? super L, ? super R> consumer) {
@@ -115,15 +138,10 @@ public interface Tpl<L, R> {
 		return Tpl.of(entry, this);
 	}
 
-	default <T> T recursiveFold(T id, BiFunction<Object, ? super T, ? extends T> f, BinaryOperator<T> op) {
-		fold((l, r) -> f.apply(l instanceof Tpl ? ((Tpl<?, ?>) l).recursiveFold(id, f) : l,
-				r instanceof Tpl ? ((Tpl<?, ?>) r).recursiveFold(id, f) : r));
-		return recursiveFold(id, (l, r) -> op.apply(f.apply(l, id), f.apply(r, id)));
-	}
-
-	default <T> T recursiveFold(T identity, BiFunction<Object, Object, T> function) {
-		return fold((l, r) -> function.apply(l instanceof Tpl ? ((Tpl<?, ?>) l).recursiveFold(identity, function) : l,
-				r instanceof Tpl ? ((Tpl<?, ?>) r).recursiveFold(identity, function) : r));
+	default <T> T recursiveFold(T identity, BiFunction<Object, ? super T, ? extends T> function) {
+		BiFunction<Object, T, T> f = (o, t) -> o instanceof Tpl ? ((Tpl<?, ?>) o).recursiveFold(t, function) : function
+				.apply(o, t);
+		return fold((l, r) -> f.apply(r, f.apply(l, identity)));
 	}
 
 	default Tpl<R, L> reverse() {
@@ -131,8 +149,7 @@ public interface Tpl<L, R> {
 	}
 
 	default int size() {
-		// TODO
-		return recursiveFold(0, (l, r) -> 0);
+		return recursiveFold(0, (o, t) -> t + 1);
 	}
 
 	default boolean test(BiPredicate<? super L, ? super R> predicate) {
@@ -140,7 +157,6 @@ public interface Tpl<L, R> {
 	}
 
 	default Object[] toArray() {
-		// TODO
-		return null;
+		return collect(Collectors.toList()).toArray();
 	}
 }
