@@ -10,6 +10,7 @@ import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
@@ -154,6 +155,14 @@ public interface Tpl<L, R> {
 
 	default boolean test(BiPredicate<? super L, ? super R> predicate) {
 		return fold(predicate::test);
+	}
+
+	default boolean testLeft(Predicate<? super L> predicate) {
+		return fold((l, r) -> predicate.test(l));
+	}
+
+	default boolean testRight(Predicate<? super R> predicate) {
+		return fold((l, r) -> predicate.test(r));
 	}
 
 	default Object[] toArray() {
