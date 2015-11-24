@@ -2,7 +2,6 @@ package org.ddd4j.value.behavior;
 
 import static java.util.Objects.requireNonNull;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -69,8 +68,7 @@ public interface HandlerChain<T, M> {
 	}
 
 	static <T, M> HandlerChain<T, M> unhandled(Function<String, ? extends RuntimeException> exceptionFactory) {
-		return Throwing.of(exceptionFactory)
-				.withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args))
+		return Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args))
 				.<T, M, T> asBiFunction()::apply;
 	}
 
@@ -97,7 +95,8 @@ public interface HandlerChain<T, M> {
 		};
 	}
 
-	default <Y extends M> HandlerChain<T, M> chain(Class<Y> messageType, Handler<? super T, ? super Y, ? extends T> handler) {
+	default <Y extends M> HandlerChain<T, M> chain(Class<Y> messageType,
+			Handler<? super T, ? super Y, ? extends T> handler) {
 		requireNonNull(messageType);
 		requireNonNull(handler);
 		return (t, m) -> {
@@ -145,7 +144,8 @@ public interface HandlerChain<T, M> {
 		return chain(targetType, messageType, handler.swap());
 	}
 
-	default <Y extends M> HandlerChain<T, M> swap(Class<Y> messageType, Handler<? super Y, ? super T, ? extends T> handler) {
+	default <Y extends M> HandlerChain<T, M> swap(Class<Y> messageType,
+			Handler<? super Y, ? super T, ? extends T> handler) {
 		return chain(messageType, handler.swap());
 	}
 
