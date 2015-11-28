@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
@@ -210,6 +211,11 @@ public interface Seq<E> extends Iterable<E> {
 				Ref<E> last = Ref.create();
 				return e -> last.update(t -> e);
 			}).filter().skip(1);
+		}
+
+		default Seq<E> consecutiveScanned(BinaryOperator<E> operator) {
+			requireNonNull(operator);
+			return consecutivePairwise().map().to(t -> t.fold(operator));
 		}
 
 		default <X> Seq<X> flat(Function<? super E, ? extends Seq<? extends X>> mapper) {
@@ -470,22 +476,6 @@ public interface Seq<E> extends Iterable<E> {
 		return mapper.apply(this);
 	}
 
-	default Joiner<E> pairwise() {
-		return this::pairwise;
-	}
-
-	default <R> Seq<Tpl<E, R>> pairwise(Seq<R> other, BiPredicate<E, R> predicate,
-			Function<Extender<Tpl<E, R>>, Seq<Tpl<E, R>>> appender) {
-		requireNonNull(other);
-		requireNonNull(predicate);
-		requireNonNull(appender);
-		Seq<Tpl<E, R>> tuples = map().toSupplied(() -> {
-			Iterator<R> right = other.iterator();
-			return left -> Tpl.of(left, right.next());
-		}).filter().by(tpl -> tpl.test(predicate));
-		return appender.apply(tuples.append());
-	}
-
 	default Extender<E> prepend() {
 		return o -> concat(o, this);
 	}
@@ -551,5 +541,21 @@ public interface Seq<E> extends Iterable<E> {
 
 	default <K, V> Map<K, V> toMap(Function<? super E, K> keyMapper, Function<? super E, V> valueMapper) {
 		return stream().collect(Collectors.toMap(keyMapper, valueMapper));
+	}
+
+	default Joiner<E> zip() {
+		return this::zip;
+	}
+
+	default <R> Seq<Tpl<E, R>> zip(Seq<R> other, BiPredicate<E, R> predicate,
+			Function<Extender<Tpl<E, R>>, Seq<Tpl<E, R>>> appender) {
+		requireNonNull(other);
+		requireNonNull(predicate);
+		requireNonNull(appender);
+		Seq<Tpl<E, R>> tuples = map().toSupplied(() -> {
+			Iterator<R> right = other.iterator();
+			return left -> Tpl.of(left, right.next());
+		}).filter().by(tpl -> tpl.test(predicate));
+		return appender.apply(tuples.append());
 	}
 }
