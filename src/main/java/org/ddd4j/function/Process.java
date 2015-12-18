@@ -1,9 +1,9 @@
 package org.ddd4j.function;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -25,7 +25,7 @@ public interface Process<I, O> {
 
 		@Override
 		default CompletionStage<O> apply(I input) throws Exception {
-			return completedFuture(process(input));
+			return CompletableFuture.completedFuture(process(input));
 		}
 
 		O process(I input) throws Exception;
@@ -78,7 +78,7 @@ public interface Process<I, O> {
 	}
 
 	static <O> Process<Void, O> monitor(ScheduledExecutorService executor, Callable<O> monitor, long interval, TimeUnit unit) {
-		Process<Void, O> process = i -> completedFuture(monitor.call());
+		Process<Void, O> process = i -> CompletableFuture.completedFuture(monitor.call());
 		ScheduledFuture<?> future = executor.scheduleWithFixedDelay(process::run, 0, interval, unit);
 		return process;
 	}
