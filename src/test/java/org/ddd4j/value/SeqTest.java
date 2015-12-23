@@ -1,111 +1,53 @@
 package org.ddd4j.value;
 
-import static java.util.Objects.requireNonNull;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.IsEqual.equalTo;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
+import org.ddd4j.value.SeqTest.TplTransformer;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.collection.Tpl;
-import org.junit.Assert;
-import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 
-@RunWith(Parameterized.class)
-public class SeqTest<T, U> {
+import cucumber.api.Transform;
+import cucumber.api.Transformer;
+import cucumber.api.java.en.Given;
+import cucumber.api.java.en.Then;
+import cucumber.api.java.en.When;
+import cucumber.api.junit.Cucumber;
 
-	public static class Case<T, U> {
+@RunWith(Cucumber.class)
+public class SeqTest {
 
-		public class BinaryOperation<R> {
+	public static class TplTransformer extends Transformer<Tpl<String, String>> {
 
-			private final BiFunction<T, U, R> function;
-			private final Predicate<? super R> expected;
-
-			public BinaryOperation(BiFunction<T, U, R> function, Predicate<? super R> expected) {
-				this.function = requireNonNull(function);
-				this.expected = requireNonNull(expected);
-			}
-
-			public void run(T t, U u) {
-				R result = function.apply(t, u);
-				boolean outcome = expected.test(result);
-				Assert.assertTrue(outcome);
-			}
-		}
-
-		public class UnaryOperation<R> {
-
-			private final Function<T, R> function;
-			private final Predicate<? super R> expected;
-
-			public UnaryOperation(Function<T, R> function, Predicate<? super R> expected) {
-				this.function = requireNonNull(function);
-				this.expected = requireNonNull(expected);
-			}
-
-			public void run(T t) {
-				R result = function.apply(t);
-				boolean outcome = expected.test(result);
-				Assert.assertTrue(outcome);
-			}
-		}
-
-		private final T t;
-		private final U u;
-		private final List<UnaryOperation<?>> unary;
-		private final List<BinaryOperation<?>> binary;
-
-		public Case(T t, U u) {
-			this.t = t;
-			this.u = u;
-			this.unary = new ArrayList<>();
-			this.binary = new ArrayList<>();
-		}
-
-		public <R> void run() {
-			for (UnaryOperation<?> operation : unary) {
-				operation.run(t);
-			}
-			for (BinaryOperation<?> operation : binary) {
-				operation.run(t, u);
-			}
-		}
-
-		public <R> Case<T, U> test(BiFunction<T, U, R> function, Predicate<? super R> expected) {
-			binary.add(new BinaryOperation<>(function, expected));
-			return this;
-		}
-
-		public <R> Case<T, U> test(Function<T, R> function, Predicate<? super R> expected) {
-			unary.add(new UnaryOperation<>(function, expected));
-			return this;
+		@Override
+		public Tpl<String, String> transform(String value) {
+			String[] split = value.split(",");
+			return Tpl.of(split[0], split[1]);
 		}
 	}
+}
 
-	@Parameters
-	public static Object[] data() {
-		List<Case<?, ?>> cases = new ArrayList<>();
-		cases.add(new Case<>(Seq.of(1, 2, 3, 4), Seq.of(3, 4, 5, 6))//
-		.test((t, u) -> t.join().inner(u), Seq.of(Tpl.of(3, 3), Tpl.of(4, 4))::equal)
-				.test((t, u) -> t.join().left(u), Seq.of(Tpl.of(3, 3), Tpl.of(4, 4))::equal)
-				.test((t, u) -> t.join().right(u), Seq.of(Tpl.of(3, 3), Tpl.of(4, 4))::equal)
-				.test((t, u) -> t.join().outer(u), Seq.of(Tpl.of(3, 3), Tpl.of(4, 4))::equal));
-		return cases.stream().map(c -> new Case<?, ?>[] { c }).toArray();
+class Seq2Steps {
+
+	private Seq<String> seq1, seq2;
+	private Seq<Tpl<String, String>> result;
+
+	@Given("the sequences \\[(.*)\\] and \\[(.*)\\]")
+	public void givenSequences(List<String> s1, List<String> s2) {
+		seq1 = s1::stream;
+		seq2 = s2::stream;
 	}
 
-	private final Case<T, U> testCase;
-
-	public SeqTest(Case<T, U> testCase) {
-		this.testCase = requireNonNull(testCase);
+	@When("inner joined")
+	public void whenInnerJoined() {
+		result = seq1.join().inner(seq2);
 	}
 
-	@Test
-	public void testJoin() {
-		testCase.run();
+	@Then("the result should be \\[(.*)\\]")
+	public void thenCompare(@Transform(TplTransformer.class) List<Tpl<String, String>> r) {
+		assertThat(result, equalTo(r));
 	}
 }
