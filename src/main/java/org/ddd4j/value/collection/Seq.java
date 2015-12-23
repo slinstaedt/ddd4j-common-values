@@ -29,6 +29,7 @@ public interface Seq<E> extends Iterable<E> {
 
 	@FunctionalInterface
 	interface Consumer<E, T extends Throwable> {
+
 		void accept(E entry) throws T;
 	}
 
@@ -161,43 +162,23 @@ public interface Seq<E> extends Iterable<E> {
 	@FunctionalInterface
 	interface Joiner<L> {
 
-		<R> Seq<Tpl<L, R>> apply(Seq<R> other, BiPredicate<L, R> predicate,
-				Function<Extender<Tpl<L, R>>, Seq<Tpl<L, R>>> appender);
+		<R, T> Seq<T> apply(Seq<R> other, BiPredicate<? super L, ? super R> predicate, BiFunction<? super L, ? super R, T> mapper, boolean leftPadNull,
+				boolean rightPadNull);
 
 		default <R> Seq<Tpl<L, R>> inner(Seq<R> other) {
-			return inner(other, (l, r) -> true);
+			return inner(other, Objects::equals, Tpl::of);
+		}
+
+		default <R, T> Seq<T> inner(Seq<R> other, BiFunction<? super L, ? super R, T> mapper) {
+			return inner(other, Objects::equals, mapper);
 		}
 
 		default <R> Seq<Tpl<L, R>> inner(Seq<R> other, BiPredicate<? super L, ? super R> predicate) {
-			requireNonNull(predicate);
-			return apply(other, (l, r) -> l != null && r != null && Objects.equals(l, r) && predicate.test(l, r));
+			return inner(other, predicate, Tpl::of);
 		}
 
-		default <R> Seq<Tpl<L, R>> left(Seq<R> other) {
-			return left(other, (l, r) -> true);
-		}
-
-		default <R> Seq<Tpl<L, R>> left(Seq<R> other, BiPredicate<? super L, ? super R> predicate) {
-			requireNonNull(predicate);
-			return apply(other, (l, r) -> (r == null || Objects.equals(l, r)) && predicate.test(l, r));
-		}
-
-		default <R> Seq<Tpl<L, R>> outer(Seq<R> other) {
-			return outer(other, (l, r) -> true);
-		}
-
-		default <R> Seq<Tpl<L, R>> outer(Seq<R> other, BiPredicate<? super L, ? super R> predicate) {
-			requireNonNull(predicate);
-			return apply(other, (l, r) -> (l == null || r == null || Objects.equals(l, r)) && predicate.test(l, r));
-		}
-
-		default <R> Seq<Tpl<L, R>> right(Seq<R> other) {
-			return right(other, (l, r) -> true);
-		}
-
-		default <R> Seq<Tpl<L, R>> right(Seq<R> other, BiPredicate<? super L, ? super R> predicate) {
-			requireNonNull(predicate);
-			return apply(other, (l, r) -> (l == null || Objects.equals(l, r)) && predicate.test(l, r));
+		default <R, T> Seq<T> inner(Seq<R> other, BiPredicate<? super L, ? super R> predicate, BiFunction<? super L, ? super R, T> mapper) {
+			return apply(other, predicate, mapper, false, false);
 		}
 	}
 
@@ -237,8 +218,7 @@ public interface Seq<E> extends Iterable<E> {
 
 		default <K> Seq<Tpl<K, Seq<E>>> grouped(Function<? super E, K> mapper) {
 			requireNonNull(mapper);
-			return apply(s -> s.map().to(mapper).filter().distinct().map()
-					.to(k -> Tpl.of(k, s.filter().by(e -> Objects.equals(k, mapper.apply(e))))));
+			return apply(s -> s.map().to(mapper).filter().distinct().map().to(k -> Tpl.of(k, s.filter().by(e -> Objects.equals(k, mapper.apply(e))))));
 		}
 
 		default Seq<Seq<E>> partition(long partitionSize) {
@@ -398,8 +378,7 @@ public interface Seq<E> extends Iterable<E> {
 		return fold(Function.identity(), mapper);
 	}
 
-	default <T> Optional<T> fold(Function<? super E, ? extends T> creator,
-			BiFunction<? super T, ? super E, ? extends T> mapper) {
+	default <T> Optional<T> fold(Function<? super E, ? extends T> creator, BiFunction<? super T, ? super E, ? extends T> mapper) {
 		Optional<T> identity = head().map(creator);
 		return tail().fold(identity, (o, e) -> o.map(t -> mapper.apply(t, e)));
 	}
@@ -431,6 +410,10 @@ public interface Seq<E> extends Iterable<E> {
 		return stream().findFirst();
 	}
 
+	default Seq<E> ifMatches(Predicate<? super Seq<E>> predicate, Function<? super Seq<E>, ? extends Seq<E>> function) {
+		return predicate.test(this) ? function.apply(this) : this;
+	}
+
 	default boolean isEmpty() {
 		return size() == 0L;
 	}
@@ -453,14 +436,16 @@ public interface Seq<E> extends Iterable<E> {
 		return this::join;
 	}
 
-	default <R> Seq<Tpl<E, R>> join(Seq<R> other, BiPredicate<E, R> predicate,
-			Function<Extender<Tpl<E, R>>, Seq<Tpl<E, R>>> appender) {
+	default <R, T> Seq<T> join(Seq<R> other, BiPredicate<? super E, ? super R> predicate, BiFunction<? super E, ? super R, T> mapper, boolean leftPadNull,
+			boolean rightPadNull) {
 		requireNonNull(other);
 		requireNonNull(predicate);
-		requireNonNull(appender);
-		Seq<Tpl<E, R>> tuples = filter().nonNull().map()
-				.flat(l -> other.filter().by(r -> r != null && predicate.test(l, r)).map().to(r -> Tpl.of(l, r)));
-		return appender.apply(tuples.append());
+		requireNonNull(mapper);
+		return map().flat(l -> other.filter()
+				.by(r -> l != null && r != null && predicate.test(l, r))
+				.ifMatches(s -> rightPadNull && s.isEmpty(), s -> s.append().entry(null))
+				.map()
+				.to(r -> mapper.apply(l, r)));
 	}
 
 	default Optional<E> last() {
@@ -547,15 +532,14 @@ public interface Seq<E> extends Iterable<E> {
 		return this::zip;
 	}
 
-	default <R> Seq<Tpl<E, R>> zip(Seq<R> other, BiPredicate<E, R> predicate,
-			Function<Extender<Tpl<E, R>>, Seq<Tpl<E, R>>> appender) {
+	default <R, T> Seq<T> zip(Seq<R> other, BiPredicate<? super E, ? super R> predicate, BiFunction<? super E, ? super R, T> mapper, boolean leftPadNull,
+			boolean rightPadNull) {
 		requireNonNull(other);
 		requireNonNull(predicate);
-		requireNonNull(appender);
-		Seq<Tpl<E, R>> tuples = map().toSupplied(() -> {
+		requireNonNull(mapper);
+		return map().toSupplied(() -> {
 			Iterator<R> right = other.iterator();
 			return left -> Tpl.of(left, right.next());
 		}).filter().by(tpl -> tpl.test(predicate));
-		return appender.apply(tuples.append());
 	}
 }
