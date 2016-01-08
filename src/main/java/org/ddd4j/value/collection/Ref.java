@@ -2,7 +2,6 @@ package org.ddd4j.value.collection;
 
 import static java.util.Objects.requireNonNull;
 
-import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -15,8 +14,9 @@ import java.util.function.UnaryOperator;
 public interface Ref<T> {
 
 	static <T> Ref<T> create() {
-		ArrayList<T> holder = new ArrayList<>(1);
-		return Ref.of(holder, l -> l.get(0), (l, e) -> l.set(0, e));
+		@SuppressWarnings("unchecked")
+		T[] holder = (T[]) new Object[1];
+		return Ref.of(holder, h -> h[0], (h, e) -> h[0] = e);
 	}
 
 	static <T> Ref<T> createThreadsafe() {
@@ -24,8 +24,7 @@ public interface Ref<T> {
 		return f -> Tpl.of(holder.get(), holder.updateAndGet(f));
 	}
 
-	static <T, H> Supplier<Ref<T>> factoryOf(Supplier<H> factory, Function<? super H, ? extends T> getter,
-			BiConsumer<? super H, ? super T> setter) {
+	static <T, H> Supplier<Ref<T>> factoryOf(Supplier<H> factory, Function<? super H, ? extends T> getter, BiConsumer<? super H, ? super T> setter) {
 		requireNonNull(factory);
 		requireNonNull(getter);
 		requireNonNull(setter);
