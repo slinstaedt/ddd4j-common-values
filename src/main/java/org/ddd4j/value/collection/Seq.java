@@ -1,7 +1,5 @@
 package org.ddd4j.value.collection;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -24,6 +22,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import org.ddd4j.contract.Require;
 
 @FunctionalInterface
 public interface Seq<E> extends Iterable<E> {
@@ -76,7 +76,7 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default Seq<E> seq(Seq<? extends E> seq) {
-			return apply(requireNonNull(seq));
+			return apply(Require.nonNull(seq));
 		}
 	}
 
@@ -86,22 +86,22 @@ public interface Seq<E> extends Iterable<E> {
 		<X> Seq<X> apply(Function<Seq<E>, Stream<X>> filter);
 
 		default <X> Seq<X> applyStream(Function<Stream<E>, Stream<X>> filter) {
-			requireNonNull(filter);
+			Require.nonNull(filter);
 			return apply(s -> filter.apply(s.stream()));
 		}
 
 		default Seq<E> by(Predicate<? super E> predicate) {
-			requireNonNull(predicate);
+			Require.nonNull(predicate);
 			return applyStream(s -> s.filter(predicate));
 		}
 
 		default Seq<E> by(Supplier<Predicate<? super E>> predicateSupplier) {
-			requireNonNull(predicateSupplier);
+			Require.nonNull(predicateSupplier);
 			return applyStream(s -> s.filter(predicateSupplier.get()));
 		}
 
 		default <X> Seq<X> byType(Class<? extends X> type) {
-			requireNonNull(type);
+			Require.nonNull(type);
 			return applyStream(s -> s.filter(type::isInstance).map(type::cast));
 		}
 
@@ -110,7 +110,7 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default Seq<E> distinct(Function<? super E, ?> keyMapper) {
-			requireNonNull(keyMapper);
+			Require.nonNull(keyMapper);
 			return by(() -> {
 				Set<Object> visited = new HashSet<>();
 				return e -> visited.add(keyMapper.apply(e));
@@ -126,7 +126,7 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default Seq<E> limitWhile(Predicate<? super E> predicate) {
-			requireNonNull(predicate);
+			Require.nonNull(predicate);
 			return by(() -> {
 				Ref<Boolean> filterOutcome = Ref.of(Boolean.TRUE);
 				return e -> filterOutcome.updateAndGet(b -> predicate.test(e), b -> b);
@@ -142,7 +142,7 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default Seq<E> skipUntil(Predicate<? super E> predicate) {
-			requireNonNull(predicate);
+			Require.nonNull(predicate);
 			return by(() -> {
 				Ref<Boolean> filterOutcome = Ref.of(Boolean.FALSE);
 				return e -> filterOutcome.updateAndGet(b -> predicate.test(e), b -> !b);
@@ -158,8 +158,7 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default <X> Seq<E> where(Function<Mapper<E>, X> mapper, Predicate<? super X> predicate) {
-			requireNonNull(mapper);
-			requireNonNull(predicate);
+			Require.nonNullElements(mapper, predicate);
 			return apply(s -> s.stream().filter(e -> predicate.test(mapper.apply(s.map()))));
 		}
 	}
@@ -174,7 +173,7 @@ public interface Seq<E> extends Iterable<E> {
 
 			default Seq<T> execute() {
 				// TODO
-				return null;
+				return apply(null, null, null);
 			}
 
 			default Join<L, R, T> on(BiPredicate<? super L, ? super R> predicate) {
@@ -183,9 +182,7 @@ public interface Seq<E> extends Iterable<E> {
 
 			default <X, Y> Join<L, R, T> on(Function<? super L, X> leftProperty, Function<? super R, Y> rightProperty,
 					BiPredicate<? super X, ? super Y> predicate) {
-				requireNonNull(leftProperty);
-				requireNonNull(rightProperty);
-				requireNonNull(predicate);
+				Require.nonNullElements(leftProperty, rightProperty, predicate);
 				return (p, le, re) -> apply((l, r) -> p.test(l, r) && predicate.test(leftProperty.apply(l), rightProperty.apply(r)), le, re);
 			}
 
@@ -227,7 +224,7 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default Seq<E> consecutiveScanned(BinaryOperator<E> operator) {
-			requireNonNull(operator);
+			Require.nonNull(operator);
 			return consecutivePairwise().map().to(t -> t.fold(operator));
 		}
 
@@ -244,12 +241,12 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default <X> Seq<X> flatStream(Function<? super E, Stream<? extends X>> mapper) {
-			requireNonNull(mapper);
+			Require.nonNull(mapper);
 			return apply(s -> () -> s.stream().flatMap(mapper));
 		}
 
 		default <K> Seq<Tpl<K, Seq<E>>> grouped(Function<? super E, K> mapper) {
-			requireNonNull(mapper);
+			Require.nonNull(mapper);
 			return apply(s -> s.map().to(mapper).filter().distinct().map().to(k -> Tpl.of(k, s.filter().by(e -> Objects.equals(k, mapper.apply(e))))));
 		}
 
@@ -266,37 +263,37 @@ public interface Seq<E> extends Iterable<E> {
 		}
 
 		default <P> Seq<Tpl<E, P>> project(Function<? super E, P> mapper) {
-			requireNonNull(mapper);
+			Require.nonNull(mapper);
 			return to(e -> Tpl.of(e, mapper.apply(e)));
 		}
 
 		default Seq<E> recursively(Function<? super E, Seq<E>> mapper) {
-			requireNonNull(mapper);
+			Require.nonNull(mapper);
 			return apply(s -> s.append().seq(flat(mapper).map().recursively(mapper)));
 		}
 
 		default Seq<E> recursivelyArray(Function<? super E, E[]> mapper) {
-			requireNonNull(mapper);
+			Require.nonNull(mapper);
 			return apply(s -> s.append().seq(flatArray(mapper).map().recursivelyArray(mapper)));
 		}
 
 		default Seq<E> recursivelyCollection(Function<? super E, Collection<? extends E>> mapper) {
-			requireNonNull(mapper);
+			Require.nonNull(mapper);
 			return apply(s -> s.append().seq(flatCollection(mapper).map().recursivelyCollection(mapper)));
 		}
 
 		default Seq<E> recursivelyStream(Function<? super E, Stream<? extends E>> mapper) {
-			requireNonNull(mapper);
+			Require.nonNull(mapper);
 			return apply(s -> s.append().seq(flatStream(mapper).map().recursivelyStream(mapper)));
 		}
 
 		default <X> Seq<X> to(Function<? super E, ? extends X> mapper) {
-			requireNonNull(mapper);
+			Require.nonNull(mapper);
 			return apply(s -> () -> s.stream().map(mapper));
 		}
 
 		default <X> Seq<X> toSupplied(Supplier<Function<? super E, ? extends X>> mapperSupplier) {
-			requireNonNull(mapperSupplier);
+			Require.nonNull(mapperSupplier);
 			return apply(s -> () -> s.stream().map(mapperSupplier.get()));
 		}
 
@@ -310,7 +307,7 @@ public interface Seq<E> extends Iterable<E> {
 
 	@SuppressWarnings("unchecked")
 	static <E> Seq<E> cast(Seq<? extends E> sequence) {
-		requireNonNull(sequence);
+		Require.nonNull(sequence);
 		return () -> {
 			return (Stream<E>) sequence.stream();
 		};
@@ -340,7 +337,7 @@ public interface Seq<E> extends Iterable<E> {
 	}
 
 	static <E> Seq<E> of(Iterable<E> iterable) {
-		requireNonNull(iterable);
+		Require.nonNull(iterable);
 		return () -> StreamSupport.stream(iterable.spliterator(), false);
 	}
 
@@ -408,7 +405,7 @@ public interface Seq<E> extends Iterable<E> {
 	}
 
 	default <X> Seq<X> filter(Function<Seq<E>, Stream<X>> filter) {
-		requireNonNull(filter);
+		Require.nonNull(filter);
 		return () -> filter.apply(this);
 	}
 
@@ -453,7 +450,7 @@ public interface Seq<E> extends Iterable<E> {
 	}
 
 	default Seq<E> intersect(Seq<? extends E> other, boolean anyInfinite) {
-		requireNonNull(other);
+		Require.nonNull(other);
 		return of(() -> {
 			Iterator<? extends E> i1 = this.iterator();
 			Iterator<? extends E> i2 = other.iterator();
@@ -509,11 +506,7 @@ public interface Seq<E> extends Iterable<E> {
 
 	default <R, T> Seq<T> join(Seq<R> other, BiPredicate<? super E, ? super R> predicate, BiFunction<? super E, ? super R, T> mapper,
 			Function<Seq<E>, Seq<E>> leftEmpty, Function<Seq<R>, Seq<R>> rightEmpty) {
-		requireNonNull(other);
-		requireNonNull(predicate);
-		requireNonNull(mapper);
-		requireNonNull(leftEmpty);
-		requireNonNull(rightEmpty);
+		Require.nonNullElements(other, predicate, mapper, leftEmpty, rightEmpty);
 		return this.map()
 				.flat(l -> other.filter().by(r -> predicate.test(l, r)).ifMatches(Seq::isEmpty, rightEmpty).map().to(r -> mapper.apply(l, r)))
 				.append()
@@ -530,7 +523,7 @@ public interface Seq<E> extends Iterable<E> {
 	}
 
 	default <X> Seq<X> map(Function<Seq<E>, Seq<X>> mapper) {
-		requireNonNull(mapper);
+		Require.nonNull(mapper);
 		return mapper.apply(this);
 	}
 
@@ -607,11 +600,7 @@ public interface Seq<E> extends Iterable<E> {
 
 	default <R, T> Seq<T> zip(Seq<R> other, BiPredicate<? super E, ? super R> predicate, BiFunction<? super E, ? super R, T> mapper,
 			Function<Seq<E>, Seq<E>> leftEmpty, Function<Seq<R>, Seq<R>> rightEmpty) {
-		requireNonNull(other);
-		requireNonNull(predicate);
-		requireNonNull(mapper);
-		requireNonNull(leftEmpty);
-		requireNonNull(rightEmpty);
+		Require.nonNullElements(other, predicate, mapper, leftEmpty, rightEmpty);
 		return of(() -> {
 			Iterator<E> i1 = this.iterator();
 			Iterator<R> i2 = other.iterator();
@@ -630,7 +619,7 @@ public interface Seq<E> extends Iterable<E> {
 						throw new NoSuchElementException();
 					} else if (remainder != null) {
 						if (i1.hasNext()) {
-
+							// TODO
 						}
 						return null;
 					}
