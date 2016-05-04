@@ -18,7 +18,11 @@ public interface Require<T> extends Function<Object, T> {
 
 	static <T extends Iterable<?>> T nonEmpty(T collection) {
 		assert collection != null;
-		assert collection.iterator().hasNext();
+		if (collection instanceof Collection) {
+			assert !((Collection<?>) collection).isEmpty();
+		} else {
+			assert collection.iterator().hasNext();
+		}
 		return collection;
 	}
 

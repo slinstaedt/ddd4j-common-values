@@ -1,7 +1,5 @@
 package org.ddd4j.value.collection;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -13,6 +11,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+
+import org.ddd4j.contract.Require;
 
 @FunctionalInterface
 public interface Tpl<L, R> {
@@ -34,6 +34,17 @@ public interface Tpl<L, R> {
 	}
 
 	Void EMPTY = Optional::empty;
+
+	static <L, R, X, Y> Tpl<X, Y> chain(Tpl<L, R> tuple, Function<? super L, ? extends X> leftMap, Function<? super R, ? extends Y> rightMap) {
+		Require.nonNullElements(tuple, leftMap, rightMap);
+		return new Tpl<X, Y>() {
+
+			@Override
+			public <T> T fold(BiFunction<? super X, ? super Y, ? extends T> function) {
+				return function.apply(tuple.foldLeft(leftMap), tuple.foldRight(rightMap));
+			}
+		};
+	}
 
 	static <L extends T, R extends T, T> void consume(Tpl<L, R> tuple, Consumer<T> consumer) {
 		tuple.consume((l, r) -> {
@@ -100,12 +111,12 @@ public interface Tpl<L, R> {
 	<T> T fold(BiFunction<? super L, ? super R, ? extends T> function);
 
 	default <T> T foldLeft(Function<? super L, ? extends T> function) {
-		requireNonNull(function);
+		Require.nonNull(function);
 		return fold((l, r) -> function.apply(l));
 	}
 
 	default <T> T foldRight(Function<? super R, ? extends T> function) {
-		requireNonNull(function);
+		Require.nonNull(function);
 		return fold((l, r) -> function.apply(r));
 	}
 
@@ -122,9 +133,7 @@ public interface Tpl<L, R> {
 	}
 
 	default <X, Y> Tpl<X, Y> map(Function<? super L, ? extends X> leftMap, Function<? super R, ? extends Y> rightMap) {
-		requireNonNull(leftMap);
-		requireNonNull(rightMap);
-		return fold((l, r) -> Tpl.of(leftMap.apply(l), rightMap.apply(r)));
+		return chain(this, leftMap, rightMap);
 	}
 
 	default <X> Tpl<X, R> mapLeft(Function<? super L, ? extends X> leftMap) {
@@ -140,8 +149,7 @@ public interface Tpl<L, R> {
 	}
 
 	default <T> T recursiveFold(T identity, BiFunction<Object, ? super T, ? extends T> function) {
-		BiFunction<Object, T, T> f = (o, t) -> o instanceof Tpl ? ((Tpl<?, ?>) o).recursiveFold(t, function) : function
-				.apply(o, t);
+		BiFunction<Object, T, T> f = (o, t) -> o instanceof Tpl ? ((Tpl<?, ?>) o).recursiveFold(t, function) : function.apply(o, t);
 		return fold((l, r) -> f.apply(r, f.apply(l, identity)));
 	}
 

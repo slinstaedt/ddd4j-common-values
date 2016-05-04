@@ -1,0 +1,105 @@
+package org.ddd4j.value.collection;
+
+import java.util.Iterator;
+import java.util.Spliterator;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
+
+import org.ddd4j.contract.Require;
+import org.ddd4j.value.collection.Ref.RefOpt;
+
+@FunctionalInterface
+public interface Iter<T> {
+
+	@FunctionalInterface
+	interface Able<T> extends Iterable<T> {
+
+		static <T> Iter.Able<T> wrap(Iterable<T> iterable) {
+			Require.nonNull(iterable);
+			return new Able<T>() {
+
+				@Override
+				public Iter<T> iter() {
+					return Iter.wrap(iterable.iterator());
+				}
+
+				@Override
+				public Spliterator<T> spliterator() {
+					return iterable.spliterator();
+				}
+			};
+		}
+
+		default Seq<T> asSequence() {
+			return () -> StreamSupport.stream(spliterator(), false);
+		}
+
+		Iter<T> iter();
+
+		@Override
+		default Iterator<T> iterator() {
+			return Iter.wrap(iter());
+		}
+	}
+
+	@FunctionalInterface
+	interface ConditionalConsumer<T> extends Consumer<T> {
+
+		default boolean acceptIf(BooleanSupplier condition, Supplier<? extends T> elements) {
+			if (condition.getAsBoolean()) {
+				accept(elements.get());
+			}
+			return condition.getAsBoolean();
+		}
+	}
+
+	static <T> Iterator<T> wrap(Iter<T> delegate) {
+		return new Iterator<T>() {
+
+			private final RefOpt<T> ref = RefOpt.create(Opt.empty());
+
+			@Override
+			public boolean hasNext() {
+				return !ref.isEmpty();
+			}
+
+			@Override
+			public T next() {
+				return ref.emptyIf(!delegate.visitNext(ref.asNonEmpty()::set));
+			}
+		};
+	}
+
+	static <T> Iter<T> wrap(Iterator<T> delegate) {
+		return c -> c.acceptIf(delegate::hasNext, delegate::next);
+	}
+
+	default Iterator<T> asIterator() {
+		return wrap(this);
+	}
+
+	default void forEachRemaining(Consumer<? super T> consumer) {
+		while (visitNext(consumer::accept)) {
+		}
+	}
+
+	/**
+	 * Visits the next element of this iterator by accepting it's element, if available.
+	 *
+	 * @param consumer
+	 *            The element visitor
+	 * @return true, if more elements are available after visitation, false otherwise
+	 */
+	boolean visitNext(ConditionalConsumer<? super T> consumer);
+
+	default boolean visitNext(ConditionalConsumer<? super T> consumer, Supplier<? extends T> fallback) {
+		if (visitNext(consumer)) {
+			return true;
+		} else {
+			consumer.accept(fallback.get());
+			return false;
+		}
+	}
+}
