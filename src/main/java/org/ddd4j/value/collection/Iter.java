@@ -70,7 +70,7 @@ public interface Iter<T> {
 			@Override
 			public T next() {
 				T next = ref.getNullable();
-				delegate.visitOrElse(ref.asNonEmpty()::set, ref::empty);
+				delegate.visitNextOrElse(ref.asNonEmpty()::set, ref::empty);
 				return next;
 			}
 		};
@@ -98,7 +98,7 @@ public interface Iter<T> {
 	 */
 	boolean visitNext(ConditionalConsumer<? super T> consumer);
 
-	default boolean visitOrElse(ConditionalConsumer<? super T> consumer, Runnable other) {
+	default boolean visitNextOrElse(ConditionalConsumer<? super T> consumer, Runnable other) {
 		boolean visited = visitNext(consumer);
 		if (!visited) {
 			other.run();
@@ -106,7 +106,7 @@ public interface Iter<T> {
 		return visited;
 	}
 
-	default boolean visitWithFallback(ConditionalConsumer<? super T> consumer, Supplier<? extends T> fallback) {
-		return visitOrElse(consumer, () -> consumer.accept(fallback.get()));
+	default boolean visitNextWithFallback(ConditionalConsumer<? super T> consumer, Supplier<? extends T> fallback) {
+		return visitNextOrElse(consumer, () -> consumer.accept(fallback.get()));
 	}
 }
