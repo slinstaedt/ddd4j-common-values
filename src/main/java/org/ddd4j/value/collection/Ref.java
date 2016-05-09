@@ -37,6 +37,10 @@ public interface Ref<T> {
 			return update(Opt.empty(), o -> o.testNullable(predicate)).foldLeft(Opt::getEmptyAsNull);
 		}
 
+		default T getNullable() {
+			return get().getNullable();
+		}
+
 		default boolean isEmpty() {
 			return get().isEmpty();
 		}

@@ -69,7 +69,7 @@ public interface Iter<T> {
 
 			@Override
 			public T next() {
-				T next = ref.get().getNullable();
+				T next = ref.getNullable();
 				delegate.visitOrElse(ref.asNonEmpty()::set, ref::empty);
 				return next;
 			}
