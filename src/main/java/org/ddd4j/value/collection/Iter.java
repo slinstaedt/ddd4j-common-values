@@ -47,11 +47,13 @@ public interface Iter<T> {
 	@FunctionalInterface
 	interface ConditionalConsumer<T> extends Consumer<T> {
 
-		default boolean acceptIf(BooleanSupplier condition, Supplier<? extends T> elements) {
-			if (condition.getAsBoolean()) {
-				accept(elements.get());
-			}
-			return condition.getAsBoolean();
+		default boolean acceptIf(BooleanSupplier hasNext, Supplier<? extends T> nextElement) {
+			return hasNext.getAsBoolean() ? acceptReturning(nextElement.get(), true) : false;
+		}
+
+		default boolean acceptReturning(T element, boolean result) {
+			accept(element);
+			return result;
 		}
 	}
 
@@ -67,7 +69,9 @@ public interface Iter<T> {
 
 			@Override
 			public T next() {
-				return ref.emptyIf(!delegate.visitNext(ref.asNonEmpty()::set));
+				T next = ref.get().getNullable();
+				delegate.visitOrElse(ref.asNonEmpty()::set, ref::empty);
+				return next;
 			}
 		};
 	}
@@ -90,16 +94,19 @@ public interface Iter<T> {
 	 *
 	 * @param consumer
 	 *            The element visitor
-	 * @return true, if more elements are available after visitation, false otherwise
+	 * @return true, if the next element was consumed, false otherwise
 	 */
 	boolean visitNext(ConditionalConsumer<? super T> consumer);
 
-	default boolean visitNext(ConditionalConsumer<? super T> consumer, Supplier<? extends T> fallback) {
-		if (visitNext(consumer)) {
-			return true;
-		} else {
-			consumer.accept(fallback.get());
-			return false;
+	default boolean visitOrElse(ConditionalConsumer<? super T> consumer, Runnable other) {
+		boolean visited = visitNext(consumer);
+		if (!visited) {
+			other.run();
 		}
+		return visited;
+	}
+
+	default boolean visitWithFallback(ConditionalConsumer<? super T> consumer, Supplier<? extends T> fallback) {
+		return visitOrElse(consumer, () -> consumer.accept(fallback.get()));
 	}
 }
