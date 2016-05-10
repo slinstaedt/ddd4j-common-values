@@ -106,7 +106,11 @@ public interface Iter<T> {
 		return visited;
 	}
 
-	default boolean visitNextWithFallback(ConditionalConsumer<? super T> consumer, Supplier<? extends T> fallback) {
+	default boolean visitNextOrFallback(ConditionalConsumer<? super T> consumer, Opt<? extends T> fallback) {
+		return visitNextOrElse(consumer, () -> fallback.ifNullablePresent(consumer));
+	}
+
+	default boolean visitNextOrFallback(ConditionalConsumer<? super T> consumer, Supplier<? extends T> fallback) {
 		return visitNextOrElse(consumer, () -> consumer.accept(fallback.get()));
 	}
 }

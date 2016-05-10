@@ -26,15 +26,15 @@ public interface Ref<T> {
 		}
 
 		default Opt<T> empty() {
-			return update(Opt.empty()).getLeft();
+			return emptyIf(true);
 		}
 
-		default T emptyIf(boolean condition) {
+		default Opt<T> emptyIf(boolean condition) {
 			return emptyIf(t -> condition);
 		}
 
-		default T emptyIf(Predicate<? super T> predicate) {
-			return update(Opt.empty(), o -> o.testNullable(predicate)).foldLeft(Opt::getEmptyAsNull);
+		default Opt<T> emptyIf(Predicate<? super T> predicate) {
+			return update(Opt.empty(), o -> o.testNullable(predicate)).getLeft();
 		}
 
 		default T getNullable() {
@@ -47,6 +47,38 @@ public interface Ref<T> {
 
 		default boolean isNotNull() {
 			return get().isNotNull();
+		}
+	}
+
+	@FunctionalInterface
+	interface RefTpl<L, R> extends Ref<Tpl<L, R>> {
+
+		static <L, R> RefTpl<L, R> create(L left, R right) {
+			return Ref.<Tpl<L, R>> create().set(Tpl.of(left, right))::update;
+		}
+
+		default L getLeft() {
+			return get().getLeft();
+		}
+
+		default R getRight() {
+			return get().getRight();
+		}
+
+		default L updateLeft(UnaryOperator<L> mapper) {
+			return update(tpl -> tpl.mapLeft(mapper).flatten()).foldLeft(Tpl::getLeft);
+		}
+
+		default void updateRight(UnaryOperator<R> mapper) {
+			update(tpl -> tpl.mapRight(mapper).flatten()).foldLeft(Tpl::getRight);
+		}
+
+		default void setLeft(L left) {
+			updateLeft(l -> left);
+		}
+
+		default void setRight(R right) {
+			updateRight(r -> right);
 		}
 	}
 

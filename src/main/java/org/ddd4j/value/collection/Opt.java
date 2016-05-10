@@ -4,6 +4,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -120,6 +121,20 @@ public interface Opt<T> {
 
 	default T getNullable() {
 		return applyNullable(Function.identity(), Throwing.of(NoSuchElementException::new).asSupplier());
+	}
+
+	default void ifNonNullPresent(Consumer<? super T> consumer) {
+		applyNonNull(t -> {
+			consumer.accept(t);
+			return null;
+		}, () -> null);
+	}
+
+	default void ifNullablePresent(Consumer<? super T> consumer) {
+		applyNullable(t -> {
+			consumer.accept(t);
+			return null;
+		}, () -> null);
 	}
 
 	default boolean isEmpty() {

@@ -22,13 +22,47 @@ import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.collection.Ref.RefTpl;
+import org.ddd4j.value.collection.Seq.Mapper.Mapping;
 
 @FunctionalInterface
 public interface Seq<E> extends Iter.Able<E> {
+
+	// TODO needed?
+	@FunctionalInterface
+	interface Consumer<E> {
+
+		default boolean allMatch(Predicate<? super E> predicate) {
+			return apply(s -> s.stream().allMatch(predicate));
+		}
+
+		default boolean anyMatch(Predicate<? super E> predicate) {
+			return apply(s -> s.stream().anyMatch(predicate));
+		}
+
+		<T> T apply(Function<Seq<E>, T> function);
+
+		default boolean isEmpty() {
+			return apply(s -> s.fold().counting() == 0L);
+		}
+
+		default boolean noneMatch(Predicate<? super E> predicate) {
+			return apply(s -> s.stream().noneMatch(predicate));
+		}
+
+		default Seq<E> reverse() {
+			return apply(s -> {
+				List<E> result = s.fold().toList();
+				Collections.reverse(result);
+				return result::stream;
+			});
+		}
+	}
 
 	@FunctionalInterface
 	interface Extender<E> {
@@ -79,11 +113,11 @@ public interface Seq<E> extends Iter.Able<E> {
 	@FunctionalInterface
 	interface Filter<E> {
 
-		<X> Seq<X> apply(Function<Seq<E>, Stream<X>> filter);
+		<X> X apply(Function<Seq<E>, X> filter);
 
 		default <X> Seq<X> applyStream(Function<Stream<E>, Stream<X>> filter) {
 			Require.nonNull(filter);
-			return apply(s -> filter.apply(s.stream()));
+			return apply(s -> () -> filter.apply(s.stream()));
 		}
 
 		default Seq<E> by(Predicate<? super E> predicate) {
@@ -153,9 +187,123 @@ public interface Seq<E> extends Iter.Able<E> {
 			return applyStream(s -> s.skip(from).limit(to - from));
 		}
 
-		default <X> Seq<E> where(Function<Mapper<E>, X> mapper, Predicate<? super X> predicate) {
+		default Tpl<Seq<E>, Seq<E>> splitAt(long position) {
+			return Tpl.of(limit(position), skip(position));
+		}
+
+		default Tpl<Optional<E>, Seq<E>> splitAtHead() {
+			return apply(s -> Tpl.of(s.head(), s.tail()));
+		}
+
+		default <X> Seq<E> where(Function<Mapper<E>, Mapping<E, X>> mapper, Predicate<? super X> predicate) {
 			Require.nonNullElements(mapper, predicate);
-			return apply(s -> s.stream().filter(e -> predicate.test(mapper.apply(s.map()))));
+			return apply(s -> mapper.apply(s.map()).filtered(predicate).source());
+		}
+
+		default <X> Seq<E> whereAll(Function<Mapper<E>, Mapping<E, Seq<X>>> mapper, Predicate<? super X> predicate) {
+			Require.nonNullElements(mapper, predicate);
+			return where(mapper, s -> s.stream().allMatch(predicate));
+		}
+
+		default <X> Seq<E> whereAny(Function<Mapper<E>, Mapping<E, Seq<X>>> mapper, Predicate<? super X> predicate) {
+			Require.nonNullElements(mapper, predicate);
+			return where(mapper, s -> s.stream().anyMatch(predicate));
+		}
+
+		default <X> Seq<E> whereNone(Function<Mapper<E>, Mapping<E, Seq<X>>> mapper, Predicate<? super X> predicate) {
+			Require.nonNullElements(mapper, predicate);
+			return where(mapper, s -> s.stream().noneMatch(predicate));
+		}
+	}
+
+	@FunctionalInterface
+	interface Folder<E> {
+
+		<T, A, R> R apply(Function<? super E, ? extends T> mapper, Function<Stream<T>, R> downstream);
+
+		default <A, R> R collect(Collector<? super E, A, R> collector) {
+			return collect(Function.identity(), collector);
+		}
+
+		default <T, A, R> R collect(Function<? super E, ? extends T> mapper, Collector<? super T, A, R> collector) {
+			return apply(mapper, s -> s.collect(collector));
+		}
+
+		default long counting() {
+			return collect(Collectors.counting());
+		}
+
+		default <K> Map<K, List<E>> groupingBy(Function<? super E, ? extends K> classifier) {
+			return collect(Collectors.groupingBy(classifier));
+		}
+
+		default <K, A, D> Map<K, D> groupingBy(Function<? super E, ? extends K> classifier, Collector<? super E, A, D> downstream) {
+			return collect(Collectors.groupingBy(classifier, downstream));
+		}
+
+		default <K, D, A, M extends Map<K, D>> M groupingBy(Function<? super E, ? extends K> classifier, Supplier<M> mapFactory,
+				Collector<? super E, A, D> downstream) {
+			return collect(Collectors.groupingBy(classifier, mapFactory, downstream));
+		}
+
+		default String joined() {
+			return apply(Objects::toString, s -> s.collect(Collectors.joining()));
+		}
+
+		default String joined(CharSequence delimiter) {
+			return collect(Objects::toString, Collectors.joining(delimiter));
+		}
+
+		default String joined(CharSequence delimiter, CharSequence prefix, CharSequence suffix) {
+			return collect(Objects::toString, Collectors.joining(delimiter, prefix, suffix));
+		}
+
+		default Optional<E> last() {
+			return reduce((t, e) -> e);
+		}
+
+		default Optional<E> reduce(BinaryOperator<E> accumulator) {
+			return reduce(Function.identity(), accumulator);
+		}
+
+		default E reduce(E identity, BinaryOperator<E> accumulator) {
+			return reduce(Function.identity(), identity, accumulator);
+		}
+
+		default <T> Optional<T> reduce(Function<? super E, T> mapper, BinaryOperator<T> accumulator) {
+			return apply(mapper, s -> s.reduce(accumulator));
+		}
+
+		default <T> T reduce(Function<? super E, T> mapper, T identity, BinaryOperator<T> accumulator) {
+			return apply(mapper, s -> s.reduce(identity, accumulator));
+		}
+
+		default <T, U> U reduce(Function<? super E, T> mapper, U identity, BiFunction<U, ? super T, U> accumulator, BinaryOperator<U> combiner) {
+			return apply(mapper, s -> s.reduce(identity, accumulator, combiner));
+		}
+
+		default <U> U reduce(U identity, BiFunction<U, ? super E, U> accumulator, BinaryOperator<U> combiner) {
+			return reduce(Function.identity(), identity, accumulator, combiner);
+		}
+
+		default List<E> toList() {
+			return collect(Collectors.toList());
+		}
+
+		default <K> Map<K, E> toMap(Function<? super E, K> keyMapper) {
+			return collect(Collectors.toMap(keyMapper, Function.identity()));
+		}
+
+		default <K, V> Map<K, V> toMap(Function<? super E, K> keyMapper, Function<? super E, V> valueMapper) {
+			return collect(Collectors.toMap(keyMapper, valueMapper));
+		}
+
+		default Set<E> toSet() {
+			return collect(Collectors.toSet());
+		}
+
+		default <T extends Throwable> void toString(ThrowingConsumer<String, T> consumer) throws T {
+			consumer.accept(joined(", ", "[", "]"));
 		}
 	}
 
@@ -263,94 +411,175 @@ public interface Seq<E> extends Iter.Able<E> {
 	@FunctionalInterface
 	interface Mapper<E> {
 
-		<X> Seq<X> apply(Function<Seq<E>, Seq<X>> mapper);
+		@FunctionalInterface
+		interface Mapping<S, T> extends Seq<Tpl<S, T>> {
 
-		default Seq<Tpl<E, E>> consecutivePairwise() {
+			static <S, T> Mapping<S, T> wrap(Seq<Tpl<S, T>> sequence) {
+				return Require.nonNull(sequence)::stream;
+			}
+
+			default <A, R> Mapping<S, R> collect(Collector<? super T, A, R> downstream) {
+				Require.nonNull(downstream);
+				// TODO use collector?
+				return grouped().mapped(s -> s.fold().collect(downstream));
+			}
+
+			default Mapping<S, T> filtered(Predicate<? super T> predicate) {
+				Require.nonNull(predicate);
+				return () -> stream().filter(tpl -> tpl.testRight(predicate));
+			}
+
+			default Mapping<S, Seq<T>> grouped() {
+				source().filter().distinct().map().mapped(s -> wrap(filter().by(tpl -> tpl.equalsLeft(s))).target());
+				return source().filter().distinct().map().mapped(s -> wrap(filter().by(tpl -> tpl.equalsLeft(s))).target());
+			}
+
+			default <X> Mapping<S, X> mapped(Function<? super T, ? extends X> mapper) {
+				Require.nonNull(mapper);
+				return () -> stream().map(tpl -> tpl.mapRight(mapper));
+			}
+
+			default Mapping<T, S> reversed() {
+				return () -> stream().map(Tpl::reverse);
+			}
+
+			default Seq<S> source() {
+				return () -> stream().map(Tpl::getLeft);
+			}
+
+			default Seq<T> target() {
+				return () -> stream().map(Tpl::getRight);
+			}
+
+			default Map<S, T> toMap() {
+				return fold().toMap(Tpl::getLeft, Tpl::getRight);
+			}
+		}
+
+		<X> Mapping<E, X> apply(Function<Mapping<E, E>, Seq<Tpl<E, X>>> function);
+
+		default <X> Mapping<E, X> applyStream(Function<Mapping<E, E>, Stream<Tpl<E, X>>> mapper) {
+			return apply(m -> () -> mapper.apply(m));
+		}
+
+		default <X> Mapping<E, X> cast(Class<X> type) {
+			return cast(type, true);
+		}
+
+		default <X> Mapping<E, X> cast(Class<X> type, boolean failFast) {
+			if (failFast && !to(type::isInstance).fold().reduce(Boolean.TRUE, Boolean::logicalAnd)) {
+				throw new ClassCastException("Could not cast " + this + " to " + type);
+			} else {
+				return mapped(type::cast);
+			}
+		}
+
+		default Mapping<E, E> consecutivePairwise() {
 			return toSupplied(() -> {
 				Ref<E> last = Ref.create();
-				return e -> last.update(t -> e);
-			}).filter().skip(1);
+				return e -> last.getAndUpdate(x -> e);
+			}).filter().skip(1)::stream;
 		}
 
 		default Seq<E> consecutiveScanned(BinaryOperator<E> operator) {
 			Require.nonNull(operator);
-			return consecutivePairwise().map().to(t -> t.fold(operator));
+			return consecutivePairwise().map().to(tpl -> tpl.fold(operator));
 		}
 
-		default <X> Seq<X> flat(Function<? super E, ? extends Seq<? extends X>> mapper) {
+		default <X> Mapping<E, X> flat(Function<? super E, ? extends Seq<? extends X>> mapper) {
 			return flatStream(mapper.andThen(Seq::stream));
 		}
 
-		default <X> Seq<X> flatArray(Function<? super E, X[]> mapper) {
+		default <X> Mapping<E, X> flatArray(Function<? super E, X[]> mapper) {
 			return flatStream(mapper.andThen(Stream::of));
 		}
 
-		default <X> Seq<X> flatCollection(Function<? super E, Collection<? extends X>> mapper) {
+		default <X> Mapping<E, X> flatCollection(Function<? super E, ? extends Collection<? extends X>> mapper) {
 			return flatStream(mapper.andThen(Collection::stream));
 		}
 
-		default <X> Seq<X> flatStream(Function<? super E, Stream<? extends X>> mapper) {
+		default <X> Mapping<E, X> flatStream(Function<? super E, ? extends Stream<? extends X>> mapper) {
 			Require.nonNull(mapper);
-			return apply(s -> () -> s.stream().flatMap(mapper));
+			return applyStream(m -> m.stream().flatMap(tpl -> tpl.flatMapRight(mapper)));
 		}
 
-		default <K> Seq<Tpl<K, Seq<E>>> grouped(Function<? super E, K> mapper) {
-			Require.nonNull(mapper);
-			return apply(s -> s.map().to(mapper).filter().distinct().map().to(k -> Tpl.of(k, s.filter().by(e -> Objects.equals(k, mapper.apply(e))))));
+		default <K> Map<K, Seq<E>> groupBy(Function<? super E, K> classifier) {
+			// TODO move to collector?
+			return grouped(classifier).fold().toMap(Tpl::getLeft, Tpl::getRight);
 		}
 
-		default Seq<Seq<E>> partition(long partitionSize) {
-			return apply(s -> {
-				long index = 0L;
-				long size = s.size();
-				List<Seq<E>> partitions = new ArrayList<>((int) (size / partitionSize) + 1);
-				for (int i = 0; i < size; i++) {
-					partitions.add(s.filter().slice(index, index += partitionSize));
-				}
-				return partitions::stream;
-			});
+		default <K> Mapping<K, Seq<E>> grouped(Function<? super E, K> classifier) {
+			return mapped(classifier).reversed().grouped();
 		}
 
-		default <P> Seq<Tpl<E, P>> project(Function<? super E, P> mapper) {
-			Require.nonNull(mapper);
-			return to(e -> Tpl.of(e, mapper.apply(e)));
+		default Mapping<E, E> identity() {
+			return mapped(Function.identity());
 		}
 
-		default Seq<E> recursively(Function<? super E, Seq<E>> mapper) {
-			Require.nonNull(mapper);
-			return apply(s -> s.append().seq(flat(mapper).map().recursively(mapper)));
-		}
-
-		default Seq<E> recursivelyArray(Function<? super E, E[]> mapper) {
-			Require.nonNull(mapper);
-			return apply(s -> s.append().seq(flatArray(mapper).map().recursivelyArray(mapper)));
-		}
-
-		default Seq<E> recursivelyCollection(Function<? super E, Collection<? extends E>> mapper) {
-			Require.nonNull(mapper);
-			return apply(s -> s.append().seq(flatCollection(mapper).map().recursivelyCollection(mapper)));
-		}
-
-		default Seq<E> recursivelyStream(Function<? super E, Stream<? extends E>> mapper) {
-			Require.nonNull(mapper);
-			return apply(s -> s.append().seq(flatStream(mapper).map().recursivelyStream(mapper)));
-		}
-
-		default <X> Seq<X> to(Function<? super E, ? extends X> mapper) {
-			Require.nonNull(mapper);
-			return apply(s -> () -> s.stream().map(mapper));
-		}
-
-		default <X> Seq<X> toSupplied(Supplier<Function<? super E, ? extends X>> mapperSupplier) {
-			Require.nonNull(mapperSupplier);
-			return apply(s -> () -> s.stream().map(mapperSupplier.get()));
-		}
-
-		default Seq<Tpl<E, Long>> zipWithIndex() {
+		default Mapping<E, Long> indexed() {
 			return toSupplied(() -> {
 				Ref<Long> index = Ref.of(0L);
-				return e -> Tpl.of(e, index.getAndUpdate(t -> t++));
+				return e -> index.getAndUpdate(t -> t++);
 			});
+		}
+
+		default <X> Mapping<E, X> mapped(Function<? super E, X> mapper) {
+			Require.nonNull(mapper);
+			return applyStream(m -> m.stream().map(tpl -> tpl.mapRight(mapper)));
+		}
+
+		default <X> Mapping<E, Seq<X>> mappedArray(Function<? super E, X[]> mapper) {
+			return mapped(mapper.andThen(Seq::of));
+		}
+
+		default <X> Mapping<E, Seq<X>> mappedCollection(Function<? super E, ? extends Collection<X>> mapper) {
+			return mapped(mapper.andThen(Seq::of));
+		}
+
+		default <X> Mapping<E, Seq<X>> mappedStream(Function<? super E, ? extends Stream<X>> mapper) {
+			return mapped(e -> () -> mapper.apply(e));
+		}
+
+		default Mapping<Long, Seq<E>> partition(long partitionSize) {
+			return indexed().mapped(i -> i % partitionSize).reversed().grouped();
+		}
+
+		default Tpl<Seq<E>, Seq<E>> partition(Predicate<? super E> predicate) {
+			Map<Boolean, Seq<E>> map = grouped(Require.nonNull(predicate)::test).toMap();
+			return Tpl.of(map.getOrDefault(Boolean.TRUE, Seq.empty()), map.getOrDefault(Boolean.FALSE, Seq.empty()));
+		}
+
+		default Mapping<E, E> recursively(Function<? super E, ? extends Seq<? extends E>> mapper) {
+			Require.nonNull(mapper);
+			return apply(m -> m.append().seq(this.<E> flat(mapper).target().map().recursively(mapper)));
+		}
+
+		default Mapping<E, E> recursivelyArray(Function<? super E, E[]> mapper) {
+			Require.nonNull(mapper);
+			return apply(m -> m.append().seq(flatArray(mapper).target().map().recursivelyArray(mapper)));
+		}
+
+		default Mapping<E, E> recursivelyCollection(Function<? super E, ? extends Collection<? extends E>> mapper) {
+			Require.nonNull(mapper);
+			return apply(m -> m.append().seq(this.<E> flatCollection(mapper).target().map().recursivelyCollection(mapper)));
+		}
+
+		default Mapping<E, E> recursivelyStream(Function<? super E, ? extends Stream<? extends E>> mapper) {
+			Require.nonNull(mapper);
+			return apply(m -> m.append().seq(this.<E> flatStream(mapper).target().map().recursivelyStream(mapper)));
+		}
+
+		default <X> Seq<X> to(Function<? super E, X> mapper) {
+			return mapped(mapper).target();
+		}
+
+		default <X> Mapping<E, X> toSupplied(Supplier<Function<? super E, ? extends X>> mapperSupplier) {
+			Require.nonNull(mapperSupplier);
+			return applyStream(m -> m.stream().map(tpl -> tpl.mapRight(mapperSupplier.get())));
+		}
+
+		default Mapping<E, String> toText() {
+			return mapped(Objects::toString);
 		}
 	}
 
@@ -380,6 +609,17 @@ public interface Seq<E> extends Iter.Able<E> {
 
 	static <E> Seq<E> empty() {
 		return Stream::empty;
+	}
+
+	public static void main(String[] args) {
+		Seq.of("1", "1 22", "22 333", "1 22 333")
+				.filter()
+				.whereAny(m -> m.mappedArray(s -> s.split("\\s")), s -> s.length() >= 2)
+				.fold()
+				.toString(System.out::println);
+		Seq.of("1", "22", "333").filter().where(m -> m.mapped(String::length), l -> l >= 2).fold().toString(System.out::println);
+		Seq.of("a", "b", "c").join().inner(Seq.of(1, 2), (x, y) -> x + y).result().fold().toString(System.out::println);
+		Seq.of("a", "b", "c").zip().inner(Seq.of(1, 2), (x, y) -> x + y).result().fold().toString(System.out::println);
 	}
 
 	static <E> Seq<E> of(Collection<E> collection) {
@@ -414,23 +654,26 @@ public interface Seq<E> extends Iter.Able<E> {
 	}
 
 	default String asString() {
-		return toList().toString();
+		return fold().toList().toString();
 	}
 
-	default <X> Seq<X> cast(Class<X> type) {
-		return cast(type, true);
-	}
-
-	default <X> Seq<X> cast(Class<X> type, boolean failFast) {
-		if (failFast && !stream().allMatch(type::isInstance)) {
-			throw new ClassCastException("Could not cast " + this + " to " + type);
-		} else {
-			return map().to(type::cast);
+	default Seq<E> checkFinite() {
+		if (!isFinite()) {
+			throw new IllegalStateException("illegal operation on infinite stream");
 		}
+		return this;
 	}
 
 	default Seq<E> compact() {
-		return isFinite() ? toList()::stream : this;
+		return isFinite() ? fold().toList()::stream : this;
+	}
+
+	default Consumer<E> consume() {
+		return this::consume;
+	}
+
+	default <T> T consume(Function<Seq<E>, T> function) {
+		return function.apply(checkFinite());
 	}
 
 	default <X> boolean contains(Class<X> type) {
@@ -458,26 +701,17 @@ public interface Seq<E> extends Iter.Able<E> {
 		return this::filter;
 	}
 
-	default <X> Seq<X> filter(Function<Seq<E>, Stream<X>> filter) {
+	default <X> X filter(Function<Seq<E>, X> filter) {
 		Require.nonNull(filter);
-		return () -> filter.apply(this);
+		return filter.apply(this);
 	}
 
-	default Optional<E> fold(BiFunction<? super E, ? super E, ? extends E> mapper) {
-		return fold(Function.identity(), mapper);
+	default <T, A, R> Folder<E> fold() {
+		return this::fold;
 	}
 
-	default <T> Optional<T> fold(Function<? super E, ? extends T> creator, BiFunction<? super T, ? super E, ? extends T> mapper) {
-		Optional<T> identity = head().map(creator);
-		return tail().fold(identity, (o, e) -> o.map(t -> mapper.apply(t, e)));
-	}
-
-	default <T> T fold(T identity, BiFunction<? super T, ? super E, ? extends T> mapper) {
-		T result = identity;
-		for (E element : this) {
-			result = mapper.apply(result, element);
-		}
-		return result;
+	default <T, A, R> R fold(Function<? super E, ? extends T> mapper, Function<Stream<T>, R> downstream) {
+		return downstream.apply(stream().map(mapper));
 	}
 
 	default <T extends Throwable> void forEach(ThrowingConsumer<? super E, T> action) throws T {
@@ -491,18 +725,16 @@ public interface Seq<E> extends Iter.Able<E> {
 		return filter().skip(index).head();
 	}
 
-	default <K> Map<K, Seq<E>> groupBy(Function<? super E, K> mapper) {
-		return map().grouped(mapper).toMap(tpl -> tpl.getLeft(), tpl -> tpl.getRight());
-	}
-
 	default Optional<E> head() {
 		return stream().findFirst();
 	}
 
 	default Seq<E> ifMatches(Predicate<? super Seq<E>> predicate, Function<? super Seq<E>, ? extends Seq<E>> function) {
+		// TODO consuming?
 		return predicate.test(this) ? function.apply(this) : this;
 	}
 
+	// TODO use Joiner?
 	default Seq<E> intersect(Seq<? extends E> other, boolean anyInfinite) {
 		Require.nonNull(other);
 		return of(() -> {
@@ -537,11 +769,11 @@ public interface Seq<E> extends Iter.Able<E> {
 	}
 
 	default boolean isEmpty() {
-		return size() == 0L;
+		return sizeIfKnown() == 0L;
 	}
 
 	default boolean isFinite() {
-		long size = size();
+		long size = sizeIfKnown();
 		return size >= 0L && size != Long.MAX_VALUE;
 	}
 
@@ -559,19 +791,6 @@ public interface Seq<E> extends Iter.Able<E> {
 		return stream().iterator();
 	}
 
-	@Override
-	default Spliterator<E> spliterator() {
-		final long size = size();
-		int characteristics = Iter.Able.super.spliterator().characteristics();
-		if (size == 0L) {
-			return Spliterators.emptySpliterator();
-		} else if (size < 0L) {
-			return Spliterators.spliteratorUnknownSize(iterator(), characteristics);
-		} else {
-			return Spliterators.spliterator(iterator(), size, characteristics);
-		}
-	}
-
 	default Joiner<E> join() {
 		return this::join;
 	}
@@ -579,27 +798,24 @@ public interface Seq<E> extends Iter.Able<E> {
 	default <R, T> Seq<T> join(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate, Opt<E> leftFill,
 			Opt<R> rightFill) {
 		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
+		// TODO reduce target() calls?
 		return this.map()
 				.flat(l -> other.filter()
 						.by(r -> predicate.test(l, r))
 						.ifMatches(Seq::isEmpty, s -> rightFill.applyNullable(e -> s.append().entry(e), () -> s))
 						.map()
 						.to(r -> mapper.apply(l, r)))
+				.target()
 				.append()
 				.seq(other.filter().by(r -> !leftFill.isEmpty() && this.stream().noneMatch(l -> predicate.test(l, r))).map().to(leftFill.asFunction(mapper)));
-	}
-
-	default Optional<E> last() {
-		return fold((t, e) -> e);
 	}
 
 	default Mapper<E> map() {
 		return this::map;
 	}
 
-	default <X> Seq<X> map(Function<Seq<E>, Seq<X>> mapper) {
-		Require.nonNull(mapper);
-		return mapper.apply(this);
+	default <X> Mapping<E, X> map(Function<Mapping<E, E>, Seq<Tpl<E, X>>> function) {
+		return Require.nonNull(function).apply(() -> stream().map(Tpl::both))::stream;
 	}
 
 	default Extender<E> prepend() {
@@ -610,22 +826,21 @@ public interface Seq<E> extends Iter.Able<E> {
 		return o -> concat(o, this);
 	}
 
-	default Seq<E> reverse() {
-		List<E> result = toList();
-		Collections.reverse(result);
-		return result::stream;
-	}
-
-	default long size() {
+	default long sizeIfKnown() {
 		return stream().spliterator().getExactSizeIfKnown();
 	}
 
-	default Tpl<Seq<E>, Seq<E>> splitAt(long position) {
-		return Tpl.of(filter().limit(position), filter().skip(position));
-	}
-
-	default Tpl<Optional<E>, Seq<E>> splitAtHead() {
-		return Tpl.of(head(), tail());
+	@Override
+	default Spliterator<E> spliterator() {
+		final long size = sizeIfKnown();
+		int characteristics = Iter.Able.super.spliterator().characteristics();
+		if (size == 0L) {
+			return Spliterators.emptySpliterator();
+		} else if (size < 0L) {
+			return Spliterators.spliteratorUnknownSize(iterator(), characteristics);
+		} else {
+			return Spliterators.spliterator(iterator(), size, characteristics);
+		}
 	}
 
 	Stream<E> stream();
@@ -638,18 +853,6 @@ public interface Seq<E> extends Iter.Able<E> {
 		return stream().toArray(generator);
 	}
 
-	default List<E> toList() {
-		return stream().collect(Collectors.toList());
-	}
-
-	default <K> Map<K, E> toMap(Function<? super E, K> keyMapper) {
-		return stream().collect(Collectors.toMap(keyMapper, Function.identity()));
-	}
-
-	default <K, V> Map<K, V> toMap(Function<? super E, K> keyMapper, Function<? super E, V> valueMapper) {
-		return stream().collect(Collectors.toMap(keyMapper, valueMapper));
-	}
-
 	default Joiner<E> zip() {
 		return this::zip;
 	}
@@ -657,13 +860,12 @@ public interface Seq<E> extends Iter.Able<E> {
 	default <R, T> Seq<T> zip(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate, Opt<E> leftFill,
 			Opt<R> rightFill) {
 		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
-		rightFill.fillNullable(other, Seq::isEmpty);
 		Iter.Able<T> able = () -> {
-			Ref<Tpl<E, R>> ref = Ref.create();
+			RefTpl<E, R> ref = RefTpl.create(null, null);
 			Iter<E> i1 = this.iter();
 			Iter<R> i2 = other.iter();
-			return c -> i1.visitNext(e -> ref.update(tpl -> tpl.mapLeft(x -> e))) && i2.visitNext(r -> ref.update(tpl -> tpl.mapRight(x -> r)))
-					&& ref.get().test(predicate) && c.acceptIf(() -> true, () -> ref.get().fold(mapper));
+			return c -> i1.visitNextOrFallback(ref::setLeft, leftFill) | i2.visitNextOrFallback(ref::setRight, rightFill) && ref.get().test(predicate)
+					&& c.acceptIf(() -> true, () -> ref.get().fold(mapper));
 		};
 		return able.asSequence();
 	}

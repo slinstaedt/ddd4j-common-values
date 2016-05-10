@@ -11,6 +11,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.ddd4j.contract.Require;
 
@@ -35,6 +36,10 @@ public interface Tpl<L, R> {
 
 	Void EMPTY = Optional::empty;
 
+	static <E> Tpl<E, E> both(E entry) {
+		return of(entry, entry);
+	}
+
 	static <L, R, X, Y> Tpl<X, Y> chain(Tpl<L, R> tuple, Function<? super L, ? extends X> leftMap, Function<? super R, ? extends Y> rightMap) {
 		Require.nonNullElements(tuple, leftMap, rightMap);
 		return new Tpl<X, Y>() {
@@ -42,6 +47,11 @@ public interface Tpl<L, R> {
 			@Override
 			public <T> T fold(BiFunction<? super X, ? super Y, ? extends T> function) {
 				return function.apply(tuple.foldLeft(leftMap), tuple.foldRight(rightMap));
+			}
+
+			@Override
+			public String toString() {
+				return flatten().toString();
 			}
 		};
 	}
@@ -59,6 +69,11 @@ public interface Tpl<L, R> {
 			@Override
 			public <T> T fold(BiFunction<? super L, ? super R, ? extends T> function) {
 				return function.apply(left, right);
+			}
+
+			@Override
+			public String toString() {
+				return "(" + left + ", " + right + ")";
 			}
 		};
 	}
@@ -106,6 +121,30 @@ public interface Tpl<L, R> {
 			consumer.accept(l, r);
 			return null;
 		});
+	}
+
+	default boolean equals(Object left, Object right) {
+		return equalsLeft(left) && equalsRight(right);
+	}
+
+	default boolean equalsLeft(Object left) {
+		return testLeft(l -> Objects.equals(l, left));
+	}
+
+	default boolean equalsRight(Object right) {
+		return testRight(r -> Objects.equals(r, right));
+	}
+
+	default <X> Stream<Tpl<X, R>> flatMapLeft(Function<? super L, ? extends Stream<X>> leftMap) {
+		return foldLeft(leftMap).map(this::updateLeft);
+	}
+
+	default <Y> Stream<Tpl<L, Y>> flatMapRight(Function<? super R, ? extends Stream<? extends Y>> rightMap) {
+		return foldRight(rightMap).map(this::updateRight);
+	}
+
+	default Tpl<L, R> flatten() {
+		return fold(Tpl::of);
 	}
 
 	<T> T fold(BiFunction<? super L, ? super R, ? extends T> function);
@@ -175,5 +214,13 @@ public interface Tpl<L, R> {
 
 	default Object[] toArray() {
 		return collect(Collectors.toList()).toArray();
+	}
+
+	default <X> Tpl<X, R> updateLeft(X left) {
+		return mapLeft(l -> left);
+	}
+
+	default <Y> Tpl<L, Y> updateRight(Y right) {
+		return mapRight(r -> right);
 	}
 }
