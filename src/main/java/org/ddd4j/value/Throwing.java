@@ -1,11 +1,12 @@
 package org.ddd4j.value;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.Arrays;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import org.ddd4j.contract.Require;
 
 @FunctionalInterface
 public interface Throwing {
@@ -14,7 +15,7 @@ public interface Throwing {
 	interface TBiFunction<T, U, R> extends BiFunction<T, U, R> {
 
 		static <T, U, R> BiFunction<T, U, R> of(TBiFunction<T, U, R> function) {
-			return requireNonNull(function)::apply;
+			return Require.nonNull(function)::apply;
 		}
 
 		@Override
@@ -30,10 +31,29 @@ public interface Throwing {
 	}
 
 	@FunctionalInterface
+	interface TConsumer<T> extends Consumer<T> {
+
+		static <T> Consumer<T> of(TConsumer<T> consumer) {
+			return Require.nonNull(consumer)::accept;
+		}
+
+		@Override
+		default void accept(T t) {
+			try {
+				acceptChecked(t);
+			} catch (Throwable e) {
+				Throwing.unchecked(e);
+			}
+		}
+
+		void acceptChecked(T t) throws Throwable;
+	}
+
+	@FunctionalInterface
 	interface TFunction<T, R> extends Function<T, R> {
 
 		static <T, R> Function<T, R> of(TFunction<T, R> function) {
-			return requireNonNull(function)::apply;
+			return Require.nonNull(function)::apply;
 		}
 
 		@Override
@@ -52,7 +72,7 @@ public interface Throwing {
 	interface TSupplier<T> extends Supplier<T> {
 
 		static <T> Supplier<T> of(TSupplier<T> supplier) {
-			return requireNonNull(supplier)::get;
+			return Require.nonNull(supplier)::get;
 		}
 
 		@Override
@@ -71,12 +91,12 @@ public interface Throwing {
 
 	@SuppressWarnings("unchecked")
 	static <X, E extends Throwable> X any(Throwable throwable) throws E {
-		requireNonNull(throwable);
+		Require.nonNull(throwable);
 		throw (E) throwable;
 	}
 
 	static Throwing of(Function<? super String, ? extends Throwable> exceptionFactory) {
-		return requireNonNull(exceptionFactory)::apply;
+		return Require.nonNull(exceptionFactory)::apply;
 	}
 
 	static <X> X unchecked(Throwable throwable) {
@@ -85,6 +105,10 @@ public interface Throwing {
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction() {
 		return (t, u) -> throwChecked(t, u);
+	}
+
+	default <T> TConsumer<T> asConsumer() {
+		return (t) -> throwChecked(t);
 	}
 
 	default <T, R> TFunction<T, R> asFunction() {

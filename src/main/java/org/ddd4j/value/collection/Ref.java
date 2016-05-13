@@ -45,6 +45,10 @@ public interface Ref<T> {
 			return get().isEmpty();
 		}
 
+		default boolean isNotEmpty() {
+			return !isEmpty();
+		}
+
 		default boolean isNotNull() {
 			return get().isNotNull();
 		}
@@ -57,20 +61,16 @@ public interface Ref<T> {
 			return Ref.<Tpl<L, R>> create().set(Tpl.of(left, right))::update;
 		}
 
+		default <T> T fold(BiFunction<? super L, ? super R, ? extends T> function) {
+			return apply(tpl -> tpl.fold(function));
+		}
+
 		default L getLeft() {
 			return get().getLeft();
 		}
 
 		default R getRight() {
 			return get().getRight();
-		}
-
-		default L updateLeft(UnaryOperator<L> mapper) {
-			return update(tpl -> tpl.mapLeft(mapper).flatten()).foldLeft(Tpl::getLeft);
-		}
-
-		default void updateRight(UnaryOperator<R> mapper) {
-			update(tpl -> tpl.mapRight(mapper).flatten()).foldLeft(Tpl::getRight);
 		}
 
 		default void setLeft(L left) {
@@ -80,12 +80,24 @@ public interface Ref<T> {
 		default void setRight(R right) {
 			updateRight(r -> right);
 		}
+
+		default L updateLeft(UnaryOperator<L> mapper) {
+			return update(tpl -> tpl.mapLeft(mapper).flatten()).foldLeft(Tpl::getLeft);
+		}
+
+		default void updateRight(UnaryOperator<R> mapper) {
+			update(tpl -> tpl.mapRight(mapper).flatten()).foldLeft(Tpl::getRight);
+		}
 	}
 
 	static <T> Ref<T> create() {
 		@SuppressWarnings("unchecked")
 		T[] holder = (T[]) new Object[1];
 		return of(holder, h -> h[0], (h, e) -> h[0] = e);
+	}
+
+	static <T> Ref<T> create(T initial) {
+		return Ref.<T> create().set(initial);
 	}
 
 	static <T> Ref<T> createThreadsafe() {

@@ -33,37 +33,6 @@ import org.ddd4j.value.collection.Seq.Mapper.Mapping;
 @FunctionalInterface
 public interface Seq<E> extends Iter.Able<E> {
 
-	// TODO needed?
-	@FunctionalInterface
-	interface Consumer<E> {
-
-		default boolean allMatch(Predicate<? super E> predicate) {
-			return apply(s -> s.stream().allMatch(predicate));
-		}
-
-		default boolean anyMatch(Predicate<? super E> predicate) {
-			return apply(s -> s.stream().anyMatch(predicate));
-		}
-
-		<T> T apply(Function<Seq<E>, T> function);
-
-		default boolean isEmpty() {
-			return apply(s -> s.fold().counting() == 0L);
-		}
-
-		default boolean noneMatch(Predicate<? super E> predicate) {
-			return apply(s -> s.stream().noneMatch(predicate));
-		}
-
-		default Seq<E> reverse() {
-			return apply(s -> {
-				List<E> result = s.fold().toList();
-				Collections.reverse(result);
-				return result::stream;
-			});
-		}
-	}
-
 	@FunctionalInterface
 	interface Extender<E> {
 
@@ -219,7 +188,19 @@ public interface Seq<E> extends Iter.Able<E> {
 	@FunctionalInterface
 	interface Folder<E> {
 
-		<T, A, R> R apply(Function<? super E, ? extends T> mapper, Function<Stream<T>, R> downstream);
+		default boolean allMatch(Predicate<? super E> predicate) {
+			return apply(s -> s.allMatch(predicate));
+		}
+
+		default boolean anyMatch(Predicate<? super E> predicate) {
+			return apply(s -> s.anyMatch(predicate));
+		}
+
+		<T, R> R apply(Function<? super E, ? extends T> mapper, Function<Stream<T>, R> downstream);
+
+		default <R> R apply(Function<Stream<E>, R> downstream) {
+			return apply(Function.identity(), downstream);
+		}
 
 		default <A, R> R collect(Collector<? super E, A, R> collector) {
 			return collect(Function.identity(), collector);
@@ -246,6 +227,10 @@ public interface Seq<E> extends Iter.Able<E> {
 			return collect(Collectors.groupingBy(classifier, mapFactory, downstream));
 		}
 
+		default boolean isEmpty() {
+			return counting() == 0L;
+		}
+
 		default String joined() {
 			return apply(Objects::toString, s -> s.collect(Collectors.joining()));
 		}
@@ -260,6 +245,10 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default Optional<E> last() {
 			return reduce((t, e) -> e);
+		}
+
+		default boolean noneMatch(Predicate<? super E> predicate) {
+			return apply(s -> s.noneMatch(predicate));
 		}
 
 		default Optional<E> reduce(BinaryOperator<E> accumulator) {
@@ -284,6 +273,14 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default <U> U reduce(U identity, BiFunction<U, ? super E, U> accumulator, BinaryOperator<U> combiner) {
 			return reduce(Function.identity(), identity, accumulator, combiner);
+		}
+
+		default Seq<E> reverse() {
+			return apply(s -> {
+				List<E> result = s.collect(Collectors.toList());
+				Collections.reverse(result);
+				return result::stream;
+			});
 		}
 
 		default List<E> toList() {
@@ -439,6 +436,14 @@ public interface Seq<E> extends Iter.Able<E> {
 				return () -> stream().map(tpl -> tpl.mapRight(mapper));
 			}
 
+			default Mapping<S, T> put(S key, T value) {
+				return append().entry(Tpl.of(key, value))::stream;
+			}
+
+			default Seq<T> get(S key) {
+				return wrap(filter().by(tpl -> tpl.equalsLeft(key))).target();
+			}
+
 			default Mapping<T, S> reversed() {
 				return () -> stream().map(Tpl::reverse);
 			}
@@ -449,6 +454,10 @@ public interface Seq<E> extends Iter.Able<E> {
 
 			default Seq<T> target() {
 				return () -> stream().map(Tpl::getRight);
+			}
+
+			default <X> Seq<X> to(BiFunction<? super S, ? super T, ? extends X> mapper) {
+				return map().to(tpl -> tpl.fold(mapper));
 			}
 
 			default Map<S, T> toMap() {
@@ -483,7 +492,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default Seq<E> consecutiveScanned(BinaryOperator<E> operator) {
 			Require.nonNull(operator);
-			return consecutivePairwise().map().to(tpl -> tpl.fold(operator));
+			return consecutivePairwise().to(operator);
 		}
 
 		default <X> Mapping<E, X> flat(Function<? super E, ? extends Seq<? extends X>> mapper) {
@@ -501,11 +510,6 @@ public interface Seq<E> extends Iter.Able<E> {
 		default <X> Mapping<E, X> flatStream(Function<? super E, ? extends Stream<? extends X>> mapper) {
 			Require.nonNull(mapper);
 			return applyStream(m -> m.stream().flatMap(tpl -> tpl.flatMapRight(mapper)));
-		}
-
-		default <K> Map<K, Seq<E>> groupBy(Function<? super E, K> classifier) {
-			// TODO move to collector?
-			return grouped(classifier).fold().toMap(Tpl::getLeft, Tpl::getRight);
 		}
 
 		default <K> Mapping<K, Seq<E>> grouped(Function<? super E, K> classifier) {
@@ -611,6 +615,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		return Stream::empty;
 	}
 
+	// XXX remove
 	public static void main(String[] args) {
 		Seq.of("1", "1 22", "22 333", "1 22 333")
 				.filter()
@@ -668,14 +673,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		return isFinite() ? fold().toList()::stream : this;
 	}
 
-	default Consumer<E> consume() {
-		return this::consume;
-	}
-
-	default <T> T consume(Function<Seq<E>, T> function) {
-		return function.apply(checkFinite());
-	}
-
+	// TODO move to fold?
 	default <X> boolean contains(Class<X> type) {
 		return contains(type::isInstance);
 	}
@@ -706,12 +704,12 @@ public interface Seq<E> extends Iter.Able<E> {
 		return filter.apply(this);
 	}
 
-	default <T, A, R> Folder<E> fold() {
+	default <T, R> Folder<E> fold() {
 		return this::fold;
 	}
 
-	default <T, A, R> R fold(Function<? super E, ? extends T> mapper, Function<Stream<T>, R> downstream) {
-		return downstream.apply(stream().map(mapper));
+	default <T, R> R fold(Function<? super E, ? extends T> mapper, Function<Stream<T>, R> downstream) {
+		return downstream.apply(checkFinite().stream().map(mapper));
 	}
 
 	default <T extends Throwable> void forEach(ThrowingConsumer<? super E, T> action) throws T {
@@ -730,12 +728,31 @@ public interface Seq<E> extends Iter.Able<E> {
 	}
 
 	default Seq<E> ifMatches(Predicate<? super Seq<E>> predicate, Function<? super Seq<E>, ? extends Seq<E>> function) {
-		// TODO consuming?
-		return predicate.test(this) ? function.apply(this) : this;
+		Require.nonNullElements(predicate, function);
+		return () -> predicate.test(this) ? function.apply(this).stream() : this.stream();
+	}
+
+	/**
+	 * Seq.of(1, 2, 3).intersect().inner(Seq.of("a", "b", "c"), String::concat) -> Seq.of("1null", "1a", "2a", "2b", "3b", "3c")
+	 */
+	default Joiner<E> intersect() {
+		return this::intersect;
+	}
+
+	default <R, T> Seq<T> intersect(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate, Opt<E> leftFill,
+			Opt<R> rightFill) {
+		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
+		Iter.Able<E> able = () -> {
+			RefTpl<E, R> next = RefTpl.create(null, null);
+			Function<Iter<E>, T> visitNext1 = i -> i.visitNextOrOptional(next::setLeft, leftFill) ? next.fold(mapper) : next.fold(mapper);
+			RefTpl<Iter<E>, Iter<R>> iterators = RefTpl.create(this.iter(), other.iter());
+			iterators.getAndUpdate(Tpl::reverse).fold((i1, i2) -> visitNext.apply(i1).orElseMapGet(() -> visitNext.apply(i2)));
+			return () -> null;
+		};
 	}
 
 	// TODO use Joiner?
-	default Seq<E> intersect(Seq<? extends E> other, boolean anyInfinite) {
+	default Seq<E> intersect(Seq<E> other, boolean anyInfinite) {
 		Require.nonNull(other);
 		return of(() -> {
 			Iterator<? extends E> i1 = this.iterator();
@@ -798,7 +815,6 @@ public interface Seq<E> extends Iter.Able<E> {
 	default <R, T> Seq<T> join(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate, Opt<E> leftFill,
 			Opt<R> rightFill) {
 		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
-		// TODO reduce target() calls?
 		return this.map()
 				.flat(l -> other.filter()
 						.by(r -> predicate.test(l, r))
@@ -807,7 +823,8 @@ public interface Seq<E> extends Iter.Able<E> {
 						.to(r -> mapper.apply(l, r)))
 				.target()
 				.append()
-				.seq(other.filter().by(r -> !leftFill.isEmpty() && this.stream().noneMatch(l -> predicate.test(l, r))).map().to(leftFill.asFunction(mapper)));
+				.seq(other.filter().by(r -> !leftFill.isEmpty() && this.stream().noneMatch(l -> predicate.test(l, r))).map().to(
+						r -> leftFill.applyNullable(e -> mapper.apply(e, r))));
 	}
 
 	default Mapper<E> map() {
@@ -853,6 +870,9 @@ public interface Seq<E> extends Iter.Able<E> {
 		return stream().toArray(generator);
 	}
 
+	/**
+	 * Seq.of(1, 2, 3).zip().inner(Seq.of("a", "b", "c"), String::concat) -> Seq.of("1a", "2b", "3c")
+	 */
 	default Joiner<E> zip() {
 		return this::zip;
 	}
@@ -864,7 +884,7 @@ public interface Seq<E> extends Iter.Able<E> {
 			RefTpl<E, R> ref = RefTpl.create(null, null);
 			Iter<E> i1 = this.iter();
 			Iter<R> i2 = other.iter();
-			return c -> i1.visitNextOrFallback(ref::setLeft, leftFill) | i2.visitNextOrFallback(ref::setRight, rightFill) && ref.get().test(predicate)
+			return c -> i1.visitNextOrOptional(ref::setLeft, leftFill) | i2.visitNextOrOptional(ref::setRight, rightFill) && ref.get().test(predicate)
 					&& c.acceptIf(() -> true, () -> ref.get().fold(mapper));
 		};
 		return able.asSequence();

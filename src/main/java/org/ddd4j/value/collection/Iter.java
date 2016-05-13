@@ -60,7 +60,7 @@ public interface Iter<T> {
 	static <T> Iterator<T> wrap(Iter<T> delegate) {
 		return new Iterator<T>() {
 
-			private final RefOpt<T> ref = RefOpt.create(Opt.empty());
+			private final RefOpt<T> ref = RefOpt.create(delegate.next());
 
 			@Override
 			public boolean hasNext() {
@@ -77,7 +77,8 @@ public interface Iter<T> {
 	}
 
 	static <T> Iter<T> wrap(Iterator<T> delegate) {
-		return c -> c.acceptIf(delegate::hasNext, delegate::next);
+		Require.nonNull(delegate);
+		return () -> delegate.hasNext() ? Opt.of(delegate.next()) : Opt.empty();
 	}
 
 	default Iterator<T> asIterator() {
@@ -89,6 +90,8 @@ public interface Iter<T> {
 		}
 	}
 
+	Opt<T> next();
+
 	/**
 	 * Visits the next element of this iterator by accepting it's element, if available.
 	 *
@@ -96,7 +99,9 @@ public interface Iter<T> {
 	 *            The element visitor
 	 * @return true, if the next element was consumed, false otherwise
 	 */
-	boolean visitNext(ConditionalConsumer<? super T> consumer);
+	default boolean visitNext(ConditionalConsumer<? super T> consumer) {
+		return !next().visitNullable(consumer).isEmpty();
+	}
 
 	default boolean visitNextOrElse(ConditionalConsumer<? super T> consumer, Runnable other) {
 		boolean visited = visitNext(consumer);
@@ -106,11 +111,11 @@ public interface Iter<T> {
 		return visited;
 	}
 
-	default boolean visitNextOrFallback(ConditionalConsumer<? super T> consumer, Opt<? extends T> fallback) {
+	default boolean visitNextOrOptional(ConditionalConsumer<? super T> consumer, Opt<? extends T> fallback) {
 		return visitNextOrElse(consumer, () -> fallback.ifNullablePresent(consumer));
 	}
 
-	default boolean visitNextOrFallback(ConditionalConsumer<? super T> consumer, Supplier<? extends T> fallback) {
+	default boolean visitNextOrSupplied(ConditionalConsumer<? super T> consumer, Supplier<? extends T> fallback) {
 		return visitNextOrElse(consumer, () -> consumer.accept(fallback.get()));
 	}
 }

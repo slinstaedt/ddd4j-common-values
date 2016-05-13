@@ -3,7 +3,6 @@ package org.ddd4j.value.collection;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -65,11 +64,6 @@ public interface Opt<T> {
 	}
 
 	<X> X applyNullable(Function<? super T, ? extends X> nullable, Supplier<? extends X> empty);
-
-	default <X, R> Function<X, R> asFunction(BiFunction<? super T, X, R> mapper) {
-		Require.nonNull(mapper);
-		return x -> applyNullable(t -> mapper.apply(t, x));
-	}
 
 	default Seq<T> fillNonNull(Seq<T> seq, Predicate<? super Seq<T>> predicate) {
 		return apply(t -> predicate.test(seq) ? seq.append().entry(t) : seq, () -> seq, () -> seq);
@@ -165,8 +159,29 @@ public interface Opt<T> {
 		return flatMapNullable(nullable.andThen(Opt::of));
 	}
 
+	default <X> Opt<X> mapNullable(Function<? super T, ? extends X> nullable, Opt<X> empty) {
+		Require.nonNull(empty);
+		return flatMapNullable(nullable.andThen(Opt::of), () -> empty);
+	}
+
 	default <X> Opt<X> mapNullable(Function<? super T, ? extends X> nullable, Supplier<? extends X> empty) {
 		return flatMapNullable(nullable.andThen(Opt::of), wrap(empty));
+	}
+
+	default T orElse(T other) {
+		return applyNullable(Function.identity(), () -> other);
+	}
+
+	default T orElseGet(Supplier<? extends T> other) {
+		return applyNullable(Function.identity(), other);
+	}
+
+	default Opt<T> orElseMap(Opt<T> other) {
+		return mapNullable(Function.identity(), other);
+	}
+
+	default Opt<T> orElseMapGet(Supplier<Opt<T>> other) {
+		return flatMapNullable(Opt::of, other);
 	}
 
 	default boolean test(Predicate<? super T> predicate, boolean ifNull, boolean ifEmpty) {
@@ -187,5 +202,19 @@ public interface Opt<T> {
 
 	default boolean testNullable(Predicate<? super T> predicate, boolean ifEmpty) {
 		return applyNullable(predicate::test, () -> ifEmpty);
+	}
+
+	default Opt<T> visitNonNull(Consumer<? super T> consumer) {
+		return apply(t -> {
+			consumer.accept(t);
+			return this;
+		}, () -> this, () -> this);
+	}
+
+	default Opt<T> visitNullable(Consumer<? super T> consumer) {
+		return applyNullable(t -> {
+			consumer.accept(t);
+			return this;
+		}, () -> this);
 	}
 }
