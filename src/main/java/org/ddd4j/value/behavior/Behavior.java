@@ -1,11 +1,10 @@
 package org.ddd4j.value.behavior;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.behavior.Reaction.Accepted;
 import org.ddd4j.value.behavior.Reaction.AcceptedWithResult;
@@ -16,19 +15,17 @@ import org.ddd4j.value.collection.Seq;
 public interface Behavior<T> {
 
 	static <T> Behavior<T> accept(T result) {
-		requireNonNull(result);
+		Require.nonNull(result);
 		return (events) -> new AcceptedWithResult<>(events, result);
 	}
 
 	static <T> Behavior<T> accept(T result, Object event) {
-		requireNonNull(result);
-		requireNonNull(event);
+		Require.nonNullElements(result, event);
 		return (events) -> new AcceptedWithResult<>(events.appendAny().entry(event), result);
 	}
 
 	static <T> Behavior<T> accept(T result, Seq<?> newEvents) {
-		requireNonNull(result);
-		requireNonNull(newEvents);
+		Require.nonNullElements(result, newEvents);
 		return (events) -> new AcceptedWithResult<>(events.appendAny().seq(newEvents), result);
 	}
 
@@ -41,18 +38,17 @@ public interface Behavior<T> {
 	}
 
 	static Behavior<Void> record(Object event) {
-		requireNonNull(event);
+		Require.nonNull(event);
 		return (events) -> new Accepted<>(events.appendAny().entry(event));
 	}
 
 	static <T> Behavior<T> reject(String message, Object... arguments) {
-		requireNonNull(message);
-		requireNonNull(arguments);
+		Require.nonNullElements(message, arguments);
 		return (events) -> new Rejected<>(message, arguments);
 	}
 
 	static <T> Behavior<T> reject(Throwable exception) {
-		requireNonNull(exception);
+		Require.nonNull(exception);
 		return (events) -> new Rejected<>(exception.getMessage(), exception);
 	}
 
@@ -63,7 +59,7 @@ public interface Behavior<T> {
 	}
 
 	default <X> Behavior<X> map(Function<? super T, Behavior<X>> nextBehavior) {
-		requireNonNull(nextBehavior);
+		Require.nonNull(nextBehavior);
 		return (events) -> applyEvents(events).mapBehavior(nextBehavior);
 	}
 
@@ -73,7 +69,7 @@ public interface Behavior<T> {
 	}
 
 	default Behavior<T> mapNothing(Consumer<? super T> consumer) {
-		requireNonNull(consumer);
+		Require.nonNull(consumer);
 		return map(t -> {
 			consumer.accept(t);
 			return this;
