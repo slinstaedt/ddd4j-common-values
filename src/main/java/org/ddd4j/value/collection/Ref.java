@@ -34,7 +34,7 @@ public interface Ref<T> {
 		}
 
 		default Opt<T> emptyIf(Predicate<? super T> predicate) {
-			return update(Opt.empty(), o -> o.testNullable(predicate)).getLeft();
+			return updateWithValue(Opt.none(), o -> o.testNullable(predicate)).getLeft();
 		}
 
 		default T getNullable() {
@@ -145,11 +145,11 @@ public interface Ref<T> {
 		return getAndUpdate(t -> supplier.get(), predicate);
 	}
 
-	default T getAndUpdate(T newValue) {
+	default T getAndUpdateWithValue(T newValue) {
 		return getAndUpdate(t -> newValue);
 	}
 
-	default T getAndUpdate(T newValue, Predicate<? super T> predicate) {
+	default T getAndUpdateWithValue(T newValue, Predicate<? super T> predicate) {
 		return getAndUpdate(t -> newValue, predicate);
 	}
 
@@ -159,11 +159,6 @@ public interface Ref<T> {
 
 	default T getAndUpdate(UnaryOperator<T> updateFunction, Predicate<? super T> predicate) {
 		return update(updateFunction, predicate).foldLeft(Function.identity());
-	}
-
-	default <X> UnaryOperator<X> mapTo(BiFunction<X, ? super T, X> mapper) {
-		Require.nonNull(mapper);
-		return x -> mapper.apply(x, get());
 	}
 
 	default Ref<T> set(T value) {
@@ -179,11 +174,11 @@ public interface Ref<T> {
 		return update(t -> supplier.get(), predicate);
 	}
 
-	default Tpl<T, T> update(T value) {
+	default Tpl<T, T> updateWithValue(T value) {
 		return update(t -> value);
 	}
 
-	default Tpl<T, T> update(T value, Predicate<? super T> predicate) {
+	default Tpl<T, T> updateWithValue(T value, Predicate<? super T> predicate) {
 		return update(t -> value, predicate);
 	}
 
@@ -208,11 +203,11 @@ public interface Ref<T> {
 		return updateAndGet(t -> supplier.get(), predicate);
 	}
 
-	default T updateAndGet(T value) {
+	default T updateAndGetWithValue(T value) {
 		return updateAndGet(t -> value);
 	}
 
-	default T updateAndGet(T value, Predicate<? super T> predicate) {
+	default T updateAndGetWithValue(T value, Predicate<? super T> predicate) {
 		return updateAndGet(t -> value, predicate);
 	}
 

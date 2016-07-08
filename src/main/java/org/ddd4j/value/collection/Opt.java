@@ -19,7 +19,7 @@ import org.ddd4j.value.Throwing;
 @FunctionalInterface
 public interface Opt<T> {
 
-	static <T> Opt<T> empty() {
+	static <T> Opt<T> none() {
 		return new Opt<T>() {
 
 			@Override
@@ -78,15 +78,15 @@ public interface Opt<T> {
 	}
 
 	default Opt<T> filterNonNull(Predicate<? super T> predicate) {
-		return applyNullable(t -> t != null && predicate.test(t) ? this : Opt.empty(), Opt::empty);
+		return applyNullable(t -> t != null && predicate.test(t) ? this : Opt.none(), Opt::none);
 	}
 
 	default Opt<T> filterNullable(Predicate<? super T> predicate) {
-		return applyNullable(t -> predicate.test(t) ? this : Opt.empty(), Opt::empty);
+		return applyNullable(t -> predicate.test(t) ? this : Opt.none(), Opt::none);
 	}
 
 	default <X> Opt<X> flatMap(Function<? super T, Opt<X>> nonNull, Supplier<Opt<X>> nill) {
-		return apply(nonNull, nill, Opt::empty);
+		return apply(nonNull, nill, Opt::none);
 	}
 
 	default <X> Opt<X> flatMap(Function<? super T, Opt<X>> nonNull, Supplier<Opt<X>> nill, Supplier<Opt<X>> empty) {
@@ -94,11 +94,11 @@ public interface Opt<T> {
 	}
 
 	default <X> Opt<X> flatMapNonNull(Function<? super T, Opt<X>> nonNull) {
-		return apply(nonNull, Opt::ofNull, Opt::empty);
+		return apply(nonNull, Opt::ofNull, Opt::none);
 	}
 
 	default <X> Opt<X> flatMapNullable(Function<? super T, Opt<X>> nullable) {
-		return applyNullable(nullable, Opt::empty);
+		return applyNullable(nullable, Opt::none);
 	}
 
 	default <X> Opt<X> flatMapNullable(Function<? super T, Opt<X>> nullable, Supplier<Opt<X>> empty) {

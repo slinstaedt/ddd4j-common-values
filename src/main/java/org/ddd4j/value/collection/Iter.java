@@ -78,7 +78,7 @@ public interface Iter<T> {
 
 	static <T> Iter<T> wrap(Iterator<T> delegate) {
 		Require.nonNull(delegate);
-		return () -> delegate.hasNext() ? Opt.of(delegate.next()) : Opt.empty();
+		return () -> delegate.hasNext() ? Opt.of(delegate.next()) : Opt.none();
 	}
 
 	default Iterator<T> asIterator() {

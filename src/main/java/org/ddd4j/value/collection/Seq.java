@@ -214,6 +214,18 @@ public interface Seq<E> extends Iter.Able<E> {
 			return collect(Collectors.counting());
 		}
 
+		default <T> T eachWithIdentity(T identity, BiFunction<? super T, ? super E, ? extends T> fold) {
+			Ref<T> ref = Ref.create(identity);
+			apply(Function.identity()).forEach(e -> ref.update(t -> fold.apply(t, e)));
+			return ref.get();
+		}
+
+		default <T> Optional<T> eachWithIntitial(Function<? super E, ? extends T> initial, BiFunction<? super T, ? super E, ? extends T> fold) {
+			Ref<T> ref = Ref.create();
+			apply(Function.identity()).forEach(e -> ref.update(t -> t == null ? initial.apply(e) : fold.apply(t, e)));
+			return Optional.ofNullable(ref.get());
+		}
+
 		default <K> Map<K, List<E>> groupingBy(Function<? super E, ? extends K> classifier) {
 			return collect(Collectors.groupingBy(classifier));
 		}
@@ -374,7 +386,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default <R, T> InnerJoin<L, R, T> inner(Seq<R> other, BiFunction<? super L, ? super R, T> mapper) {
 			Require.nonNullElements(other, mapper);
-			return (p, lf, rf) -> apply(other, mapper, p, lf.apply(Opt.empty()), rf.apply(Opt.empty()));
+			return (p, lf, rf) -> apply(other, mapper, p, lf.apply(Opt.none()), rf.apply(Opt.none()));
 		}
 
 		default <R> LeftJoin<L, R, Tpl<L, R>> left(Seq<R> other) {
@@ -383,7 +395,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default <R, T> LeftJoin<L, R, T> left(Seq<R> other, BiFunction<? super L, ? super R, T> mapper) {
 			Require.nonNullElements(other, mapper);
-			return (p, lf, rf) -> apply(other, mapper, p, lf.apply(Opt.empty()), rf.apply(Opt.ofNull()));
+			return (p, lf, rf) -> apply(other, mapper, p, lf.apply(Opt.none()), rf.apply(Opt.ofNull()));
 		}
 
 		default <R> OuterJoin<L, R, Tpl<L, R>> outer(Seq<R> other) {
@@ -401,7 +413,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default <R, T> RightJoin<L, R, T> right(Seq<R> other, BiFunction<? super L, ? super R, T> mapper) {
 			Require.nonNullElements(other, mapper);
-			return (p, lf, rf) -> apply(other, mapper, p, lf.apply(Opt.ofNull()), rf.apply(Opt.empty()));
+			return (p, lf, rf) -> apply(other, mapper, p, lf.apply(Opt.ofNull()), rf.apply(Opt.none()));
 		}
 	}
 
@@ -426,6 +438,10 @@ public interface Seq<E> extends Iter.Able<E> {
 				return () -> stream().filter(tpl -> tpl.testRight(predicate));
 			}
 
+			default Seq<T> get(S key) {
+				return wrap(filter().by(tpl -> tpl.equalsLeft(key))).target();
+			}
+
 			default Mapping<S, Seq<T>> grouped() {
 				source().filter().distinct().map().mapped(s -> wrap(filter().by(tpl -> tpl.equalsLeft(s))).target());
 				return source().filter().distinct().map().mapped(s -> wrap(filter().by(tpl -> tpl.equalsLeft(s))).target());
@@ -438,10 +454,6 @@ public interface Seq<E> extends Iter.Able<E> {
 
 			default Mapping<S, T> put(S key, T value) {
 				return append().entry(Tpl.of(key, value))::stream;
-			}
-
-			default Seq<T> get(S key) {
-				return wrap(filter().by(tpl -> tpl.equalsLeft(key))).target();
 			}
 
 			default Mapping<T, S> reversed() {
@@ -555,7 +567,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default Mapping<E, E> recursively(Function<? super E, ? extends Seq<? extends E>> mapper) {
 			Require.nonNull(mapper);
-			return apply(m -> m.append().seq(this.<E> flat(mapper).target().map().recursively(mapper)));
+			return apply(m -> m.append().seq(this.<E>flat(mapper).target().map().recursively(mapper)));
 		}
 
 		default Mapping<E, E> recursivelyArray(Function<? super E, E[]> mapper) {
@@ -565,12 +577,12 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default Mapping<E, E> recursivelyCollection(Function<? super E, ? extends Collection<? extends E>> mapper) {
 			Require.nonNull(mapper);
-			return apply(m -> m.append().seq(this.<E> flatCollection(mapper).target().map().recursivelyCollection(mapper)));
+			return apply(m -> m.append().seq(this.<E>flatCollection(mapper).target().map().recursivelyCollection(mapper)));
 		}
 
 		default Mapping<E, E> recursivelyStream(Function<? super E, ? extends Stream<? extends E>> mapper) {
 			Require.nonNull(mapper);
-			return apply(m -> m.append().seq(this.<E> flatStream(mapper).target().map().recursivelyStream(mapper)));
+			return apply(m -> m.append().seq(this.<E>flatStream(mapper).target().map().recursivelyStream(mapper)));
 		}
 
 		default <X> Seq<X> to(Function<? super E, X> mapper) {
@@ -739,18 +751,6 @@ public interface Seq<E> extends Iter.Able<E> {
 		return this::intersect;
 	}
 
-	default <R, T> Seq<T> intersect(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate, Opt<E> leftFill,
-			Opt<R> rightFill) {
-		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
-		Iter.Able<E> able = () -> {
-			RefTpl<E, R> next = RefTpl.create(null, null);
-			Function<Iter<E>, T> visitNext1 = i -> i.visitNextOrOptional(next::setLeft, leftFill) ? next.fold(mapper) : next.fold(mapper);
-			RefTpl<Iter<E>, Iter<R>> iterators = RefTpl.create(this.iter(), other.iter());
-			iterators.getAndUpdate(Tpl::reverse).fold((i1, i2) -> visitNext.apply(i1).orElseMapGet(() -> visitNext.apply(i2)));
-			return () -> null;
-		};
-	}
-
 	// TODO use Joiner?
 	default Seq<E> intersect(Seq<E> other, boolean anyInfinite) {
 		Require.nonNull(other);
@@ -783,6 +783,19 @@ public interface Seq<E> extends Iter.Able<E> {
 			};
 		});
 
+	}
+
+	default <R, T> Seq<T> intersect(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate, Opt<E> leftFill,
+			Opt<R> rightFill) {
+		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
+		Iter.Able<E> able = () -> {
+			RefTpl<E, R> next = RefTpl.create(null, null);
+			Function<Iter<E>, T> visitNext1 = i -> i.visitNextOrOptional(next::setLeft, leftFill) ? next.fold(mapper) : next.fold(mapper);
+			RefTpl<Iter<E>, Iter<R>> iterators = RefTpl.create(this.iter(), other.iter());
+			iterators.getAndUpdate(Tpl::reverse).fold((i1, i2) -> visitNext.apply(i1).orElseMapGet(() -> visitNext.apply(i2)));
+			// TODO
+			return () -> null;
+		};
 	}
 
 	default boolean isEmpty() {
