@@ -1,10 +1,9 @@
 package org.ddd4j.value.behavior;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.Optional;
 import java.util.function.Function;
 
+import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.collection.Seq;
 
@@ -68,8 +67,7 @@ public interface HandlerChain<T, M> {
 	}
 
 	static <T, M> HandlerChain<T, M> unhandled(Function<String, ? extends RuntimeException> exceptionFactory) {
-		return Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args))
-				.<T, M, T> asBiFunction()::apply;
+		return Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args)).<T, M, T>asBiFunction()::apply;
 	}
 
 	default Behavior<T> applyBehavior(T target, M message) {
@@ -77,15 +75,12 @@ public interface HandlerChain<T, M> {
 			T result = handle(target, message);
 			return Behavior.accept(result, message);
 		} catch (Exception e) {
-			return Behavior.reject(e.getMessage());
+			return Behavior.reject(e);
 		}
 	}
 
-	default <X extends T, Y extends M> HandlerChain<T, M> chain(Class<X> targetType, Class<Y> messageType,
-			Handler<? super X, ? super Y, ? extends T> handler) {
-		requireNonNull(targetType);
-		requireNonNull(messageType);
-		requireNonNull(handler);
+	default <X extends T, Y extends M> HandlerChain<T, M> chain(Class<X> targetType, Class<Y> messageType, Handler<? super X, ? super Y, ? extends T> handler) {
+		Require.nonNullElements(targetType, messageType, handler);
 		return (t, m) -> {
 			if (targetType.isInstance(t) && messageType.isInstance(m)) {
 				return handler.handle(targetType.cast(t), messageType.cast(m));
@@ -95,10 +90,8 @@ public interface HandlerChain<T, M> {
 		};
 	}
 
-	default <Y extends M> HandlerChain<T, M> chain(Class<Y> messageType,
-			Handler<? super T, ? super Y, ? extends T> handler) {
-		requireNonNull(messageType);
-		requireNonNull(handler);
+	default <Y extends M> HandlerChain<T, M> chain(Class<Y> messageType, Handler<? super T, ? super Y, ? extends T> handler) {
+		Require.nonNullElements(messageType, handler);
 		return (t, m) -> {
 			if (messageType.isInstance(m)) {
 				return handler.handle(t, messageType.cast(m));
@@ -112,8 +105,7 @@ public interface HandlerChain<T, M> {
 		return chain(messageType, handler);
 	}
 
-	default <X extends T, Y extends M> HandlerChain<T, M> chainReference(Class<X> targetType, Class<Y> messageType,
-			ReferenceHandler<X, ? super Y> handler) {
+	default <X extends T, Y extends M> HandlerChain<T, M> chainReference(Class<X> targetType, Class<Y> messageType, ReferenceHandler<X, ? super Y> handler) {
 		return chain(targetType, messageType, handler);
 	}
 
@@ -130,27 +122,24 @@ public interface HandlerChain<T, M> {
 	}
 
 	default Optional<T> createFrom(Seq<? extends M> messages) {
-		return messages.fold(msg -> handle(null, msg), this::handle);
+		return messages.fold().eachWithIntitial(msg -> handle(null, msg), this::handle);
 	}
 
 	T handle(T target, M message);
 
 	default T handleAll(T target, Seq<? extends M> messages) {
-		return messages.fold(target, this::handle);
+		return messages.fold().eachWithIdentity(target, this::handle);
 	}
 
-	default <X extends T, Y extends M> HandlerChain<T, M> swap(Class<X> targetType, Class<Y> messageType,
-			Handler<? super Y, ? super X, ? extends T> handler) {
+	default <X extends T, Y extends M> HandlerChain<T, M> swap(Class<X> targetType, Class<Y> messageType, Handler<? super Y, ? super X, ? extends T> handler) {
 		return chain(targetType, messageType, handler.swap());
 	}
 
-	default <Y extends M> HandlerChain<T, M> swap(Class<Y> messageType,
-			Handler<? super Y, ? super T, ? extends T> handler) {
+	default <Y extends M> HandlerChain<T, M> swap(Class<Y> messageType, Handler<? super Y, ? super T, ? extends T> handler) {
 		return chain(messageType, handler.swap());
 	}
 
-	default <X extends T, Y extends M> HandlerChain<T, M> swapReference(Class<X> targetType, Class<Y> messageType,
-			ReferenceHandler<X, ? super Y> handler) {
+	default <X extends T, Y extends M> HandlerChain<T, M> swapReference(Class<X> targetType, Class<Y> messageType, ReferenceHandler<X, ? super Y> handler) {
 		return chain(targetType, messageType, handler);
 	}
 

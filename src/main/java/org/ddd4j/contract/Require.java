@@ -44,6 +44,32 @@ public interface Require<T> extends Function<Object, T> {
 		}
 	}
 
+	static void nonNullElements(Object o1, Object o2) {
+		assert o1 != null;
+		assert o2 != null;
+	}
+
+	static void nonNullElements(Object o1, Object o2, Object o3) {
+		assert o1 != null;
+		assert o2 != null;
+		assert o3 != null;
+	}
+
+	static void nonNullElements(Object o1, Object o2, Object o3, Object o4) {
+		assert o1 != null;
+		assert o2 != null;
+		assert o3 != null;
+		assert o4 != null;
+	}
+
+	static void nonNullElements(Object o1, Object o2, Object o3, Object o4, Object o5) {
+		assert o1 != null;
+		assert o2 != null;
+		assert o3 != null;
+		assert o4 != null;
+		assert o5 != null;
+	}
+
 	static <T extends Iterable<?>> T nonNullElements(T iterable) {
 		assert iterable != null;
 		iterable.forEach(t -> {
