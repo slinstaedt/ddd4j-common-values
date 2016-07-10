@@ -6,53 +6,47 @@ import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
-import org.ddd4j.value.behavior.Reaction.Accepted;
-import org.ddd4j.value.behavior.Reaction.Rejected;
 import org.ddd4j.value.collection.Seq;
 
 @FunctionalInterface
 public interface Behavior<T> {
 
 	static <T> Behavior<T> accept() {
-		return events -> new Accepted<>(events);
+		return events -> Reaction.accepted(events);
 	}
 
 	static <T> Behavior<T> accept(T result) {
 		Require.nonNull(result);
-		return events -> new Accepted<>(events, result);
+		return events -> Reaction.accepted(result, events);
 	}
 
 	static <T> Behavior<T> accept(T result, Object event) {
 		Require.nonNullElements(result, event);
-		return events -> new Accepted<>(events.appendAny().entry(event), result);
+		return events -> Reaction.accepted(result, events.appendAny().entry(event));
 	}
 
 	static <T> Behavior<T> accept(T result, Seq<?> newEvents) {
 		Require.nonNullElements(result, newEvents);
-		return events -> new Accepted<>(events.appendAny().seq(newEvents), result);
+		return events -> Reaction.accepted(result, events.appendAny().seq(newEvents));
 	}
 
 	static Behavior<Void> guard(boolean condition, String message, Object... arguments) {
-		if (condition) {
-			return events -> new Accepted<>(events);
-		} else {
-			return reject(message, arguments);
-		}
+		return condition ? Reaction::accepted : reject(message, arguments);
 	}
 
 	static Behavior<Void> record(Object event) {
 		Require.nonNull(event);
-		return events -> new Accepted<>(events.appendAny().entry(event));
+		return events -> Reaction.accepted(events.appendAny().entry(event));
 	}
 
 	static <T> Behavior<T> reject(String message, Object... arguments) {
 		Require.nonNullElements(message, arguments);
-		return events -> new Rejected<>(message, arguments);
+		return events -> Reaction.rejected(message, arguments);
 	}
 
 	static <T> Behavior<T> reject(Throwable exception) {
 		Require.nonNull(exception);
-		return events -> new Rejected<>(exception.getMessage(), exception);
+		return events -> Reaction.rejected(exception.getMessage(), exception);
 	}
 
 	Reaction<T> applyEvents(Seq<?> events);

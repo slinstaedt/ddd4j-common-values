@@ -16,12 +16,12 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 		private final Seq<?> events;
 		private final T result;
 
-		public Accepted(Seq<?> events) {
+		private Accepted(Seq<?> events) {
 			this.events = Require.nonNull(events);
 			this.result = null;
 		}
 
-		public Accepted(Seq<?> events, T result) {
+		private Accepted(Seq<?> events, T result) {
 			this.events = Require.nonNull(events);
 			this.result = Require.nonNull(result);
 		}
@@ -46,7 +46,7 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 		private final String message;
 		private final Object[] arguments;
 
-		public Rejected(String message, Object... arguments) {
+		private Rejected(String message, Object... arguments) {
 			this.message = Require.nonNull(message);
 			this.arguments = Require.nonNull(arguments);
 		}
@@ -68,6 +68,18 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 		public String getMessage() {
 			return message;
 		}
+	}
+
+	static <T> Reaction<T> accepted(Seq<?> events) {
+		return new Accepted<>(events);
+	}
+
+	static <T> Reaction<T> accepted(T result, Seq<?> events) {
+		return new Accepted<>(events, result);
+	}
+
+	static <T> Reaction<T> rejected(String message, Object... arguments) {
+		return new Rejected<>(message, arguments);
 	}
 
 	Seq<?> events();
