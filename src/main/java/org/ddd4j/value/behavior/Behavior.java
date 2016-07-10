@@ -83,6 +83,11 @@ public interface Behavior<T> {
 		return map(nextResult.andThen(Behavior::accept));
 	}
 
+	default Behavior<T> mustContain(Object event) {
+		Require.that(outcome().events().contains(event));
+		return this;
+	}
+
 	default Reaction<T> outcome() {
 		return applyEvents(Seq.empty());
 	}
