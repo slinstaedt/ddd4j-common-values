@@ -32,7 +32,7 @@ public interface Effect<T> {
 		CompletionStage<Reaction<T>> accept(Interpreter interpreter);
 	}
 
-	static Side<Void> NONE = of(Behavior.accept());
+	static Side<Void> NONE = of(Reaction.accepted(Seq.empty()));
 
 	@SuppressWarnings("unchecked")
 	static <T> CompletionStage<? extends Reaction<T>> cast(CompletionStage<? extends Reaction<? extends T>> stage) {
@@ -40,20 +40,16 @@ public interface Effect<T> {
 	}
 
 	static <T> Side<T> failingWith(String message, Object... arguments) {
-		return of(Behavior.reject(message, arguments));
-	}
-
-	static <T> Side<T> failingWith(Throwable exception) {
-		return of(Behavior.reject(exception));
+		return of(Reaction.rejected(message, arguments));
 	}
 
 	static <T> Side<T> just(T result) {
-		return of(Behavior.accept(result));
+		return of(Reaction.accepted(result, Seq.empty()));
 	}
 
-	static <T> Side<T> of(Behavior<T> behavior) {
-		Require.nonNull(behavior);
-		return i -> CompletableFuture.completedFuture(behavior.outcome());
+	static <T> Side<T> of(Reaction<T> reaction) {
+		Require.nonNull(reaction);
+		return i -> CompletableFuture.completedFuture(reaction);
 	}
 
 	static Effect<?> ofAny(Object effect) {
@@ -88,7 +84,7 @@ public interface Effect<T> {
 
 	default <U, V> Side<V> combine(Effect<? extends U> other, BiFunction<? super T, ? super U, ? extends Effect<V>> accepted,
 			BiFunction<String, Object[], ? extends Effect<V>> rejected) {
-		return this.<U, V>combine(other, (rt, ru) -> rt.fold(t -> ru.fold(u -> accepted.apply(t, u), rejected), rejected));
+		return this.<U, V> combine(other, (rt, ru) -> rt.fold(t -> ru.fold(u -> accepted.apply(t, u), rejected), rejected));
 	}
 
 	default <U> Side<U> either(Effect<? extends T> other, Function<? super Reaction<? extends T>, ? extends Effect<U>> fn) {
@@ -105,7 +101,7 @@ public interface Effect<T> {
 		return on(t -> {
 			accepted.accept(t);
 			return null;
-		}, (msg, args) -> {
+		} , (msg, args) -> {
 			rejected.accept(msg, args);
 			return null;
 		});
