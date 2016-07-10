@@ -44,6 +44,10 @@ public interface Require<T> extends Function<Object, T> {
 		}
 	}
 
+	static void nonNullElements(Object o) {
+		assert o != null;
+	}
+
 	static void nonNullElements(Object o1, Object o2) {
 		assert o1 != null;
 		assert o2 != null;
