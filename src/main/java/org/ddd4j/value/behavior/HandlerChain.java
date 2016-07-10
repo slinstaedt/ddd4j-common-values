@@ -32,15 +32,6 @@ public interface HandlerChain<T, M> {
 	@FunctionalInterface
 	interface Handler<I, M, O> {
 
-		default Behavior<O> applyBehavior(I target, M message) {
-			try {
-				O result = handle(target, message);
-				return Behavior.accept(result, message);
-			} catch (Exception e) {
-				return Behavior.reject(e.getMessage());
-			}
-		}
-
 		O handle(I target, M message);
 
 		default Handler<M, I, O> swap() {
@@ -67,7 +58,7 @@ public interface HandlerChain<T, M> {
 	}
 
 	static <T, M> HandlerChain<T, M> unhandled(Function<String, ? extends RuntimeException> exceptionFactory) {
-		return Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args)).<T, M, T>asBiFunction()::apply;
+		return Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args)).<T, M, T> asBiFunction()::apply;
 	}
 
 	default Behavior<T> applyBehavior(T target, M message) {
