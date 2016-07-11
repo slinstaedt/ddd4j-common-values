@@ -5,7 +5,34 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import org.ddd4j.contract.Require;
+import org.ddd4j.value.collection.Tpl;
+
 public interface Either<L, R> {
+
+	@FunctionalInterface
+	interface OrBoth<L, R> extends Either<Either<L, R>, Tpl<L, R>> {
+
+		static <L, R> OrBoth<L, R> both(Tpl<L, R> tpl) {
+			return Either.<Either<L, R>, Tpl<L, R>>right(Require.nonNull(tpl))::fold;
+		}
+
+		static <L, R> OrBoth<L, R> left(L value) {
+			return Either.<Either<L, R>, Tpl<L, R>>left(Either.left(value))::fold;
+		}
+
+		static <L, R> OrBoth<L, R> right(R value) {
+			return Either.<Either<L, R>, Tpl<L, R>>left(Either.right(value))::fold;
+		}
+
+		default Tpl<L, R> getBoth() {
+			return getRight();
+		}
+
+		default Either<L, R> getEither() {
+			return getLeft();
+		}
+	}
 
 	static <L, R> Either<L, R> left(L value) {
 		return new Either<L, R>() {
@@ -43,11 +70,11 @@ public interface Either<L, R> {
 	}
 
 	default <X> Either<? extends X, ? extends R> flatMapLeft(Function<? super L, Either<? extends X, ? extends R>> left) {
-		return fold(left, Function.<R> identity().andThen(Either::<X, R> right));
+		return fold(left, Function.<R>identity().andThen(Either::<X, R>right));
 	}
 
 	default <Y> Either<? extends L, ? extends Y> flatMapRight(Function<? super R, Either<? extends L, ? extends Y>> right) {
-		return fold(Function.<L> identity().andThen(Either::<L, Y> left), right);
+		return fold(Function.<L>identity().andThen(Either::<L, Y>left), right);
 	}
 
 	<X> X fold(Function<? super L, ? extends X> left, Function<? super R, ? extends X> right);
@@ -77,11 +104,11 @@ public interface Either<L, R> {
 	}
 
 	default <X, Y> Either<X, Y> map(Function<? super L, ? extends X> left, Function<? super R, ? extends Y> right) {
-		return fold(left.andThen(Either::<X, Y> left), right.andThen(Either::<X, Y> right));
+		return fold(left.andThen(Either::<X, Y>left), right.andThen(Either::<X, Y>right));
 	}
 
 	default <X> Either<X, R> mapLeft(Function<? super L, ? extends X> left) {
-		return fold(left.andThen(Either::<X, R> left), Function.<R> identity().andThen(Either::<X, R> right));
+		return fold(left.andThen(Either::<X, R>left), Function.<R>identity().andThen(Either::<X, R>right));
 	}
 
 	default <X> Optional<? extends X> mapOptional(Function<? super L, ? extends X> left, Function<? super R, ? extends X> right) {
@@ -89,11 +116,11 @@ public interface Either<L, R> {
 	}
 
 	default <Y> Either<L, Y> mapRight(Function<? super R, ? extends Y> right) {
-		return fold(Function.<L> identity().andThen(Either::<L, Y> left), right.andThen(Either::<L, Y> right));
+		return fold(Function.<L>identity().andThen(Either::<L, Y>left), right.andThen(Either::<L, Y>right));
 	}
 
 	default Either<R, L> swap() {
-		return fold(Either::<R, L> right, Either::<R, L> left);
+		return fold(Either::<R, L>right, Either::<R, L>left);
 	}
 
 	default boolean test(Predicate<? super L> left, Predicate<? super R> right) {

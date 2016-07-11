@@ -8,27 +8,43 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Either;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.collection.Tpl;
 
 @FunctionalInterface
 public interface Effect<T> {
 
 	interface Dispatcher {
 
-		<T> CompletionStage<Reaction<T>> dispatch(Effect<? extends T> effect);
+		CompletionStage<Reaction<Void>> dispatch(Object command);
 
-		CompletionStage<Reaction<Void>> dispatch(Object effect);
+		<T> CompletionStage<Reaction<T>> dispatch(Query<? extends T> query);
 	}
 
 	@FunctionalInterface
-	interface Multiple extends Effect<Seq<?>> {
+	interface Multiple<T> {
 
-		Seq<CompletionStage<? extends Reaction<?>>> acceptMultiple(Dispatcher dispatcher);
+		Seq<CompletionStage<? extends Reaction<? extends T>>> accept(Dispatcher dispatcher);
 
-		@Override
-		default CompletionStage<Reaction<Seq<?>>> accept(org.ddd4j.value.behavior.Effect.Dispatcher dispatcher) {
-			// TODO Auto-generated method stub
-			return null;
+		default <X> Effect<X> composeAll(Function<Seq<Reaction<? extends T>>, Effect<X>> fn) {
+			return d -> {
+				Seq<CompletableFuture<? extends Reaction<? extends T>>> futures = accept(d).map().to(CompletionStage::toCompletableFuture);
+				return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+						.thenApply(v -> fn.apply(futures.map().to(CompletableFuture::join)).accept(d).toCompletableFuture().join());
+			};
+		}
+
+		@SuppressWarnings("unchecked")
+		default <X> Effect<X> composeAnyAccepted(Function<? super T, Effect<X>> accepted) {
+			return d -> CompletableFuture
+					.anyOf(accept(d).map()
+							.to(c -> c.thenApply(Reaction::result))
+							.map()
+							.to(CompletionStage::toCompletableFuture)
+							.toArray(CompletableFuture[]::new))
+					.thenApply(t -> accepted.apply((T) t))
+					.thenCompose(e -> e.accept(d));
 		}
 	}
 
@@ -79,18 +95,11 @@ public interface Effect<T> {
 		};
 	}
 
-	default Multiple chain(Seq<Effect<?>> effects) {
-		return d -> effects.map().to(e -> e.accept(d));
-	}
-
-	default <U, V> Effect<V> combine(Effect<? extends U> other,
-			BiFunction<? super Reaction<? extends T>, ? super Reaction<? extends U>, ? extends Effect<V>> fn) {
-		return d -> accept(d).thenCombine(other.accept(d), fn).thenCompose(e -> e.accept(d));
-	}
-
-	default <U, V> Effect<V> combine(Effect<? extends U> other, BiFunction<? super T, ? super U, ? extends Effect<V>> accepted,
-			BiFunction<String, Object[], ? extends Effect<V>> rejected) {
-		return this.<U, V>combine(other, (rt, ru) -> rt.fold(t -> ru.fold(u -> accepted.apply(t, u), rejected), rejected));
+	default <X> Multiple<X> chain(Seq<? extends Effect<? extends X>> effects) {
+		return d -> {
+			this.accept(d);
+			return effects.map().to(e -> e.accept(d));
+		};
 	}
 
 	default <U> Effect<U> either(Effect<? extends T> other, Function<? super Reaction<? extends T>, ? extends Effect<U>> fn) {
@@ -99,31 +108,55 @@ public interface Effect<T> {
 
 	default <U> Effect<U> either(Effect<? extends T> other, Function<? super T, ? extends Effect<U>> accepted,
 			BiFunction<String, Object[], ? extends Effect<U>> rejected) {
-		return either(other, r -> r.fold(t -> accepted.apply(t), rejected));
+		return either(other, r -> r.foldReaction(accepted, rejected));
+	}
+
+	default <X> Effect<X> flatMap(Function<? super T, Effect<X>> accepted, BiFunction<String, Object[], ? extends Effect<X>> rejected) {
+		Require.nonNullElements(accepted, rejected);
+		return d -> accept(d).thenCompose(r -> r.foldReaction(accepted, rejected).accept(d));
+	}
+
+	default <X> Effect<X> flatMapAccepted(Function<? super T, Effect<X>> accepted) {
+		return flatMap(accepted, Effect::failingWith);
+	}
+
+	default <X> Effect<X> flatMapRejected(Function<? super T, X> accepted, BiFunction<String, Object[], Effect<X>> rejected) {
+		Require.nonNullElements(accepted, rejected);
+		return flatMap(t -> just(accepted.apply(t)), rejected);
+	}
+
+	default <U, V> Effect<V> join(Effect<? extends U> other, BiFunction<? super Reaction<? extends T>, ? super Reaction<? extends U>, ? extends Effect<V>> fn) {
+		return d -> accept(d).thenCombine(other.accept(d), fn).thenCompose(e -> e.accept(d));
+	}
+
+	default <U, V> Effect<V> join(Effect<? extends U> other, BiFunction<? super T, ? super U, ? extends Effect<V>> accepted,
+			BiFunction<String, Object[], ? extends Effect<V>> rejected) {
+		return this.<U, V>join(other, (rt, ru) -> rt.foldReaction(t -> ru.foldReaction(u -> accepted.apply(t, u), rejected), rejected));
+	}
+
+	default <X> Effect<Tpl<T, X>> joinBoth(Effect<X> effect) {
+		Require.nonNull(effect);
+		return d -> accept(d).thenCombine(effect.accept(d), Reaction::<X>and);
+	}
+
+	default <X> Effect<Either.OrBoth<T, X>> joinEither(Effect<X> effect) {
+		Require.nonNull(effect);
+		return d -> accept(d).thenCombine(effect.accept(d), Reaction::<X>or);
+	}
+
+	default <X> Effect<X> mapAccepted(Function<? super T, ? extends X> mapper) {
+		Require.nonNullElements(mapper);
+		return d -> accept(d).thenApply(r -> r.mapResult(mapper));
 	}
 
 	default Effect<Void> on(Consumer<? super T> accepted, BiConsumer<String, Object[]> rejected) {
 		Require.nonNullElements(accepted, rejected);
-		return on(t -> {
+		return flatMap(t -> {
 			accepted.accept(t);
-			return null;
+			return NONE;
 		}, (msg, args) -> {
 			rejected.accept(msg, args);
-			return null;
+			return NONE;
 		});
-	}
-
-	default <X> Effect<X> on(Function<? super T, Effect<X>> accepted, BiFunction<String, Object[], ? extends Effect<X>> rejected) {
-		Require.nonNullElements(accepted, rejected);
-		return d -> accept(d).thenCompose(r -> r.fold(accepted, rejected).accept(d));
-	}
-
-	default <X> Effect<X> onAccepted(Function<? super T, Effect<X>> accepted) {
-		return on(accepted, Effect::failingWith);
-	}
-
-	default <X> Effect<X> onRejected(Function<? super T, X> accepted, BiFunction<String, Object[], Effect<X>> rejected) {
-		Require.nonNullElements(accepted, rejected);
-		return on(t -> just(accepted.apply(t)), rejected);
 	}
 }

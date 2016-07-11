@@ -87,10 +87,10 @@ public interface Behavior<T> {
 	}
 
 	default String rejected(BiFunction<String, Object[], String> formatter) {
-		return outcome().fold(t -> null, formatter);
+		return outcome().foldReaction(t -> null, formatter);
 	}
 
 	default T result() {
-		return outcome().fold(Function.identity(), Throwing.of(IllegalStateException::new).asBiFunction());
+		return outcome().foldReaction(Function.identity(), Throwing.of(IllegalStateException::new).asBiFunction());
 	}
 }
