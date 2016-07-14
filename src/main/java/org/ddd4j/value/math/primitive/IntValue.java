@@ -67,12 +67,6 @@ public final class IntValue extends Value implements Invertible<IntValue>, Binar
 	}
 
 	@Override
-	public IntValue self() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public IntValue set(int index, boolean bit) {
 		// TODO Auto-generated method stub
 		return null;
