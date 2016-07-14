@@ -46,7 +46,7 @@ public interface Behavior<T> {
 
 	static <T> Behavior<T> reject(Throwable exception) {
 		Require.nonNull(exception);
-		return events -> Reaction.rejected(exception.getMessage(), exception);
+		return events -> Reaction.rejected(exception.toString(), exception);
 	}
 
 	Reaction<T> applyEvents(Seq<?> events);
