@@ -3,9 +3,10 @@ package org.ddd4j.value;
 import static java.util.Objects.requireNonNull;
 
 import org.ddd4j.value.math.Invertible;
+import org.ddd4j.value.math.primitive.AbstractValue;
 import org.ddd4j.value.math.primitive.IntValue;
 
-public class TestValue extends Value implements Invertible.Wrapper<TestValue, IntValue> {
+public class TestValue extends AbstractValue implements Invertible.Wrapper<TestValue, IntValue> {
 
 	private final IntValue value;
 

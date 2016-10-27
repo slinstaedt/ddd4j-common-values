@@ -78,7 +78,7 @@ public class HandlerChain<T> {
 			this.handler = Require.nonNull(handler);
 		}
 
-		public Behavior<? extends B> apply(Behavior<? extends B> behavior, Object message) {
+		Behavior<? extends B> map(Behavior<? extends B> behavior, Object message) {
 			if (messageType.isInstance(message)) {
 				return behavior.map(t -> {
 					// java compiler can not infer type of SAM expression
@@ -95,8 +95,8 @@ public class HandlerChain<T> {
 			}
 		}
 
-		public Class<? extends M> messageType() {
-			return messageType;
+		Seq<Class<? extends M>> messageType() {
+			return Seq.singleton(messageType);
 		}
 
 		@Override
@@ -114,13 +114,13 @@ public class HandlerChain<T> {
 	private final Class<T> baseType;
 	private final Seq<BehaviorHandler<T, ?, ?>> handlers;
 
-	public HandlerChain(Class<T> baseType, Seq<BehaviorHandler<T, ?, ?>> handlers) {
+	private HandlerChain(Class<T> baseType, Seq<BehaviorHandler<T, ?, ?>> handlers) {
 		this.baseType = Require.nonNull(baseType);
 		this.handlers = Require.nonNull(handlers);
 	}
 
 	public Behavior<? extends T> handle(T target, Object message) {
-		return handlers.fold().<Behavior<? extends T>>eachWithIdentity(Behavior.none(target), (b, h) -> h.apply(b, message));
+		return handlers.fold().<Behavior<? extends T>>eachWithIdentity(Behavior.none(target), (b, h) -> h.map(b, message));
 	}
 
 	public Behavior<T> handleCommand(T target, Object command) {
@@ -137,11 +137,12 @@ public class HandlerChain<T> {
 	}
 
 	public <M> HandlerChain<T> failedOnUnhandled(Function<String, ? extends RuntimeException> exceptionFactory) {
+		when(Object.class, (t, m) -> null);
 		return null;// TODO Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args)).<T, M, T>asBiFunction()::apply;
 	}
 
 	public Seq<Class<?>> handledMessageTypes() {
-		return handlers.map().to(BehaviorHandler::messageType);
+		return handlers.map().<Class<?>>flat(BehaviorHandler::messageType).target().filter().distinct();
 	}
 
 	public <X extends T, M> HandlerChain<T> when(Class<X> targetType, Class<M> messageType, MessageHandler<? super X, ? super M, ? extends T> handler) {

@@ -25,6 +25,6 @@ public class ShipmentTest {
 
 	@Test(expected = IllegalStateException.class)
 	public void doubleArriveShouldFail() {
-		Behavior.accept(shipment).map(Shipment::arrive).map(Shipment::arrive);
+		Behavior.none(shipment).map(Shipment::arrive).map(Shipment::arrive);
 	}
 }
