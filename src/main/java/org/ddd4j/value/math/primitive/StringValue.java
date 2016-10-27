@@ -2,9 +2,7 @@ package org.ddd4j.value.math.primitive;
 
 import static java.util.Objects.requireNonNull;
 
-import org.ddd4j.value.Value;
-
-public final class StringValue extends Value {
+public final class StringValue extends AbstractValue {
 
 	private final String value;
 

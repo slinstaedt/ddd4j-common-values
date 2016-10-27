@@ -1,10 +1,9 @@
 package org.ddd4j.value.math.primitive;
 
-import org.ddd4j.value.Value;
 import org.ddd4j.value.math.Binary;
 import org.ddd4j.value.math.Invertible;
 
-public final class IntValue extends Value implements Invertible<IntValue>, Binary<IntValue> {
+public final class IntValue extends AbstractValue implements Invertible<IntValue>, Binary<IntValue> {
 
 	public static final IntValue ZERO = new IntValue(0);
 

@@ -15,25 +15,16 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 
 	class Accepted<T> implements Reaction<T> {
 
-		private final Seq<?> events;
 		private final T result;
+		private final Seq<?> events;
 
-		private Accepted(Seq<?> events) {
-			this.events = Require.nonNull(events);
-			this.result = null;
-		}
-
-		private Accepted(Seq<?> events, T result) {
-			this.events = Require.nonNull(events);
+		private Accepted(T result, Seq<?> events) {
 			this.result = Require.nonNull(result);
-		}
-
-		private Accepted(T result) {
-			this(Seq.empty(), result);
+			this.events = Require.nonNull(events);
 		}
 
 		private <X> Accepted<Tpl<T, X>> combine(Accepted<X> other) {
-			return new Accepted<>(this.events.appendAny().seq(other.events), Tpl.of(this.result, other.result));
+			return new Accepted<>(Tpl.of(this.result, other.result), this.events.appendAny().seq(other.events));
 		}
 
 		@Override
@@ -84,12 +75,16 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 		}
 	}
 
-	static <T> Reaction<T> accepted(Seq<?> events) {
-		return new Accepted<>(events);
+	static <T> Reaction<T> accepted(T result, Seq<?> events) {
+		return new Accepted<>(result, events);
 	}
 
-	static <T> Reaction<T> accepted(T result, Seq<?> events) {
-		return new Accepted<>(events, result);
+	static <T> Reaction<T> failed(Exception exception) {
+		return new Rejected<>(exception.getMessage(), exception);
+	}
+
+	static <T> Reaction<T> none(T result) {
+		return new Accepted<>(result, Seq.empty());
 	}
 
 	static <T> Reaction<T> rejected(String message, Object... arguments) {
@@ -110,12 +105,12 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 		return fold(a -> accepted.apply(a.getResult()), r -> rejected.apply(r.getMessage(), r.getArguments()));
 	}
 
-	default <X> Reaction<X> mapBehavior(Function<? super T, Behavior<X>> behavior) {
-		return foldReaction(behavior, Behavior::<X>reject).applyEvents(events());
+	default <X> Behavior<X> mapBehavior(Function<? super T, Behavior<X>> behavior) {
+		return foldReaction(behavior, Behavior::reject);
 	}
 
 	default <X> Reaction<X> mapResult(Function<? super T, ? extends X> mapper) {
-		return fold(a -> new Accepted<>(a.events(), mapper.apply(a.getResult())), Rejected::casted);
+		return fold(a -> new Accepted<>(mapper.apply(a.getResult()), a.events()), Rejected::casted);
 	}
 
 	default <X> Reaction<Either.OrBoth<T, X>> or(Reaction<X> other) {
@@ -133,7 +128,6 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 	}
 
 	default <X> Reaction<Either<T, X>> xor(Reaction<X> other) {
-		return or(other).<Reaction<Either<T, X>>>fold(a -> a.getResult().fold(Accepted<Either<T, X>>::new, tpl -> rejected("both maptch", tpl)),
-				Rejected::casted);
+		return or(other).<Reaction<Either<T, X>>>fold(a -> a.getResult().fold(Reaction::none, tpl -> rejected("both maptch", tpl)), Rejected::casted);
 	}
 }

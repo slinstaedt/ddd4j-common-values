@@ -443,7 +443,7 @@ public interface Seq<E> extends Iter.Able<E> {
 			}
 
 			default Mapping<S, Seq<T>> grouped() {
-				source().filter().distinct().map().mapped(s -> wrap(filter().by(tpl -> tpl.equalsLeft(s))).target());
+				// TODO test
 				return source().filter().distinct().map().mapped(s -> wrap(filter().by(tpl -> tpl.equalsLeft(s))).target());
 			}
 
@@ -475,11 +475,16 @@ public interface Seq<E> extends Iter.Able<E> {
 			default Map<S, T> toMap() {
 				return fold().toMap(Tpl::getLeft, Tpl::getRight);
 			}
+
+			default Index<S, T> toIndex() {
+				// TODO
+				return null;
+			}
 		}
 
-		<X> Mapping<E, X> apply(Function<Mapping<E, E>, Seq<Tpl<E, X>>> function);
+		<X, Y> Mapping<X, Y> apply(Function<Mapping<E, E>, Seq<Tpl<X, Y>>> function);
 
-		default <X> Mapping<E, X> applyStream(Function<Mapping<E, E>, Stream<Tpl<E, X>>> mapper) {
+		default <X, Y> Mapping<X, Y> applyStream(Function<Mapping<E, E>, Stream<Tpl<X, Y>>> mapper) {
 			return apply(m -> () -> mapper.apply(m));
 		}
 
@@ -528,10 +533,6 @@ public interface Seq<E> extends Iter.Able<E> {
 			return mapped(classifier).reversed().grouped();
 		}
 
-		default Mapping<E, E> identity() {
-			return mapped(Function.identity());
-		}
-
 		default Mapping<E, Long> indexed() {
 			return toSupplied(() -> {
 				Ref<Long> index = Ref.of(0L);
@@ -539,7 +540,7 @@ public interface Seq<E> extends Iter.Able<E> {
 			});
 		}
 
-		default <X> Mapping<E, X> mapped(Function<? super E, X> mapper) {
+		default <X> Mapping<E, X> mapped(Function<? super E, ? extends X> mapper) {
 			Require.nonNull(mapper);
 			return applyStream(m -> m.stream().map(tpl -> tpl.mapRight(mapper)));
 		}
@@ -724,7 +725,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		return downstream.apply(checkFinite().stream().map(mapper));
 	}
 
-	default <T extends Throwable> void forEach(ThrowingConsumer<? super E, T> action) throws T {
+	default <T extends Throwable> void forEachThrowing(ThrowingConsumer<? super E, T> action) throws T {
 		Iterator<E> iterator = iterator();
 		while (iterator.hasNext()) {
 			action.accept(iterator.next());
@@ -792,10 +793,11 @@ public interface Seq<E> extends Iter.Able<E> {
 			RefTpl<E, R> next = RefTpl.create(null, null);
 			Function<Iter<E>, T> visitNext1 = i -> i.visitNextOrOptional(next::setLeft, leftFill) ? next.fold(mapper) : next.fold(mapper);
 			RefTpl<Iter<E>, Iter<R>> iterators = RefTpl.create(this.iter(), other.iter());
-			iterators.getAndUpdate(Tpl::reverse).fold((i1, i2) -> visitNext.apply(i1).orElseMapGet(() -> visitNext.apply(i2)));
+			// iterators.getAndUpdate(Tpl::reverse).fold((i1, i2) -> visitNext.apply(i1).orElseMapGet(() -> visitNext.apply(i2)));
 			// TODO
 			return () -> null;
 		};
+		return null;
 	}
 
 	default boolean isEmpty() {
@@ -844,7 +846,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		return this::map;
 	}
 
-	default <X> Mapping<E, X> map(Function<Mapping<E, E>, Seq<Tpl<E, X>>> function) {
+	default <X, Y> Mapping<X, Y> map(Function<Mapping<E, E>, Seq<Tpl<X, Y>>> function) {
 		return Require.nonNull(function).apply(() -> stream().map(Tpl::both))::stream;
 	}
 
@@ -879,6 +881,10 @@ public interface Seq<E> extends Iter.Able<E> {
 		return filter().skip(1);
 	}
 
+	default Object[] toArray() {
+		return stream().toArray();
+	}
+
 	default E[] toArray(IntFunction<E[]> generator) {
 		return stream().toArray(generator);
 	}
@@ -897,8 +903,10 @@ public interface Seq<E> extends Iter.Able<E> {
 			RefTpl<E, R> ref = RefTpl.create(null, null);
 			Iter<E> i1 = this.iter();
 			Iter<R> i2 = other.iter();
-			return c -> i1.visitNextOrOptional(ref::setLeft, leftFill) | i2.visitNextOrOptional(ref::setRight, rightFill) && ref.get().test(predicate)
-					&& c.acceptIf(() -> true, () -> ref.get().fold(mapper));
+			// TODO
+			// return c -> i1.visitNextOrOptional(ref::setLeft, leftFill) | i2.visitNextOrOptional(ref::setRight, rightFill) && ref.get().test(predicate) &&
+			// c.acceptIf(() -> true, () -> ref.get().fold(mapper));
+			return null;
 		};
 		return able.asSequence();
 	}

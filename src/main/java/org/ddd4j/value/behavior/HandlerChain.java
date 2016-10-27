@@ -1,17 +1,15 @@
 package org.ddd4j.value.behavior;
 
-import java.util.Optional;
 import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing;
+import org.ddd4j.value.Nothing;
 import org.ddd4j.value.collection.Seq;
 
-@FunctionalInterface
-public interface HandlerChain<T, M> {
+public class HandlerChain<T> {
 
 	@FunctionalInterface
-	interface FactoryHandler<T, M> extends Handler<T, M, T> {
+	public interface FactoryHandler<T, M> extends MessageHandler<Object, M, T> {
 
 		T create(M message);
 
@@ -20,30 +18,47 @@ public interface HandlerChain<T, M> {
 		}
 
 		@Override
-		default T handle(T target, M message) {
-			if (target == null) {
+		default T apply(Object target, M message) {
+			if (target == Nothing.INSTANCE) {
 				return create(message);
 			} else {
 				throw new IllegalStateException("Could not handle " + message + " for existing " + target);
 			}
 		}
-	}
 
-	@FunctionalInterface
-	interface Handler<I, M, O> {
-
-		O handle(I target, M message);
-
-		default Handler<M, I, O> swap() {
-			return (m, i) -> handle(i, m);
+		default Behavior<T> record(M message) {
+			return record(Nothing.INSTANCE, message);
 		}
 	}
 
 	@FunctionalInterface
-	interface ReferenceHandler<T, M> extends Handler<T, M, T> {
+	public interface MessageHandler<S, M, T> {
+
+		T apply(S target, M message);
+
+		default Function<S, T> withMessage(M message) {
+			return s -> apply(s, message);
+		}
+
+		default Function<M, T> withTarget(S target) {
+			return m -> apply(target, m);
+		}
+
+		default MessageHandler<M, S, T> swap() {
+			return (m, s) -> apply(s, m);
+		}
+
+		// TODO rename?
+		default Behavior<T> record(S target, M message) {
+			return Behavior.accept(m -> apply(target, m), message);
+		}
+	}
+
+	@FunctionalInterface
+	public interface ReferenceHandler<T, M> extends MessageHandler<T, M, T> {
 
 		@Override
-		default T handle(T target, M message) {
+		default T apply(T target, M message) {
 			handleChange(target, message);
 			return target;
 		}
@@ -51,90 +66,143 @@ public interface HandlerChain<T, M> {
 		void handleChange(T target, M message);
 	}
 
-	String MESSAGE_FORMAT_TEMPLATE = "Message '%s' does not apply to %s";
+	private static class BehaviorHandler<B, T extends B, M> {
 
-	static <T, M> HandlerChain<T, M> unhandled() {
-		return unhandled(IllegalArgumentException::new);
-	}
+		private final Class<? extends T> targetType;
+		private final Class<? extends M> messageType;
+		private final MessageHandler<? super T, ? super M, ? extends B> handler;
 
-	static <T, M> HandlerChain<T, M> unhandled(Function<String, ? extends RuntimeException> exceptionFactory) {
-		return Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args)).<T, M, T> asBiFunction()::apply;
-	}
+		BehaviorHandler(Class<? extends T> targetType, Class<? extends M> messageType, MessageHandler<? super T, ? super M, ? extends B> handler) {
+			this.targetType = Require.nonNull(targetType);
+			this.messageType = Require.nonNull(messageType);
+			this.handler = Require.nonNull(handler);
+		}
 
-	default Behavior<T> applyBehavior(T target, M message) {
-		try {
-			T result = handle(target, message);
-			return Behavior.accept(result, message);
-		} catch (Exception e) {
-			return Behavior.reject(e);
+		public Behavior<? extends B> apply(Behavior<? extends B> behavior, Object message) {
+			if (messageType.isInstance(message)) {
+				return behavior.map(t -> {
+					// java compiler can not infer type of SAM expression
+					Behavior<? extends B> result;
+					if (targetType.isInstance(t)) {
+						result = handler.record(targetType.cast(t), messageType.cast(message));
+					} else {
+						result = behavior;
+					}
+					return result;
+				});
+			} else {
+				return behavior;
+			}
+		}
+
+		public B applyFromHistory(T target, M event) {
+			if (targetType.isInstance(target) && messageType.isInstance(event)) {
+				return handler.apply(targetType.cast(target), messageType.cast(event));
+			} else {
+				// TODO
+				return null;
+			}
+		}
+
+		public Class<? extends M> messageType() {
+			return messageType;
+		}
+
+		@Override
+		public String toString() {
+			return "Handler for target=" + targetType.getName() + ", message=" + messageType.getName();
 		}
 	}
 
-	default <X extends T, Y extends M> HandlerChain<T, M> chain(Class<X> targetType, Class<Y> messageType, Handler<? super X, ? super Y, ? extends T> handler) {
-		Require.nonNullElements(targetType, messageType, handler);
-		return (t, m) -> {
-			if (targetType.isInstance(t) && messageType.isInstance(m)) {
-				return handler.handle(targetType.cast(t), messageType.cast(m));
-			} else {
-				return this.handle(t, m);
-			}
-		};
+	private static final String MESSAGE_FORMAT_TEMPLATE = "Message '%s' does not apply to %s";
+
+	public static <T> HandlerChain<T> create(Class<T> baseType) {
+		return new HandlerChain<>(baseType, Seq.empty());
 	}
 
-	default <Y extends M> HandlerChain<T, M> chain(Class<Y> messageType, Handler<? super T, ? super Y, ? extends T> handler) {
-		Require.nonNullElements(messageType, handler);
-		return (t, m) -> {
-			if (messageType.isInstance(m)) {
-				return handler.handle(t, messageType.cast(m));
-			} else {
-				return this.handle(t, m);
-			}
-		};
+	private final Class<T> baseType;
+	private final Seq<BehaviorHandler<T, ?, ?>> handlers;
+
+	public HandlerChain(Class<T> baseType, Seq<BehaviorHandler<T, ?, ?>> handlers) {
+		this.baseType = Require.nonNull(baseType);
+		this.handlers = Require.nonNull(handlers);
 	}
 
-	default <Y extends M> HandlerChain<T, M> chainFactory(Class<Y> messageType, FactoryHandler<T, ? super Y> handler) {
-		return chain(messageType, handler);
+	public Behavior<? extends T> apply(T target, Object message) {
+		Behavior<T> behavior = Behavior.none(target);
+		return handlers.fold().eachWithIdentity(behavior, (b, h) -> {
+			Behavior<T> applied = h.apply(b, message);
+			return applied;
+		});
 	}
 
-	default <X extends T, Y extends M> HandlerChain<T, M> chainReference(Class<X> targetType, Class<Y> messageType, ReferenceHandler<X, ? super Y> handler) {
-		return chain(targetType, messageType, handler);
+	public Behavior<T> applyCommand(T target, Object command) {
+		// TODO check for multiple handlers
+		throw new UnsupportedOperationException();
 	}
 
-	default <Y extends M> HandlerChain<T, M> chainReference(Class<Y> messageType, ReferenceHandler<T, ? super Y> handler) {
-		return chain(messageType, handler);
+	public Behavior<? extends T> applyEvent(T target, Object event) {
+		return apply(target, event);
 	}
 
-	default T createFrom(@SuppressWarnings("unchecked") M... messages) {
-		Seq<M> sequence = Seq.of(messages);
-		if (sequence.isEmpty()) {
-			throw new IllegalArgumentException("No messages given");
+	public T applyFromHistory(T target, Object event) {
+		Behavior<T> behavior = Behavior.none(target);
+		for (BehaviorHandler<? super T, ?, ?> handler : handlers) {
+			// handler.apply(target, event);
 		}
-		return createFrom(sequence).orElseThrow(AssertionError::new);
+		return behavior.result();
 	}
 
-	default Optional<T> createFrom(Seq<? extends M> messages) {
-		return messages.fold().eachWithIntitial(msg -> handle(null, msg), this::handle);
+	public HandlerChain<T> failedOnUnhandled() {
+		return failedOnUnhandled(IllegalArgumentException::new);
 	}
 
-	T handle(T target, M message);
-
-	default T handleAll(T target, Seq<? extends M> messages) {
-		return messages.fold().eachWithIdentity(target, this::handle);
+	public <M> HandlerChain<T> failedOnUnhandled(Function<String, ? extends RuntimeException> exceptionFactory) {
+		return null;// TODO Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args)).<T, M, T>asBiFunction()::apply;
 	}
 
-	default <X extends T, Y extends M> HandlerChain<T, M> swap(Class<X> targetType, Class<Y> messageType, Handler<? super Y, ? super X, ? extends T> handler) {
-		return chain(targetType, messageType, handler.swap());
+	public Seq<Class<?>> handledMessageTypes() {
+		return handlers.map().to(BehaviorHandler::messageType);
 	}
 
-	default <Y extends M> HandlerChain<T, M> swap(Class<Y> messageType, Handler<? super Y, ? super T, ? extends T> handler) {
-		return chain(messageType, handler.swap());
+	public <X extends T, M> HandlerChain<T> when(Class<X> targetType, Class<M> messageType, MessageHandler<? super X, ? super M, ? extends T> handler) {
+		return new HandlerChain<>(baseType, handlers.append().entry(new BehaviorHandler<>(targetType, messageType, handler)));
 	}
 
-	default <X extends T, Y extends M> HandlerChain<T, M> swapReference(Class<X> targetType, Class<Y> messageType, ReferenceHandler<X, ? super Y> handler) {
-		return chain(targetType, messageType, handler);
+	public <M> HandlerChain<T> when(Class<M> messageType, MessageHandler<? super T, ? super M, ? extends T> handler) {
+		return when(baseType, messageType, handler);
 	}
 
-	default <Y extends M> HandlerChain<T, M> swapReference(Class<Y> messageType, ReferenceHandler<T, ? super Y> handler) {
-		return chain(messageType, handler);
+	public <M> HandlerChain<T> chainFactory(Class<M> messageType, FactoryHandler<? extends T, ? super M> handler) {
+		return when(messageType, handler);
+	}
+
+	public <X extends T, M> HandlerChain<T> chainReference(Class<X> targetType, Class<M> messageType, ReferenceHandler<X, ? super M> handler) {
+		return when(targetType, messageType, handler);
+	}
+
+	public <M> HandlerChain<T> chainReference(Class<M> messageType, ReferenceHandler<T, ? super M> handler) {
+		return when(messageType, handler);
+	}
+
+	public <X extends T, M> HandlerChain<T> swap(Class<X> targetType, Class<M> messageType, MessageHandler<? super M, ? super X, ? extends X> handler) {
+		return when(targetType, messageType, handler.swap());
+	}
+
+	public <M> HandlerChain<T> swap(Class<M> messageType, MessageHandler<? super M, ? super T, ? extends T> handler) {
+		return when(messageType, handler.swap());
+	}
+
+	public <X extends T, M> HandlerChain<T> swapReference(Class<X> targetType, Class<M> messageType, ReferenceHandler<X, ? super M> handler) {
+		return when(targetType, messageType, handler);
+	}
+
+	public <M> HandlerChain<T> swapReference(Class<M> messageType, ReferenceHandler<T, ? super M> handler) {
+		return when(messageType, handler);
+	}
+
+	@Override
+	public String toString() {
+		return "Handler chain:" + handlers.asString();
 	}
 }

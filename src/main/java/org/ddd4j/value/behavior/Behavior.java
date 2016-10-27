@@ -3,7 +3,9 @@ package org.ddd4j.value.behavior;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
+import org.ddd4j.aggregate.Session;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.collection.Seq;
@@ -11,79 +13,67 @@ import org.ddd4j.value.collection.Seq;
 @FunctionalInterface
 public interface Behavior<T> {
 
-	static <T> Behavior<T> accept() {
-		return events -> Reaction.accepted(events);
+	static <E, T> Behavior<T> accept(Function<? super E, ? extends T> handler, E event) {
+		Require.nonNullElements(handler, event);
+		return s -> s.record(handler, event);
 	}
 
-	static <T> Behavior<T> accept(T result) {
-		Require.nonNull(result);
-		return events -> Reaction.accepted(result, events);
+	static <T> Behavior<T> failed(Exception exception) {
+		Require.nonNull(exception);
+		return s -> Reaction.failed(exception);
 	}
 
-	static <T> Behavior<T> accept(T result, Object event) {
-		Require.nonNullElements(result, event);
-		return events -> Reaction.accepted(result, events.appendAny().entry(event));
-	}
-
-	static <T> Behavior<T> accept(T result, Seq<?> newEvents) {
-		Require.nonNullElements(result, newEvents);
-		return events -> Reaction.accepted(result, events.appendAny().seq(newEvents));
-	}
-
-	static Behavior<Void> guard(boolean condition, String message, Object... arguments) {
-		return condition ? Reaction::accepted : reject(message, arguments);
-	}
-
-	static Behavior<Void> record(Object event) {
-		Require.nonNull(event);
-		return events -> Reaction.accepted(events.appendAny().entry(event));
+	static <T> Behavior<T> none(T unit) {
+		return s -> Reaction.accepted(unit, Seq.empty());
 	}
 
 	static <T> Behavior<T> reject(String message, Object... arguments) {
 		Require.nonNullElements(message, arguments);
-		return events -> Reaction.rejected(message, arguments);
+		return s -> Reaction.rejected(message, arguments);
 	}
 
-	static <T> Behavior<T> reject(Throwable exception) {
-		Require.nonNull(exception);
-		return events -> Reaction.rejected(exception.toString(), exception);
+	Reaction<T> apply(Session session);
+
+	default Behavior<T> assertContain(Object event) {
+		Require.that(outcome().events().contains(event));
+		return this;
 	}
 
-	Reaction<T> applyEvents(Seq<?> events);
+	default <X extends T> Behavior<X> guard(Class<X> stateType) {
+		return map(t -> stateType.isInstance(t) ? Behavior.none(stateType.cast(t)) : reject("wrong state", t, stateType));
+	}
 
-	default Seq<?> changes() {
-		return outcome().events();
+	default Behavior<T> guard(Predicate<? super T> condition, String message, Object... arguments) {
+		return map(t -> condition.test(t) ? this : reject(message, arguments));
+	}
+
+	default <E, X> Behavior<X> handle(BiFunction<? super T, ? super E, X> handler, E event) {
+		return mapResult(t -> handler.apply(t, event));
 	}
 
 	default <X> Behavior<X> map(Function<? super T, Behavior<X>> nextBehavior) {
 		Require.nonNull(nextBehavior);
-		return events -> applyEvents(events).mapBehavior(nextBehavior);
+		return s -> apply(s).mapBehavior(nextBehavior).apply(s);
 	}
 
 	default Behavior<T> mapEvent(Function<? super T, ?> nextEvent) {
-		Behavior<Void> behavior = map(nextEvent.andThen(Behavior::record));
-		return behavior.map(v -> accept(result(), behavior.changes()));
+		return map(t -> nextEvent.andThen(e -> Behavior.accept(m -> t, e)).apply(t));
 	}
 
-	default Behavior<T> mapNothing(Consumer<? super T> consumer) {
-		Require.nonNull(consumer);
+	default Behavior<T> mapNothing(Consumer<? super T> nextConsumer) {
+		Require.nonNull(nextConsumer);
 		return map(t -> {
-			consumer.accept(t);
+			nextConsumer.accept(t);
 			return this;
 		});
 	}
 
 	default <X> Behavior<X> mapResult(Function<? super T, X> nextResult) {
-		return map(nextResult.andThen(Behavior::accept));
-	}
-
-	default Behavior<T> mustContain(Object event) {
-		Require.that(outcome().events().contains(event));
-		return this;
+		return map(nextResult.andThen(Behavior::none));
 	}
 
 	default Reaction<T> outcome() {
-		return applyEvents(Seq.empty());
+		return apply(Session.create());
 	}
 
 	default String rejected(BiFunction<String, Object[], String> formatter) {
