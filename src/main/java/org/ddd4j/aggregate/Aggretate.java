@@ -13,7 +13,7 @@ public class Aggretate<T, C, E> {
 	private HandlerChain<T> eventHandler;
 
 	public void applyEvent(E event) {
-		state = eventHandler.apply(state, event);
+		state = eventHandler.handle(state, event);
 	}
 
 	public void applyEvents(Seq<? extends E> events) {
@@ -21,7 +21,7 @@ public class Aggretate<T, C, E> {
 	}
 
 	public void handleCommand(C command) {
-		state = commandHandler.apply(state, command);
+		state = commandHandler.handle(state, command);
 	}
 
 	public void commit() {

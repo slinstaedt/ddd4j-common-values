@@ -8,7 +8,7 @@ import org.ddd4j.value.behavior.HandlerChain;
 
 public class Shipment {
 
-	public static final HandlerChain<Shipment, ShipmentEvent> EVENT_HANDLER = HandlerChain.<Shipment, ShipmentEvent> unhandled()
+	public static final HandlerChain<Shipment> EVENT_HANDLER = HandlerChain.create(Shipment.class)
 			.chainFactory(ShipmentEvent.ShipmentPlanned.class, Shipment::new)
 			.chainReference(ShipmentEvent.ShipmentDeparted.class, Shipment::on)
 			.chainReference(ShipmentEvent.ShipmentArrived.class, Shipment::on);
@@ -28,16 +28,16 @@ public class Shipment {
 		this(event.getDeparture(), event.getArrival());
 	}
 
-	public Behavior<Shipment> depart() {
+	public Behavior<? extends Shipment> depart() {
 		return apply(new ShipmentEvent.ShipmentDeparted(departure));
 	}
 
-	public Behavior<Shipment> arrive() {
+	public Behavior<? extends Shipment> arrive() {
 		return apply(new ShipmentEvent.ShipmentArrived(arrival));
 	}
 
-	Behavior<Shipment> apply(ShipmentEvent event) {
-		return EVENT_HANDLER.applyBehavior(this, event);
+	Behavior<? extends Shipment> apply(ShipmentEvent event) {
+		return EVENT_HANDLER.handle(this, event);
 	}
 
 	void on(ShipmentEvent.ShipmentDeparted event) {

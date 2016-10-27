@@ -9,6 +9,7 @@ import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Either;
+import org.ddd4j.value.Nothing;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.collection.Tpl;
 
@@ -56,7 +57,7 @@ public interface Effect<T> {
 		}
 	}
 
-	static Effect<Void> NONE = of(Reaction.accepted(Seq.empty()));
+	static Effect<Nothing> NONE = of(Reaction.accepted(Nothing.INSTANCE, Seq.empty()));
 
 	@SuppressWarnings("unchecked")
 	static <T> CompletionStage<? extends Reaction<T>> cast(CompletionStage<? extends Reaction<? extends T>> stage) {
@@ -149,7 +150,7 @@ public interface Effect<T> {
 		return d -> accept(d).thenApply(r -> r.mapResult(mapper));
 	}
 
-	default Effect<Void> on(Consumer<? super T> accepted, BiConsumer<String, Object[]> rejected) {
+	default Effect<Nothing> on(Consumer<? super T> accepted, BiConsumer<String, Object[]> rejected) {
 		Require.nonNullElements(accepted, rejected);
 		return flatMap(t -> {
 			accepted.accept(t);

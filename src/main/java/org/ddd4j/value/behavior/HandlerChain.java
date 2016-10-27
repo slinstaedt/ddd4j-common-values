@@ -95,15 +95,6 @@ public class HandlerChain<T> {
 			}
 		}
 
-		public B applyFromHistory(T target, M event) {
-			if (targetType.isInstance(target) && messageType.isInstance(event)) {
-				return handler.apply(targetType.cast(target), messageType.cast(event));
-			} else {
-				// TODO
-				return null;
-			}
-		}
-
 		public Class<? extends M> messageType() {
 			return messageType;
 		}
@@ -128,29 +119,17 @@ public class HandlerChain<T> {
 		this.handlers = Require.nonNull(handlers);
 	}
 
-	public Behavior<? extends T> apply(T target, Object message) {
-		Behavior<T> behavior = Behavior.none(target);
-		return handlers.fold().eachWithIdentity(behavior, (b, h) -> {
-			Behavior<T> applied = h.apply(b, message);
-			return applied;
-		});
+	public Behavior<? extends T> handle(T target, Object message) {
+		return handlers.fold().<Behavior<? extends T>>eachWithIdentity(Behavior.none(target), (b, h) -> h.apply(b, message));
 	}
 
-	public Behavior<T> applyCommand(T target, Object command) {
+	public Behavior<T> handleCommand(T target, Object command) {
 		// TODO check for multiple handlers
 		throw new UnsupportedOperationException();
 	}
 
-	public Behavior<? extends T> applyEvent(T target, Object event) {
-		return apply(target, event);
-	}
-
-	public T applyFromHistory(T target, Object event) {
-		Behavior<T> behavior = Behavior.none(target);
-		for (BehaviorHandler<? super T, ?, ?> handler : handlers) {
-			// handler.apply(target, event);
-		}
-		return behavior.result();
+	public Behavior<? extends T> handleEvent(T target, Object event) {
+		return handle(target, event);
 	}
 
 	public HandlerChain<T> failedOnUnhandled() {

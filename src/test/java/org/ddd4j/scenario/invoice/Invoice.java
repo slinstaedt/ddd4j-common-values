@@ -89,7 +89,7 @@ public interface Invoice {
 			.when(DraftInvoice.class, InvoiceSent.class, DraftInvoice::sent)
 			.failedOnUnhandled();
 
-	default Behavior<Invoice> apply(InvoiceEvent event) {
-		return EVENT_HANDLER.apply(this, event);
+	default Behavior<? extends Invoice> apply(InvoiceEvent event) {
+		return EVENT_HANDLER.handle(this, event);
 	}
 }
