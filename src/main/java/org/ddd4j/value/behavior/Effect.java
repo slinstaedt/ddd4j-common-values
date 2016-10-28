@@ -1,49 +1,115 @@
 package org.ddd4j.value.behavior;
 
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
-import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.aggregate.Session;
 import org.ddd4j.contract.Require;
-import org.ddd4j.messaging.CorrelationID;
+import org.ddd4j.messaging.CorrelationIdentifier;
 import org.ddd4j.value.Nothing;
 
 @FunctionalInterface
 public interface Effect<T, R> {
 
+	@FunctionalInterface
+	interface Entity<T, R> extends Effect<T, R> {
+
+		static <T> Effect.Entity<T, Nothing> none(T unit) {
+			return Effect.none(unit)::apply;
+		}
+
+		default <Y> Effect<T, Y> ask(BiFunction<? super T, ? super CorrelationIdentifier, Effect<T, Y>> callback, Query<Y> query) {
+			Require.nonNullElements(callback, query);
+			return s -> apply(s).mapEffect(callback).apply(s);
+		}
+
+		default Effect<T, Nothing> cause(BiConsumer<? super T, ? super CorrelationIdentifier> callback, Object effect) {
+			Require.nonNullElements(callback, effect);
+			return s -> apply(s).mapEffect(callback).apply(s);
+		}
+
+		@Override
+		default Effect.Entity<T, R> when(Predicate<? super T> condition) {
+			return Effect.super.when(condition)::apply;
+		}
+
+		@Override
+		default Effect.Entity<T, R> when(BiPredicate<? super T, ? super CorrelationIdentifier> condition) {
+			return Effect.super.when(condition)::apply;
+		}
+	}
+
+	@FunctionalInterface
+	interface Value<T, R> extends Effect<T, R> {
+
+		static <T> Effect.Value<T, Nothing> none(T unit) {
+			return Effect.none(unit)::apply;
+		}
+
+		default <X> Effect<X, R> ask(BiFunction<? super T, ? super CorrelationIdentifier, Effect<X, R>> callback, Query<R> query) {
+			Require.nonNullElements(callback, query);
+			return s -> apply(s).mapEffect(callback).apply(s);
+		}
+
+		default <X> Effect<X, Nothing> cause(BiFunction<? super T, ? super CorrelationIdentifier, ? extends X> callback, Object effect) {
+			Require.nonNullElements(callback, effect);
+			return s -> apply(s).mapEffect(callback).apply(s);
+		}
+
+		@Override
+		default Effect.Value<T, R> when(Predicate<? super T> condition) {
+			return Effect.super.when(condition)::apply;
+		}
+
+		@Override
+		default Effect.Value<T, R> when(BiPredicate<? super T, ? super CorrelationIdentifier> condition) {
+			return Effect.super.when(condition)::apply;
+		}
+	}
+
+	/**
+	 * Marker interface for query messages.
+	 * 
+	 * @param <R>
+	 *            It's result type
+	 */
 	interface Query<R> {
 	}
 
 	class Dispatched<T, R> {
 
 		private final T result;
-		private final CorrelationID correlationID;
+		private final CorrelationIdentifier correlation;
 
-		public Dispatched(T result, CorrelationID correlationID) {
+		public Dispatched(T result, CorrelationIdentifier correlation) {
 			this.result = Require.nonNull(result);
-			this.correlationID = Require.nonNull(correlationID);
+			this.correlation = Require.nonNull(correlation);
 		}
 
 		public <X, Y> Effect<X, Y> mapEffect(Function<? super T, Effect<X, Y>> effect) {
 			return effect.apply(result);
 		}
+
+		public <X, Y> Effect<X, Y> mapEffect(BiFunction<? super T, ? super CorrelationIdentifier, Effect<X, Y>> effect) {
+			return effect.apply(result, correlation);
+		}
+	}
+
+	static <T, R> Effect<T, R> query(Function<? super CorrelationIdentifier, ? extends T> callback, Query<R> query) {
+		Require.nonNullElements(callback, query);
+		return s -> s.send(callback, query);
+	}
+
+	static <T> Effect<T, Nothing> command(Function<? super CorrelationIdentifier, ? extends T> callback, Object command) {
+		Require.nonNullElements(callback, command);
+		return s -> s.send(callback, command);
 	}
 
 	static <T> Effect<T, Nothing> none(T unit) {
-		return s -> new Dispatched<>(unit, CorrelationID.create());
-	}
-
-	static <T> Effect<T, Nothing> cause(T unit, Identifier target, Object effect) {
-		Require.nonNullElements(unit, target, effect);
-		return s -> s.send(unit, target, effect);
-	}
-
-	static <T, R> Effect<T, R> ofQuery(T unit, Identifier target, Query<R> query) {
-		return s -> s.send(unit, target, query);
-	}
-
-	static <T> Effect<T, Nothing> ofCommand(T unit, Identifier target, Object command) {
-		return s -> s.send(unit, target, command);
+		return s -> new Dispatched<>(unit, CorrelationIdentifier.UNUSED);
 	}
 
 	Dispatched<T, R> apply(Session session);
@@ -53,10 +119,16 @@ public interface Effect<T, R> {
 		return s -> apply(s).mapEffect(nextEffect).apply(s);
 	}
 
-	default Effect<T, Nothing> mapCommand(Function<? super T, ?> nextCommand) {
+	default <X> Effect<X, Nothing> transition(Function<? super T, X> nextState) {
+		return map(nextState.andThen(Effect::none));
 	}
 
-	default <X> Effect<X, Nothing> mapResult(Function<? super T, X> nextResult) {
-		return map(nextResult.andThen(Effect::none));
+	default Effect<T, R> when(Predicate<? super T> condition) {
+		return when((t, c) -> condition.test(t));
+	}
+
+	default Effect<T, R> when(BiPredicate<? super T, ? super CorrelationIdentifier> condition) {
+		// TODO
+		return s -> null;
 	}
 }

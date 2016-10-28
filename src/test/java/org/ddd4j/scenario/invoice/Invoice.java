@@ -1,9 +1,11 @@
 package org.ddd4j.scenario.invoice;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.ddd4j.contract.Require;
 import org.ddd4j.scenario.invoice.InvoiceEvent.InvoiceCreated;
 import org.ddd4j.scenario.invoice.InvoiceEvent.InvoiceItemAdded;
 import org.ddd4j.scenario.invoice.InvoiceEvent.InvoiceRecipientChanged;
@@ -18,6 +20,51 @@ import lombok.Value;
 import lombok.experimental.Wither;
 
 public interface Invoice {
+
+	class InvoiceEntity implements Invoice {
+
+		private int nextItemId;
+		private String recipient;
+		private List<InvoiceItem> items;
+		private LocalDate sentOn;
+		private LocalDate paymentDueOn;
+
+		boolean readyToSend() {
+			return recipient != null && !items.isEmpty();
+		}
+
+		long totalAmount() {
+			return items.stream().collect(Collectors.summingLong(InvoiceItem::getAmount));
+		}
+
+		public Behavior<InvoiceEntity> changeRecipient(String recipient) {
+			return Behavior.Entity.none(this).accept(InvoiceEntity::recipientChanged, new InvoiceRecipientChanged(recipient, readyToSend()));
+		}
+
+		public Behavior<InvoiceEntity> addItem(String description, long amount) {
+			return Behavior.Entity.none(this).accept(InvoiceEntity::itemAdded,
+					new InvoiceItemAdded(new InvoiceItem(nextItemId, description, amount), totalAmount() + amount, readyToSend()));
+		}
+
+		public Behavior<InvoiceEntity> send(LocalDate sentOn) {
+			return Behavior.Entity.none(this) //
+					.guard(InvoiceEntity::readyToSend, "not ready to send")
+					.accept(InvoiceEntity::sent, new InvoiceSent(sentOn, sentOn.plusDays(14)));
+		}
+
+		void recipientChanged(InvoiceRecipientChanged event) {
+			recipient = Require.nonEmpty(event.getRecipient());
+		}
+
+		void itemAdded(InvoiceItemAdded event) {
+			items.add(event.getItem());
+		}
+
+		void sent(InvoiceSent event) {
+			sentOn = event.getSentOn();
+			paymentDueOn = event.getPaymentDueOn();
+		}
+	}
 
 	@Value
 	@Wither
@@ -47,9 +94,9 @@ public interface Invoice {
 		}
 
 		public Behavior<SentInvoice> send(LocalDate sentOn) {
-			return Behavior.none(this) //
+			return Behavior.Value.none(this) //
 					.guard(DraftInvoice::readyToSend, "not ready to send")
-					.handle(DraftInvoice::sent, new InvoiceSent(sentOn, sentOn.plusDays(14)));
+					.accept(DraftInvoice::sent, new InvoiceSent(sentOn, sentOn.plusDays(14)));
 		}
 
 		DraftInvoice recipientChanged(InvoiceRecipientChanged event) {
@@ -87,6 +134,9 @@ public interface Invoice {
 			.when(DraftInvoice.class, InvoiceRecipientChanged.class, DraftInvoice::recipientChanged)
 			.when(DraftInvoice.class, InvoiceItemAdded.class, DraftInvoice::itemAdded)
 			.when(DraftInvoice.class, InvoiceSent.class, DraftInvoice::sent)
+			.chainReference(InvoiceEntity.class, InvoiceRecipientChanged.class, InvoiceEntity::recipientChanged)
+			.chainReference(InvoiceEntity.class, InvoiceItemAdded.class, InvoiceEntity::itemAdded)
+			.chainReference(InvoiceEntity.class, InvoiceSent.class, InvoiceEntity::sent)
 			.failedOnUnhandled();
 
 	default Behavior<? extends Invoice> apply(InvoiceEvent event) {

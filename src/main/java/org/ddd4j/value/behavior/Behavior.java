@@ -1,7 +1,7 @@
 package org.ddd4j.value.behavior;
 
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -13,9 +13,63 @@ import org.ddd4j.value.collection.Seq;
 @FunctionalInterface
 public interface Behavior<T> {
 
-	static <E, T> Behavior<T> accept(Function<? super E, ? extends T> handler, E event) {
-		Require.nonNullElements(handler, event);
-		return s -> s.record(handler, event);
+	@FunctionalInterface
+	interface Entity<T> extends Behavior<T> {
+
+		static <T> Behavior.Entity<T> none(T unit) {
+			return Behavior.none(unit)::apply;
+		}
+
+		default <E> Behavior<T> accept(BiConsumer<? super T, ? super E> callback, E event) {
+			Require.nonNullElements(callback, event);
+			return map(t -> Behavior.accept(e -> {
+				callback.accept(t, e);
+				return t;
+			}, event));
+		}
+
+		@Override
+		default <X extends T> Behavior.Entity<X> guard(Class<X> stateType) {
+			return Behavior.super.guard(stateType)::apply;
+		}
+
+		@Override
+		default Behavior.Entity<T> guard(Predicate<? super T> condition, String message, Object... arguments) {
+			return Behavior.super.guard(condition, message, arguments)::apply;
+		}
+
+		// TODO needed?
+		default Behavior<T> mapEvent(Function<? super T, ?> nextEvent) {
+			return map(t -> nextEvent.andThen(e -> Behavior.accept(m -> t, e)).apply(t));
+		}
+	}
+
+	@FunctionalInterface
+	interface Value<T> extends Behavior<T> {
+
+		static <T> Behavior.Value<T> none(T unit) {
+			return Behavior.none(unit)::apply;
+		}
+
+		default <E, X> Behavior<X> accept(BiFunction<? super T, ? super E, X> callback, E event) {
+			Require.nonNullElements(callback, event);
+			return map(t -> Behavior.accept(e -> callback.apply(t, e), event));
+		}
+
+		@Override
+		default <X extends T> Behavior.Value<X> guard(Class<X> stateType) {
+			return Behavior.super.guard(stateType)::apply;
+		}
+
+		@Override
+		default Behavior.Value<T> guard(Predicate<? super T> condition, String message, Object... arguments) {
+			return Behavior.super.guard(condition, message, arguments)::apply;
+		}
+	}
+
+	static <E, T> Behavior<T> accept(Function<? super E, ? extends T> callback, E event) {
+		Require.nonNullElements(callback, event);
+		return s -> s.record(callback, event);
 	}
 
 	static <T> Behavior<T> failed(Exception exception) {
@@ -47,29 +101,9 @@ public interface Behavior<T> {
 		return map(t -> condition.test(t) ? this : reject(message, arguments));
 	}
 
-	default <E, X> Behavior<X> handle(BiFunction<? super T, ? super E, X> handler, E event) {
-		return mapResult(t -> handler.apply(t, event));
-	}
-
 	default <X> Behavior<X> map(Function<? super T, Behavior<X>> nextBehavior) {
 		Require.nonNull(nextBehavior);
 		return s -> apply(s).mapBehavior(nextBehavior).apply(s);
-	}
-
-	default Behavior<T> mapEvent(Function<? super T, ?> nextEvent) {
-		return map(t -> nextEvent.andThen(e -> Behavior.accept(m -> t, e)).apply(t));
-	}
-
-	default Behavior<T> mapNothing(Consumer<? super T> nextConsumer) {
-		Require.nonNull(nextConsumer);
-		return map(t -> {
-			nextConsumer.accept(t);
-			return this;
-		});
-	}
-
-	default <X> Behavior<X> mapResult(Function<? super T, X> nextResult) {
-		return map(nextResult.andThen(Behavior::none));
 	}
 
 	default Reaction<T> outcome() {

@@ -2,6 +2,7 @@ package org.ddd4j.aggregate;
 
 import java.util.function.Function;
 
+import org.ddd4j.messaging.CorrelationIdentifier;
 import org.ddd4j.value.behavior.Effect.Dispatched;
 import org.ddd4j.value.behavior.Reaction;
 import org.ddd4j.value.collection.Map;
@@ -19,13 +20,15 @@ public class Session {
 	public Session() {
 	}
 
-	public <T, R> Dispatched<T, R> send(T unit, Identifier targetIdentifier, Object effect) {
+	public <T, R> Dispatched<T, R> send(Function<? super CorrelationIdentifier, ? extends T> callback, Object effect) {
 		// TODO Auto-generated method stub
-		return null;
+		CorrelationIdentifier correlation = CorrelationIdentifier.UNUSED;
+		T result = callback.apply(correlation);
+		return new Dispatched<>(result, correlation);
 	}
 
-	public <E, T> Reaction<T> record(Function<? super E, ? extends T> handler, E event) {
-		T result = handler.apply(event);
+	public <E, T> Reaction<T> record(Function<? super E, ? extends T> callback, E event) {
+		T result = callback.apply(event);
 		return Reaction.accepted(result, Seq.singleton(event));
 	}
 }
