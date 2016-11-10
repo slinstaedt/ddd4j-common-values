@@ -37,7 +37,7 @@ public class Shipment {
 	}
 
 	Behavior<? extends Shipment> apply(ShipmentEvent event) {
-		return EVENT_HANDLER.handle(this, event);
+		return EVENT_HANDLER.record(this, event);
 	}
 
 	void on(ShipmentEvent.ShipmentDeparted event) {

@@ -25,7 +25,7 @@ public interface Map<K, V> extends Seq<Tpl<K, V>> {
 		return null;
 	}
 
-	static <K, V> Map<K, V> create() {
+	static <K, V> Map<K, V> empty() {
 		return wrap(new HashMap<>(), HashMap<K, V>::new);
 	}
 
@@ -62,5 +62,21 @@ public interface Map<K, V> extends Seq<Tpl<K, V>> {
 	default Stream<Tpl<K, V>> stream() {
 		// TODO
 		return null;
+	}
+
+	default Tpl<Map<K, V>, V> computeIfAbsent(K key, V elseValue) {
+		return get(key).mapNullable(v -> Tpl.of(this, v)).orElseGet(() -> Tpl.of(put(key, elseValue).getLeft(), elseValue));
+	}
+
+	default V getOrElse(K key, V elseValue) {
+		return get(key).orElse(elseValue);
+	}
+
+	default Map<K, V> updated(K key, V value) {
+		return put(key, value).getLeft();
+	}
+
+	default boolean containsKey(K key) {
+		return get(key).isNotEmpty();
 	}
 }

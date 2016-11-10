@@ -3,28 +3,30 @@ package org.ddd4j.value.behavior;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.ddd4j.aggregate.Session;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Either;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.behavior.Reaction.Accepted;
 import org.ddd4j.value.behavior.Reaction.Rejected;
 import org.ddd4j.value.collection.Seq;
-import org.ddd4j.value.collection.Tpl;
 
 public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 
 	class Accepted<T> implements Reaction<T> {
 
+		private final Session session;
 		private final T result;
 		private final Seq<?> events;
 
-		private Accepted(T result, Seq<?> events) {
+		private Accepted(Session session, T result, Seq<?> events) {
+			this.session = Require.nonNull(session);
 			this.result = Require.nonNull(result);
 			this.events = Require.nonNull(events);
 		}
 
-		private <X> Accepted<Tpl<T, X>> combine(Accepted<X> other) {
-			return new Accepted<>(Tpl.of(this.result, other.result), this.events.appendAny().seq(other.events));
+		public Session getSession() {
+			return session;
 		}
 
 		@Override
@@ -44,16 +46,18 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 
 	class Rejected<T> implements Reaction<T> {
 
+		private final Session session;
 		private final String message;
 		private final Object[] arguments;
 
-		private Rejected(String message, Object... arguments) {
+		private Rejected(Session session, String message, Object... arguments) {
+			this.session = Require.nonNull(session);
 			this.message = Require.nonNull(message);
 			this.arguments = Require.nonNull(arguments);
 		}
 
 		public <X> Rejected<X> casted() {
-			return new Rejected<>(message, arguments);
+			return new Rejected<>(session, message, arguments);
 		}
 
 		@Override
@@ -66,6 +70,10 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 			return right.apply(this);
 		}
 
+		public Session getSession() {
+			return session;
+		}
+
 		public Object[] getArguments() {
 			return arguments;
 		}
@@ -75,24 +83,20 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 		}
 	}
 
-	static <T> Reaction<T> accepted(T result, Seq<?> events) {
-		return new Accepted<>(result, events);
+	static <T> Reaction<T> accepted(Session session, T result, Seq<?> events) {
+		return new Accepted<>(session, result, events);
 	}
 
-	static <T> Reaction<T> failed(Exception exception) {
-		return new Rejected<>(exception.getMessage(), exception);
+	static <T> Reaction<T> failed(Session session, Exception exception) {
+		return new Rejected<>(session, exception.getMessage(), exception);
 	}
 
-	static <T> Reaction<T> none(T result) {
-		return new Accepted<>(result, Seq.empty());
+	static <T> Reaction<T> none(Session session, T result) {
+		return new Accepted<>(session, result, Seq.empty());
 	}
 
-	static <T> Reaction<T> rejected(String message, Object... arguments) {
-		return new Rejected<>(message, arguments);
-	}
-
-	default <X> Reaction<Tpl<T, X>> and(Reaction<X> other) {
-		return fold(at -> other.fold(ax -> at.combine(ax), Rejected::casted), Rejected::casted);
+	static <T> Reaction<T> rejected(Session session, String message, Object... arguments) {
+		return new Rejected<>(session, message, arguments);
 	}
 
 	Seq<?> events();
@@ -110,24 +114,14 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 	}
 
 	default <X> Reaction<X> mapResult(Function<? super T, ? extends X> mapper) {
-		return fold(a -> new Accepted<>(mapper.apply(a.getResult()), a.events()), Rejected::casted);
+		return fold(a -> new Accepted<>(session(), mapper.apply(a.getResult()), a.events()), Rejected::casted);
 	}
 
-	default <X> Reaction<Either.OrBoth<T, X>> or(Reaction<X> other) {
-		return fold(at -> other.fold(ax -> {
-			return at.combine(ax).mapResult(Either.OrBoth::both);
-		}, rx -> {
-			return at.<OrBoth<T, X>>mapResult(Either.OrBoth::left);
-		}), rt -> other.fold(ax -> {
-			return ax.<OrBoth<T, X>>mapResult(Either.OrBoth::right);
-		}, Rejected::casted));
+	default Session session() {
+		return fold(Accepted::getSession, Rejected::getSession);
 	}
 
 	default T result() {
 		return fold(Accepted::getResult, Throwing.of(IllegalStateException::new).asFunction());
-	}
-
-	default <X> Reaction<Either<T, X>> xor(Reaction<X> other) {
-		return or(other).<Reaction<Either<T, X>>>fold(a -> a.getResult().fold(Reaction::none, tpl -> rejected("both maptch", tpl)), Rejected::casted);
 	}
 }

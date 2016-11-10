@@ -1,7 +1,11 @@
 package org.ddd4j.value.behavior;
 
+import java.util.Iterator;
+import java.util.Optional;
 import java.util.function.Function;
 
+import org.ddd4j.aggregate.Recorded.Committed;
+import org.ddd4j.aggregate.Recorded.Uncommitted;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.collection.Seq;
@@ -36,16 +40,12 @@ public class HandlerChain<T> {
 
 		T apply(S target, M message);
 
-		default Function<S, T> withMessage(M message) {
-			return s -> apply(s, message);
-		}
-
-		default Function<M, T> withTarget(S target) {
-			return m -> apply(target, m);
-		}
-
 		default MessageHandler<M, S, T> swap() {
 			return (m, s) -> apply(s, m);
+		}
+
+		default T applyFromHistory(S target, Uncommitted<M> uncommitted) {
+			return apply(target, uncommitted.getPayload());
 		}
 
 		// TODO rename?
@@ -78,13 +78,23 @@ public class HandlerChain<T> {
 			this.handler = Require.nonNull(handler);
 		}
 
-		Behavior<? extends B> map(Behavior<? extends B> behavior, Object message) {
-			if (messageType.isInstance(message)) {
+		Optional<B> applyFromHistory(B target, Committed<?> committed) {
+			Optional<? extends M> message = committed.matchedPayload(messageType);
+			if (targetType.isInstance(target) && message.isPresent()) {
+				return Optional.of(handler.apply(targetType.cast(target), message.get()));
+			} else {
+				return Optional.empty();
+			}
+		}
+
+		Behavior<? extends B> record(Behavior<? extends B> behavior, Uncommitted<?> uncommitted) {
+			Optional<? extends M> message = uncommitted.matchedPayload(messageType);
+			if (message.isPresent()) {
 				return behavior.map(t -> {
 					// java compiler can not infer type of SAM expression
-					Behavior<? extends B> result;
+					final Behavior<? extends B> result;
 					if (targetType.isInstance(t)) {
-						result = handler.record(targetType.cast(t), messageType.cast(message));
+						result = handler.record(targetType.cast(t), message.get());
 					} else {
 						result = behavior;
 					}
@@ -119,17 +129,24 @@ public class HandlerChain<T> {
 		this.handlers = Require.nonNull(handlers);
 	}
 
-	public Behavior<? extends T> handle(T target, Object message) {
-		return handlers.fold().<Behavior<? extends T>>eachWithIdentity(Behavior.none(target), (b, h) -> h.map(b, message));
+	public T applyFromHistory(T target, Committed<?> event) {
+		Optional<T> result = Optional.empty();
+		Iterator<BehaviorHandler<T, ?, ?>> iterator = handlers.iterator();
+		while (iterator.hasNext()) {
+			Optional<T> applied = iterator.next().applyFromHistory(target, event);
+			if (applied.isPresent()) {
+				if (result.isPresent()) {
+					throw new IllegalStateException("duplicate handler");
+				} else {
+					result = applied;
+				}
+			}
+		}
+		return result.get();
 	}
 
-	public Behavior<T> handleCommand(T target, Object command) {
-		// TODO check for multiple handlers
-		throw new UnsupportedOperationException();
-	}
-
-	public Behavior<? extends T> handleEvent(T target, Object event) {
-		return handle(target, event);
+	public Behavior<? extends T> record(T target, Uncommitted<?> uncommitted) {
+		return handlers.fold().<Behavior<? extends T>>eachWithIdentity(Behavior.none(target), (b, h) -> h.record(b, uncommitted));
 	}
 
 	public HandlerChain<T> failedOnUnhandled() {

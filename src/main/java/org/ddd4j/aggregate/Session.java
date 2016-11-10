@@ -1,7 +1,11 @@
 package org.ddd4j.aggregate;
 
+import java.util.Optional;
 import java.util.function.Function;
 
+import org.ddd4j.aggregate.Aggregates.Aggregate;
+import org.ddd4j.aggregate.Recorded.Uncommitted;
+import org.ddd4j.contract.Require;
 import org.ddd4j.messaging.CorrelationIdentifier;
 import org.ddd4j.value.behavior.Effect.Dispatched;
 import org.ddd4j.value.behavior.Reaction;
@@ -10,14 +14,46 @@ import org.ddd4j.value.collection.Seq;
 
 public class Session {
 
-	public static Session create() {
-		// TODO Auto-generated method stub
-		return new Session();
+	private static class Tracked<T> {
+
+		private final Identifier identifier;
+		private final Version expected;
+		private final T state;
+		private final Seq<?> changes;
+
+		Tracked(Identifier identifier, Version expected) {
+			this(identifier, expected, null, Seq.empty());
+		}
+
+		Tracked(Identifier identifier, Version expected, T state) {
+			this(identifier, expected, state, Seq.empty());
+		}
+
+		private Tracked(Identifier identifier, Version expected, T state, Seq<?> changes) {
+			this.identifier = Require.nonNull(identifier);
+			this.expected = Require.nonNull(expected);
+			this.state = Require.nonNull(state);
+			this.changes = Require.nonNull(changes);
+		}
+
+		public <E, X> Tracked<X> record(E event, Function<Uncommitted<E>, X> handler) {
+			X updatedState = handler.apply(Recorded.uncommitted(identifier, event));
+			return new Tracked<>(identifier, expected, updatedState, changes.appendAny().entry(event));
+		}
 	}
 
-	private Map<Identifier, Aggretate<?, ?, ?>> aggregates;
+	private final Identifier current;
+	private final Aggregates aggregates;
+	private final Map<Identifier, Tracked<?>> tracked;
 
-	public Session() {
+	public Session(Identifier currentAggregate, Aggregates aggregates) {
+		this(currentAggregate, aggregates, Map.empty());
+	}
+
+	private Session(Identifier currentAggregate, Aggregates aggregates, Map<Identifier, Tracked<?>> tracked) {
+		this.current = Require.nonNull(currentAggregate);
+		this.aggregates = Require.nonNull(aggregates);
+		this.tracked = Require.nonNull(tracked);
 	}
 
 	public <T, R> Dispatched<T, R> send(Function<? super CorrelationIdentifier, ? extends T> callback, Object effect) {
@@ -27,8 +63,23 @@ public class Session {
 		return new Dispatched<>(result, correlation);
 	}
 
-	public <E, T> Reaction<T> record(Function<? super E, ? extends T> callback, E event) {
-		T result = callback.apply(event);
-		return Reaction.accepted(result, Seq.singleton(event));
+	public Session track(Identifier identifier, Version expected, Object aggregate) {
+		Require.that(!tracked.containsKey(identifier));
+		return new Session(identifier, aggregates, tracked.updated(identifier, new Tracked<>(identifier, expected, aggregate)));
+	}
+
+	public <E, T> Reaction<T> record(Function<? super E, ? extends T> handler, E event) {
+		Tracked<?> originalState = tracked.get(current).orElse(new Tracked<>(current, Version.INITIAL));
+		Tracked<? extends T> updatedState = originalState.record(event, handler.compose(Uncommitted::getPayload));
+		Session session = new Session(current, aggregates, tracked.updated(current, updatedState));
+		return Reaction.accepted(session, updatedState.state, Seq.singleton(event));
+	}
+
+	public <T> Optional<T> value(Identifier identifier) {
+		return tracked.get(identifier).mapOptional(t -> t.state).map(mapper);
+	}
+
+	public Optional<Aggregate> aggregate(Identifier identifier) {
+		return aggregates.get(identifier);
 	}
 }

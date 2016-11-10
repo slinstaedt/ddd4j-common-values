@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.ddd4j.aggregate.Recorded.Uncommitted;
 import org.ddd4j.contract.Require;
 import org.ddd4j.scenario.invoice.InvoiceEvent.InvoiceCreated;
 import org.ddd4j.scenario.invoice.InvoiceEvent.InvoiceItemAdded;
@@ -38,11 +39,11 @@ public interface Invoice {
 		}
 
 		public Behavior<InvoiceEntity> changeRecipient(String recipient) {
-			return Behavior.Entity.none(this).accept(InvoiceEntity::recipientChanged, new InvoiceRecipientChanged(recipient, readyToSend()));
+			return Behavior.Entity.accept(this, InvoiceEntity::recipientChanged, new InvoiceRecipientChanged(recipient, readyToSend()));
 		}
 
 		public Behavior<InvoiceEntity> addItem(String description, long amount) {
-			return Behavior.Entity.none(this).accept(InvoiceEntity::itemAdded,
+			return Behavior.Entity.accept(this, InvoiceEntity::itemAdded,
 					new InvoiceItemAdded(new InvoiceItem(nextItemId, description, amount), totalAmount() + amount, readyToSend()));
 		}
 
@@ -139,7 +140,7 @@ public interface Invoice {
 			.chainReference(InvoiceEntity.class, InvoiceSent.class, InvoiceEntity::sent)
 			.failedOnUnhandled();
 
-	default Behavior<? extends Invoice> apply(InvoiceEvent event) {
-		return EVENT_HANDLER.handle(this, event);
+	default Behavior<? extends Invoice> apply(Uncommitted<? extends InvoiceEvent> event) {
+		return EVENT_HANDLER.record(this, event);
 	}
 }

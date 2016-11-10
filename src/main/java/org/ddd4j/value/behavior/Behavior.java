@@ -1,11 +1,15 @@
 package org.ddd4j.value.behavior;
 
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import org.ddd4j.aggregate.Aggregates.Aggregate;
+import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.aggregate.Session;
+import org.ddd4j.aggregate.Version;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.collection.Seq;
@@ -15,6 +19,14 @@ public interface Behavior<T> {
 
 	@FunctionalInterface
 	interface Entity<T> extends Behavior<T> {
+
+		static <E, T> Behavior<T> accept(T unit, BiConsumer<? super T, ? super E> callback, E event) {
+			Require.nonNullElements(callback, event);
+			return s -> s.record(e -> {
+				callback.accept(unit, event);
+				return unit;
+			}, event);
+		}
 
 		static <T> Behavior.Entity<T> none(T unit) {
 			return Behavior.none(unit)::apply;
@@ -67,6 +79,36 @@ public interface Behavior<T> {
 		}
 	}
 
+	public static class Reference<T> {
+
+		private final Identifier identifier;
+
+		public Reference(Identifier identifier) {
+			this.identifier = Require.nonNull(identifier);
+		}
+
+		Behavior<T> get() {
+			return Behavior.<T>getTrackedEventSource(identifier).map(t -> {
+				t.map(Behavior::none).orElseGet(
+						() -> getAggregate(identifier).map(a -> a.map(a2 -> trackedEventSource(a2.getIdentifier(), a2.getVersion(), a2.getState()))));
+				return null;
+			});
+		}
+	}
+
+	static <T> Behavior<Optional<T>> getTrackedEventSource(Identifier identifier) {
+		return s -> Reaction.accepted(s, s.value(identifier), Seq.empty());
+	}
+
+	static <T> Behavior<Optional<Aggregate>> getAggregate(Identifier identifier) {
+		return s -> Reaction.accepted(s, s.aggregate(identifier), Seq.empty());
+	}
+
+	static <T> Behavior<T> trackedEventSource(Identifier identifier, Version expected, T aggregate) {
+		return s -> Reaction.accepted(s.track(identifier, expected, aggregate), aggregate, Seq.empty());
+	}
+
+	// TODO move to Value subtype?
 	static <E, T> Behavior<T> accept(Function<? super E, ? extends T> callback, E event) {
 		Require.nonNullElements(callback, event);
 		return s -> s.record(callback, event);
@@ -74,16 +116,16 @@ public interface Behavior<T> {
 
 	static <T> Behavior<T> failed(Exception exception) {
 		Require.nonNull(exception);
-		return s -> Reaction.failed(exception);
+		return s -> Reaction.failed(s, exception);
 	}
 
 	static <T> Behavior<T> none(T unit) {
-		return s -> Reaction.accepted(unit, Seq.empty());
+		return s -> Reaction.accepted(s, unit, Seq.empty());
 	}
 
 	static <T> Behavior<T> reject(String message, Object... arguments) {
 		Require.nonNullElements(message, arguments);
-		return s -> Reaction.rejected(message, arguments);
+		return s -> Reaction.rejected(s, message, arguments);
 	}
 
 	Reaction<T> apply(Session session);
@@ -107,7 +149,7 @@ public interface Behavior<T> {
 	}
 
 	default Reaction<T> outcome() {
-		return apply(Session.create());
+		return apply(Session.dummy());
 	}
 
 	default String rejected(BiFunction<String, Object[], String> formatter) {

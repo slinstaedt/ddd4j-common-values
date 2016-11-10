@@ -97,6 +97,10 @@ public interface Opt<T> {
 		return apply(nonNull, Opt::ofNull, Opt::none);
 	}
 
+	default <X> Optional<X> flatMapOptional(Function<? super T, Optional<X>> nonNull) {
+		return apply(nonNull, Optional::empty, Optional::empty);
+	}
+
 	default <X> Opt<X> flatMapNullable(Function<? super T, Opt<X>> nullable) {
 		return applyNullable(nullable, Opt::none);
 	}
@@ -135,6 +139,10 @@ public interface Opt<T> {
 		return applyNullable(t -> false, () -> true);
 	}
 
+	default boolean isNotEmpty() {
+		return !isEmpty();
+	}
+
 	default boolean isNotNull() {
 		return applyNullable(Objects::nonNull, () -> false);
 	}
@@ -153,6 +161,10 @@ public interface Opt<T> {
 
 	default <X> Opt<X> mapNonNull(Function<? super T, ? extends X> nonNull) {
 		return flatMapNonNull(nonNull.andThen(Opt::of));
+	}
+
+	default <X> Optional<X> mapOptional(Function<? super T, ? extends X> nonNull) {
+		return flatMapOptional(nonNull.andThen(Optional::of));
 	}
 
 	default <X> Opt<X> mapNullable(Function<? super T, ? extends X> nullable) {
