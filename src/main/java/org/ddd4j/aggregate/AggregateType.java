@@ -4,7 +4,7 @@ import java.util.function.Function;
 
 import org.ddd4j.aggregate.Recorded.Committed;
 import org.ddd4j.aggregate.Recorded.Uncommitted;
-import org.ddd4j.messaging.EventStore;
+import org.ddd4j.eventstore.EventStore;
 import org.ddd4j.value.behavior.Behavior;
 import org.ddd4j.value.behavior.HandlerChain;
 import org.ddd4j.value.behavior.Reaction;

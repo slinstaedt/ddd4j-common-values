@@ -1,4 +1,4 @@
-package org.ddd4j.messaging;
+package org.ddd4j.eventstore;
 
 import java.util.Comparator;
 import java.util.function.Function;
@@ -81,7 +81,7 @@ public interface EventStore {
 		return get(identifier).eventsSince(since);
 	}
 
-	<E> EventLog<E> get(Schema eventSchema);
+	<E> EventLog<E> get(Schema<E> eventSchema);
 
 	default <E> AggregateLog<E> get(Identifier identifier) {
 		return get(identifier.getEventType()).of(identifier);
