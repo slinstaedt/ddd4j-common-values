@@ -1,6 +1,6 @@
 package org.ddd4j.value;
 
-import java.util.Optional;
+import org.ddd4j.io.ByteDataOutput;
 
 public interface Value<V extends Value<V>> extends Self<V> {
 
@@ -57,8 +57,12 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		return new Wrapper<>(self());
 	}
 
-	default <X extends V> Optional<X> as(Class<X> type) {
-		return type.isInstance(this) ? Optional.of(type.cast(this)) : Optional.empty();
+	default <X extends V> Opt<X> as(Class<X> type) {
+		return type.isInstance(this) ? Opt.of(type.cast(this)) : Opt.none();
+	}
+
+	default void serialize(ByteDataOutput output) {
+		throw new UnsupportedOperationException();
 	}
 
 	int hash();

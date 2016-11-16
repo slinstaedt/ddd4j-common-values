@@ -7,17 +7,12 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.collection.Opt;
 
 @FunctionalInterface
 public interface Throwing {
 
 	@FunctionalInterface
 	interface TBiFunction<T, U, R> extends BiFunction<T, U, R> {
-
-		static <T, U, R> TBiFunction<T, U, R> of(TBiFunction<T, U, R> function) {
-			return Require.nonNull(function)::apply;
-		}
 
 		@Override
 		default R apply(T t, U u) {
@@ -54,10 +49,6 @@ public interface Throwing {
 	@FunctionalInterface
 	interface TConsumer<T> extends Consumer<T> {
 
-		static <T> TConsumer<T> of(TConsumer<T> consumer) {
-			return Require.nonNull(consumer)::accept;
-		}
-
 		@Override
 		default void accept(T t) {
 			try {
@@ -72,10 +63,6 @@ public interface Throwing {
 
 	@FunctionalInterface
 	interface TFunction<T, R> extends Function<T, R> {
-
-		static <T, R> TFunction<T, R> of(TFunction<T, R> function) {
-			return Require.nonNull(function)::apply;
-		}
 
 		@Override
 		default R apply(T t) {
@@ -112,10 +99,6 @@ public interface Throwing {
 	@FunctionalInterface
 	interface TSupplier<T> extends Supplier<T> {
 
-		static <T> TSupplier<T> of(TSupplier<T> supplier) {
-			return Require.nonNull(supplier)::get;
-		}
-
 		default Supplier<Either<T, Throwable>> asEither() {
 			return () -> {
 				try {
@@ -134,6 +117,10 @@ public interface Throwing {
 					return Opt.none();
 				}
 			};
+		}
+
+		default <X> TSupplier<X> map(TFunction<? super T, X> mapper) {
+			return () -> mapper.applyChecked(getChecked());
 		}
 
 		@Override
@@ -160,8 +147,24 @@ public interface Throwing {
 		return Require.nonNull(exceptionFactory)::apply;
 	}
 
+	static <T, R> TFunction<T, R> ofApplied(TFunction<T, R> function) {
+		return Require.nonNull(function)::apply;
+	}
+
+	static <T, U, R> TBiFunction<T, U, R> ofApplied(TBiFunction<T, U, R> function) {
+		return Require.nonNull(function)::apply;
+	}
+
+	static <T> TConsumer<T> ofConsumed(TConsumer<T> consumer) {
+		return Require.nonNull(consumer)::accept;
+	}
+
+	static <T> TSupplier<T> ofSupplied(TSupplier<T> supplier) {
+		return Require.nonNull(supplier)::get;
+	}
+
 	static <X> X unchecked(Throwable throwable) {
-		return Throwing.<X, RuntimeException> any(throwable);
+		return Throwing.<X, RuntimeException>any(throwable);
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction() {

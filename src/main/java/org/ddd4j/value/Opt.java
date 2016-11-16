@@ -1,4 +1,4 @@
-package org.ddd4j.value.collection;
+package org.ddd4j.value;
 
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -9,7 +9,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing;
+import org.ddd4j.value.collection.Seq;
 
 /**
  * Like {@link Optional}, but allows the use of null as value.
@@ -64,6 +64,18 @@ public interface Opt<T> {
 	}
 
 	<X> X applyNullable(Function<? super T, ? extends X> nullable, Supplier<? extends X> empty);
+
+	default <X> Opt<X> cast(Class<X> type) {
+		return filterNonNull(type::isInstance).mapNonNull(type::cast);
+	}
+
+	default boolean checkEqual(Object value) {
+		return test(t -> Objects.deepEquals(t, value), value == null);
+	}
+
+	default boolean equal(Opt<T> other) {
+		return test(other::checkEqual, other.isNull(), other.isEmpty());
+	}
 
 	default Seq<T> fillNonNull(Seq<T> seq, Predicate<? super Seq<T>> predicate) {
 		return apply(t -> predicate.test(seq) ? seq.append().entry(t) : seq, () -> seq, () -> seq);
@@ -194,6 +206,10 @@ public interface Opt<T> {
 
 	default Opt<T> orElseMapGet(Supplier<Opt<T>> other) {
 		return flatMapNullable(Opt::of, other);
+	}
+
+	default boolean test(Predicate<? super T> predicate, boolean ifNull) {
+		return test(predicate, ifNull, false);
 	}
 
 	default boolean test(Predicate<? super T> predicate, boolean ifNull, boolean ifEmpty) {

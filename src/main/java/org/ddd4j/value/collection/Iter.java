@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 import java.util.stream.StreamSupport;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Opt;
 import org.ddd4j.value.collection.Ref.RefOpt;
 
 @FunctionalInterface

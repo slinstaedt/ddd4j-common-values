@@ -9,6 +9,7 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Opt;
 import org.ddd4j.value.Throwing;
 
 @FunctionalInterface

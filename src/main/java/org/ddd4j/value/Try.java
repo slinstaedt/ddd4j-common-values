@@ -18,8 +18,6 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ddd4j.value.Throwing.TFunction;
-
 @FunctionalInterface
 public interface Try<T> extends Callable<T> {
 
@@ -28,7 +26,7 @@ public interface Try<T> extends Callable<T> {
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
 			Try<Integer> dividend = Try.ofCallable(() -> Integer.valueOf(mainRead(reader, "x=")));
 			Try<Integer> divisor = Try.ofCallable(() -> Integer.valueOf(mainRead(reader, "y=")));
-			Try<Integer> result = dividend.<Integer> flatMapSuccess(x -> divisor.mapSuccess(y -> x / y));
+			Try<Integer> result = dividend.<Integer>flatMapSuccess(x -> divisor.mapSuccess(y -> x / y));
 			result = result.retry(1, executor::submit);
 			System.out.println("Result of x/y=" + result.call());
 		} finally {
@@ -40,8 +38,7 @@ public interface Try<T> extends Callable<T> {
 		Thread thread = Thread.currentThread();
 		System.out.println(thread);
 		for (StackTraceElement element : thread.getStackTrace()) {
-			if (element.getLineNumber() >= 0 && !element.getClassName().equals(Thread.class.getName())
-					&& !element.getMethodName().equals("mainRead")) {
+			if (element.getLineNumber() >= 0 && !element.getClassName().equals(Thread.class.getName()) && !element.getMethodName().equals("mainRead")) {
 				System.out.println("\tat " + element);
 			}
 		}
@@ -112,24 +109,22 @@ public interface Try<T> extends Callable<T> {
 	}
 
 	default Try<T> dispatchAsyncAndWait(Function<Try<T>, Future<T>> executor) {
-		return dispatchAsync(executor).mapSuccess(TFunction.of(Future::get));
+		return dispatchAsync(executor).mapSuccess(Throwing.ofApplied(f -> f.get()));
 	}
 
 	default Try<T> dispatchAsyncAndWait(Function<Try<T>, Future<T>> executor, long timeout, TimeUnit unit) {
-		return dispatchAsync(executor).mapSuccess(TFunction.of(f -> f.get(timeout, unit)));
+		return dispatchAsync(executor).mapSuccess(Throwing.ofApplied(f -> f.get(timeout, unit)));
 	}
 
 	default Try<Throwable> failed() {
 		return map(Throwing.of(UnsupportedOperationException::new).asFunction(), Function.identity());
 	}
 
-	default <X, E extends Throwable> Try<X> flatMap(Function<? super T, Try<X>> success, Function<? super E, Try<X>> failure,
-			Class<E> failureType) {
+	default <X, E extends Throwable> Try<X> flatMap(Function<? super T, Try<X>> success, Function<? super E, Try<X>> failure, Class<E> failureType) {
 		requireNonNull(success);
 		requireNonNull(failure);
 		requireNonNull(failureType);
-		Function<Throwable, Try<? extends X>> elseFailure = e -> failureType.isInstance(e) ? failure.apply(failureType.cast(e))
-				: Throwing.unchecked(e);
+		Function<Throwable, Try<? extends X>> elseFailure = e -> failureType.isInstance(e) ? failure.apply(failureType.cast(e)) : Throwing.unchecked(e);
 		return () -> invokeReturnEither().fold(success, elseFailure).invokeChecked();
 	}
 
@@ -140,11 +135,11 @@ public interface Try<T> extends Callable<T> {
 	}
 
 	default <E extends Throwable> Try<T> flatMapFailure(Function<? super E, Try<T>> failure, Class<E> failureType) {
-		return flatMap(Function.<T> identity().andThen(Try::ofSuccess), failure, failureType);
+		return flatMap(Function.<T>identity().andThen(Try::ofSuccess), failure, failureType);
 	}
 
 	default Try<T> flatMapFailure(Function<? super Throwable, Try<T>> failure) {
-		return flatMap(Function.<T> identity().andThen(Try::ofSuccess), failure);
+		return flatMap(Function.<T>identity().andThen(Try::ofSuccess), failure);
 	}
 
 	default <X> Try<X> flatMapSuccess(Function<? super T, Try<X>> success) {
@@ -200,13 +195,11 @@ public interface Try<T> extends Callable<T> {
 		return visitFailure(e -> Logger.getLogger(loggerName).log(Level.SEVERE, e.getMessage(), e));
 	}
 
-	default <X, E extends Throwable> Try<X> map(Function<? super T, ? extends X> success,
-			Function<? super E, ? extends X> failure, Class<E> failureType) {
+	default <X, E extends Throwable> Try<X> map(Function<? super T, ? extends X> success, Function<? super E, ? extends X> failure, Class<E> failureType) {
 		requireNonNull(success);
 		requireNonNull(failure);
 		requireNonNull(failureType);
-		Function<Throwable, X> elseFailure = e -> failureType.isInstance(e) ? failure.apply(failureType.cast(e))
-				: Throwing.unchecked(e);
+		Function<Throwable, X> elseFailure = e -> failureType.isInstance(e) ? failure.apply(failureType.cast(e)) : Throwing.unchecked(e);
 		return () -> invokeReturnEither().fold(success, elseFailure);
 	}
 

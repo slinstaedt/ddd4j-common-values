@@ -1,34 +1,35 @@
 package org.ddd4j.schema;
 
-import java.util.Optional;
-
+import org.ddd4j.io.ByteDataInput;
+import org.ddd4j.io.ByteDataOutput;
 import org.ddd4j.value.Value;
 
-public interface Schema {
-
-	interface Factory {
-
-		Optional<? extends Schema> lookup(Fingerprint fingerprint);
-
-		Schema schema(Type<?> type);
-	}
+public interface Schema<T> extends Value<Schema<T>> {
 
 	interface Fingerprint extends Value<Fingerprint> {
 	}
 
 	@FunctionalInterface
-	interface Type<T> {
+	interface Reader<T> {
 
-		Optional<T> cast(Object object);
-
-		default boolean partOf(Schema schema) {
-			return schema.contains(this);
-		}
+		T readNext();
 	}
+
+	@FunctionalInterface
+	interface Writer<T> {
+
+		void writeNext(T value);
+	}
+
+	int hashCode(Object object);
 
 	String getName();
 
 	Fingerprint getFingerprint();
 
-	boolean contains(Type<?> type);
+	// boolean contains(Type<?> type);
+
+	Reader<T> createReader(ByteDataInput input);
+
+	Writer<T> createWriter(ByteDataOutput output);
 }

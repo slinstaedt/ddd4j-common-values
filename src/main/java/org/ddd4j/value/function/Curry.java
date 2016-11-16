@@ -6,7 +6,7 @@ import java.util.Optional;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Nothing;
-import org.ddd4j.value.collection.Opt;
+import org.ddd4j.value.Opt;
 
 @FunctionalInterface
 public interface Curry<T, C extends Curry<?, ?>> {

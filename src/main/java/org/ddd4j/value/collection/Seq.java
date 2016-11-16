@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Opt;
 import org.ddd4j.value.collection.Ref.RefTpl;
 import org.ddd4j.value.collection.Seq.Mapper.Mapping;
 

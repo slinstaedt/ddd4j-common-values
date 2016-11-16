@@ -10,6 +10,7 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Opt;
 
 @FunctionalInterface
 public interface Ref<T> {

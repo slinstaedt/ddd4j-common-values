@@ -46,8 +46,8 @@ public class Session {
 	private final Aggregates aggregates;
 	private final Map<Identifier, Tracked<?>> tracked;
 
-	public Session(Identifier currentAggregate, Aggregates aggregates) {
-		this(currentAggregate, aggregates, Map.empty());
+	public Session(Identifier current, Aggregates aggregates) {
+		this(current, aggregates, Map.empty());
 	}
 
 	private Session(Identifier currentAggregate, Aggregates aggregates, Map<Identifier, Tracked<?>> tracked) {
