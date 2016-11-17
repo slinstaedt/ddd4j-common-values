@@ -9,6 +9,8 @@ import org.apache.avro.Schema.Parser;
 import org.apache.avro.SchemaCompatibility;
 import org.apache.avro.SchemaCompatibility.SchemaCompatibilityType;
 import org.apache.avro.SchemaNormalization;
+import org.apache.avro.generic.GenericData.Record;
+import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
@@ -52,7 +54,7 @@ public class AvroSchemaFactory implements SchemaFactory {
 			org.apache.avro.Schema writerSchema = new Parser().parse(input.readUTF());
 			Class<?> type = factory.data.getClass(writerSchema);
 			if (type == null || type == Object.class) {
-				type = SchemaFactory.classForName(writerSchema.getFullName());
+				type = SchemaFactory.classForName(writerSchema.getFullName(), e -> Record.class);
 			}
 			return new AvroSchema<>(factory, type, writerSchema);
 		}
@@ -94,9 +96,14 @@ public class AvroSchemaFactory implements SchemaFactory {
 
 		@Override
 		public Reader<T> createReader(ByteDataInput input) {
-			org.apache.avro.Schema readerSchema = factory.data.getSchema(type);
+			DatumReader<?> reader;
+			if (type == Record.class) {
+				reader = new GenericDatumReader<>(writerSchema, writerSchema, factory.data);
+			} else {
+				org.apache.avro.Schema readerSchema = factory.data.getSchema(type);
+				reader = factory.data.createDatumReader(writerSchema, readerSchema);
+			}
 			Decoder decoder = factory.decoderFactory.apply(writerSchema, input.asStream());
-			DatumReader<?> reader = factory.data.createDatumReader(writerSchema, readerSchema);
 			return Throwing.ofSupplied(() -> reader.read(null, decoder)).map(type::cast)::get;
 		}
 

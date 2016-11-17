@@ -1,16 +1,17 @@
 package org.ddd4j.schema;
 
+import java.util.function.Function;
+
 import org.ddd4j.io.ByteDataInput;
 import org.ddd4j.schema.Schema.Fingerprint;
-import org.ddd4j.value.Throwing;
 
 public interface SchemaFactory {
 
-	static Class<?> classForName(String className) {
+	static Class<?> classForName(String className, Function<? super ClassNotFoundException, Class<?>> notFound) {
 		try {
 			return Class.forName(className);
 		} catch (ClassNotFoundException e) {
-			return Throwing.unchecked(e);
+			return notFound.apply(e);
 		}
 	}
 
