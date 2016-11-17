@@ -30,7 +30,7 @@ public interface ByteDataOutput extends DataOutput {
 
 			@Override
 			public void write(int b) throws IOException {
-				nextByte((byte) (0xff & b));
+				nextByte(b);
 			}
 
 			@Override
@@ -40,7 +40,7 @@ public interface ByteDataOutput extends DataOutput {
 		};
 	}
 
-	void nextByte(byte b) throws IOException;
+	void nextByte(int b) throws IOException;
 
 	default void write(byte b) {
 		try {
@@ -141,7 +141,7 @@ public interface ByteDataOutput extends DataOutput {
 	}
 
 	@Override
-	default void writeShort(int v) throws IOException {
+	default void writeShort(int v) {
 		write((byte) (0xff & (v >> 8)));
 		write((byte) (0xff & v));
 	}

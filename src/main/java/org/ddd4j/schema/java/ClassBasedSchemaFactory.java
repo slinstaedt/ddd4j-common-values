@@ -11,10 +11,11 @@ import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.Schema.Fingerprint;
 import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.value.Throwing;
+import org.ddd4j.value.Value;
 
 public class ClassBasedSchemaFactory implements SchemaFactory {
 
-	static class JavaSchema<T> implements Schema<T> {
+	static class JavaSchema<T> extends Value.Simple<Schema<T>> implements Schema<T> {
 
 		private final Class<T> baseType;
 
@@ -30,16 +31,6 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		@Override
 		public Fingerprint getFingerprint() {
 			return new JavaFingerprint(baseType);
-		}
-
-		@Override
-		public int hash() {
-			return baseType.hashCode();
-		}
-
-		@Override
-		public boolean equal(Schema<T> other) {
-			return other.<JavaSchema>as(JavaSchema.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
 		}
 
 		@Override
@@ -63,9 +54,19 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 			ObjectOutput out = Throwing.ofSupplied(() -> output.asObject(true)).get();
 			return Throwing.ofConsumed(out::writeObject)::accept;
 		}
+
+		@Override
+		public boolean compatibleWith(Schema<?> existing) {
+			return existing.<JavaSchema>as(JavaSchema.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
+		}
+
+		@Override
+		protected Object value() {
+			return baseType;
+		}
 	}
 
-	static class JavaFingerprint implements Fingerprint {
+	static class JavaFingerprint extends Value.Simple<Fingerprint> implements Fingerprint {
 
 		private final Class<?> baseType;
 
@@ -74,13 +75,8 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public int hash() {
-			return baseType.hashCode();
-		}
-
-		@Override
-		public boolean equal(Fingerprint other) {
-			return other.as(JavaFingerprint.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
+		protected Object value() {
+			return baseType;
 		}
 
 		@Override

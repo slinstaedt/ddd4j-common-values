@@ -9,11 +9,6 @@ public interface Version extends Ordered<Version>, Value<Version> {
 
 		@Override
 		public int compareTo(Version o) {
-			return this == o ? 0 : 1;
-		}
-
-		@Override
-		public int hash() {
 			return 0;
 		}
 	};

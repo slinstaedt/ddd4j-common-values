@@ -1,60 +1,54 @@
 package org.ddd4j.value;
 
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
+
 import org.ddd4j.io.ByteDataOutput;
 
 public interface Value<V extends Value<V>> extends Self<V> {
 
-	class Wrapper<V extends Value<V>> {
+	abstract class Simple<V extends Value<V>> implements Value<V> {
 
-		private final V value;
+		private IntSupplier hasher = () -> {
+			Object value = value();
+			int hashCode = value instanceof Object[] ? Arrays.deepHashCode((Object[]) value) : Objects.hashCode(value);
+			hasher = () -> hashCode;
+			return hashCode;
+		};
 
-		public Wrapper(V value) {
-			this.value = value;
-		}
+		private Supplier<String> stringer = () -> {
+			Object value = value();
+			String toString = value instanceof Object[] ? Arrays.asList((Object[]) value).toString() : String.valueOf(value);
+			stringer = () -> toString;
+			return toString;
+		};
 
-		public V value() {
-			return value;
-		}
-
-		@Override
-		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + ((value == null) ? 0 : value.hash());
-			return result;
-		}
+		protected abstract Object value();
 
 		@Override
 		public boolean equals(Object obj) {
 			if (this == obj) {
 				return true;
-			}
-			if (obj == null) {
+			} else if (obj == null) {
 				return false;
-			}
-			if (getClass() != obj.getClass()) {
+			} else if (getClass() != obj.getClass()) {
 				return false;
+			} else {
+				return Objects.deepEquals(value(), ((Simple<?>) obj).value());
 			}
-			@SuppressWarnings("unchecked")
-			Wrapper<V> other = (Wrapper<V>) obj;
-			if (value == null) {
-				if (other.value != null) {
-					return false;
-				}
-			} else if (!value.equal(other.value)) {
-				return false;
-			}
-			return true;
+		}
+
+		@Override
+		public int hashCode() {
+			return hasher.getAsInt();
 		}
 
 		@Override
 		public String toString() {
-			return String.valueOf(value);
+			return stringer.get();
 		}
-	}
-
-	default Wrapper<V> wrapped() {
-		return new Wrapper<>(self());
 	}
 
 	default <X extends V> Opt<X> as(Class<X> type) {
@@ -64,8 +58,4 @@ public interface Value<V extends Value<V>> extends Self<V> {
 	default void serialize(ByteDataOutput output) {
 		throw new UnsupportedOperationException();
 	}
-
-	int hash();
-
-	boolean equal(V other);
 }

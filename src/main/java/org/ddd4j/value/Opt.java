@@ -233,16 +233,32 @@ public interface Opt<T> {
 	}
 
 	default Opt<T> visitNonNull(Consumer<? super T> consumer) {
+		return visitNonNull(consumer, () -> {
+		});
+	}
+
+	default Opt<T> visitNonNull(Consumer<? super T> consumer, Runnable empty) {
 		return apply(t -> {
 			consumer.accept(t);
 			return this;
-		}, () -> this, () -> this);
+		}, () -> this, () -> {
+			empty.run();
+			return this;
+		});
 	}
 
 	default Opt<T> visitNullable(Consumer<? super T> consumer) {
+		return visitNullable(consumer, () -> {
+		});
+	}
+
+	default Opt<T> visitNullable(Consumer<? super T> consumer, Runnable empty) {
 		return applyNullable(t -> {
 			consumer.accept(t);
 			return this;
-		}, () -> this);
+		}, () -> {
+			empty.run();
+			return this;
+		});
 	}
 }

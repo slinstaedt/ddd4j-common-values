@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
@@ -58,6 +59,37 @@ public interface Throwing {
 			}
 		}
 
+		default TConsumer<T> ignoreExceptions() {
+			return ignore(Throwable.class);
+		}
+
+		default TConsumer<T> ignore(Class<? extends Throwable> exceptionType) {
+			return t -> {
+				try {
+					acceptChecked(t);
+				} catch (Throwable e) {
+					if (!exceptionType.isInstance(e)) {
+						Throwing.unchecked(e);
+					}
+				}
+			};
+		}
+
+		default TPredicate<T> catching(Class<? extends Throwable> exceptionType) {
+			return t -> {
+				try {
+					acceptChecked(t);
+					return true;
+				} catch (Throwable e) {
+					return exceptionType.isInstance(e) ? false : Throwing.unchecked(e);
+				}
+			};
+		}
+
+		default TPredicate<T> catchingExceptions() {
+			return catching(Throwable.class);
+		}
+
 		void acceptChecked(T t) throws Throwable;
 	}
 
@@ -93,6 +125,50 @@ public interface Throwing {
 					return Opt.none();
 				}
 			};
+		}
+	}
+
+	@FunctionalInterface
+	interface TRunnable extends Runnable {
+
+		void runChecked() throws Throwable;
+
+		@Override
+		default void run() {
+			try {
+				runChecked();
+			} catch (Throwable e) {
+				Throwing.unchecked(e);
+			}
+		}
+	}
+
+	@FunctionalInterface
+	interface TPredicate<T> extends Predicate<T> {
+
+		boolean testChecked(T t) throws Throwable;
+
+		@Override
+		default boolean test(T t) {
+			try {
+				return testChecked(t);
+			} catch (Throwable e) {
+				return Throwing.unchecked(e);
+			}
+		}
+
+		default TPredicate<T> returningFalseOn(Class<? extends Throwable> exceptionType) {
+			return t -> {
+				try {
+					return testChecked(t);
+				} catch (Throwable e) {
+					return exceptionType.isInstance(e) ? false : Throwing.unchecked(e);
+				}
+			};
+		}
+
+		default TPredicate<T> returningFalseOnException() {
+			return returningFalseOn(Throwable.class);
 		}
 	}
 
@@ -148,19 +224,27 @@ public interface Throwing {
 	}
 
 	static <T, R> TFunction<T, R> ofApplied(TFunction<T, R> function) {
-		return Require.nonNull(function)::apply;
+		return Require.nonNull(function);
 	}
 
 	static <T, U, R> TBiFunction<T, U, R> ofApplied(TBiFunction<T, U, R> function) {
-		return Require.nonNull(function)::apply;
+		return Require.nonNull(function);
 	}
 
 	static <T> TConsumer<T> ofConsumed(TConsumer<T> consumer) {
-		return Require.nonNull(consumer)::accept;
+		return Require.nonNull(consumer);
+	}
+
+	static TRunnable ofRunning(TRunnable runnable) {
+		return Require.nonNull(runnable);
 	}
 
 	static <T> TSupplier<T> ofSupplied(TSupplier<T> supplier) {
-		return Require.nonNull(supplier)::get;
+		return Require.nonNull(supplier);
+	}
+
+	static <T> TPredicate<T> ofTested(TPredicate<T> predicate) {
+		return Require.nonNull(predicate);
 	}
 
 	static <X> X unchecked(Throwable throwable) {

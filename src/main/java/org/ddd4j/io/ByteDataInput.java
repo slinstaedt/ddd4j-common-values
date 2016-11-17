@@ -20,7 +20,7 @@ public interface ByteDataInput extends DataInput {
 			@Override
 			public int read() throws IOException {
 				try {
-					return Byte.toUnsignedInt(nextByte());
+					return nextByte();
 				} catch (EOFException e) {
 					return -1;
 				}
@@ -33,14 +33,19 @@ public interface ByteDataInput extends DataInput {
 		};
 	}
 
-	byte nextByte() throws IOException;
+	int nextByte() throws IOException;
 
 	default byte read() {
+		int b = -1;
 		try {
-			return nextByte();
+			b = nextByte();
 		} catch (IOException e) {
 			throw new IllegalStateException("Could not read data", e);
 		}
+		if (b == -1) {
+			throw new IllegalStateException("End of stream reached");
+		}
+		return (byte) b;
 	}
 
 	@Override

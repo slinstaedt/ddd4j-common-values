@@ -2,14 +2,15 @@ package org.ddd4j.schema;
 
 import org.ddd4j.io.ByteDataInput;
 import org.ddd4j.schema.Schema.Fingerprint;
+import org.ddd4j.value.Throwing;
 
 public interface SchemaFactory {
 
-	static Class<?> classForName(String name) {
+	static Class<?> classForName(String className) {
 		try {
-			return Class.forName(name);
+			return Class.forName(className);
 		} catch (ClassNotFoundException e) {
-			throw new IllegalArgumentException("Could not load class with name: " + name, e);
+			return Throwing.unchecked(e);
 		}
 	}
 
