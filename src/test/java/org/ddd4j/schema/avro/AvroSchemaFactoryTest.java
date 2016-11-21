@@ -2,6 +2,7 @@ package org.ddd4j.schema.avro;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.UUID;
 
 import org.apache.avro.Conversions;
@@ -78,7 +79,7 @@ public class AvroSchemaFactoryTest {
 	}
 
 	@Test
-	public void sameSchema() {
+	public void sameSchema() throws IOException {
 		Schema<V1> schema = testUnit.createSchema(V1.class);
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
@@ -90,7 +91,7 @@ public class AvroSchemaFactoryTest {
 	}
 
 	@Test
-	public void serializedSchema() {
+	public void serializedSchema() throws IOException {
 		Schema<V1> schema = testUnit.createSchema(V1.class);
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		schema.serialize(baos::write);
@@ -105,7 +106,7 @@ public class AvroSchemaFactoryTest {
 	}
 
 	@Test
-	public void reducedSchema() {
+	public void reducedSchema() throws IOException {
 		Schema<?> schema = testUnit.readSchema(new ByteArrayInputStream(SCHEMA2.getBytes())::read);
 		V2 copy = (V2) schema.createReader(new ByteArrayInputStream(TEST_DATA.getBytes())::read).read();
 
@@ -114,7 +115,7 @@ public class AvroSchemaFactoryTest {
 	}
 
 	@Test
-	public void extendedSchema() {
+	public void extendedSchema() throws IOException {
 		Schema<?> schema = testUnit.readSchema(new ByteArrayInputStream(SCHEMA3.getBytes())::read);
 		V3 copy = (V3) schema.createReader(new ByteArrayInputStream(TEST_DATA.getBytes())::read).read();
 

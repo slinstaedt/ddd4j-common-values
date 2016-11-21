@@ -71,7 +71,7 @@ public interface BiMap<K, V> extends Map<K, V> {
 	}
 
 	default void put(K key, V value, UnaryOperator<K> existingKey, Consumer<V> existingValue) {
-		backing().consume((kMap, vMap) -> {
+		backing().visit((kMap, vMap) -> {
 			vMap.compute(value, (v, k) -> {
 				K existing = k != null ? existingKey.apply(k) : key;
 				existingValue.accept(kMap.put(key, value));

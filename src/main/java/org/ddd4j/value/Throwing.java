@@ -59,6 +59,17 @@ public interface Throwing {
 			}
 		}
 
+		default TConsumer<T> andThen(TConsumer<? super T> consumer) {
+			return t -> {
+				accept(t);
+				consumer.accept(t);
+			};
+		}
+
+		default TConsumer<T> andThen(TRunnable runnable) {
+			return andThen(t -> runnable.run());
+		}
+
 		default TConsumer<T> ignoreExceptions() {
 			return ignore(Throwable.class);
 		}
@@ -217,6 +228,12 @@ public interface Throwing {
 	static <X, E extends Throwable> X any(Throwable throwable) throws E {
 		Require.nonNull(throwable);
 		throw (E) throwable;
+	}
+
+	static <E extends Throwable, R> TFunction<E, R> rethrow() {
+		return e -> {
+			throw e;
+		};
 	}
 
 	static Throwing of(Function<? super String, ? extends Throwable> exceptionFactory) {

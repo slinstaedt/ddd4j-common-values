@@ -5,8 +5,8 @@ import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.ParameterizedType;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.ByteDataInput;
-import org.ddd4j.io.ByteDataOutput;
+import org.ddd4j.io.Input;
+import org.ddd4j.io.Output;
 
 public abstract class Type<T> extends Value.Simple<Type<T>> implements Value<Type<T>>, Serializable {
 
@@ -32,7 +32,7 @@ public abstract class Type<T> extends Value.Simple<Type<T>> implements Value<Typ
 		}
 	}
 
-	public static Type<?> from(ByteDataInput input) {
+	public static Type<?> from(Input input) {
 	}
 
 	public static <T> Type<T> of(Class<T> javaType) {
@@ -99,7 +99,7 @@ public abstract class Type<T> extends Value.Simple<Type<T>> implements Value<Typ
 	}
 
 	@Override
-	public void serialize(ByteDataOutput output) {
+	public void serialize(Output output) {
 		output.writeUTF(getRawType().getName());
 	}
 

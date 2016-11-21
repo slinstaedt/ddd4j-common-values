@@ -19,24 +19,41 @@ import org.ddd4j.value.collection.Seq;
 @FunctionalInterface
 public interface Opt<T> {
 
-	static <T> Opt<T> none() {
-		return new Opt<T>() {
+	class Some<T> extends Value.Simple<Some<T>> implements Opt<T> {
 
-			@Override
-			public <X> X applyNullable(Function<? super T, ? extends X> nullable, Supplier<? extends X> empty) {
-				return empty.get();
-			}
-		};
+		private final T value;
+
+		public Some(T value) {
+			this.value = value;
+		}
+
+		@Override
+		public <X> X applyNullable(Function<? super T, ? extends X> nullable, Supplier<? extends X> empty) {
+			return nullable.apply(value);
+		}
+
+		@Override
+		protected Object value() {
+			return value;
+		}
+	}
+
+	@SuppressWarnings("rawtypes")
+	Opt NONE = new Opt() {
+
+		@Override
+		public Object applyNullable(Function nullable, Supplier empty) {
+			return empty.get();
+		}
+	};
+
+	@SuppressWarnings("unchecked")
+	static <T> Opt<T> none() {
+		return NONE;
 	}
 
 	static <T> Opt<T> of(T element) {
-		return new Opt<T>() {
-
-			@Override
-			public <X> X applyNullable(Function<? super T, ? extends X> nullable, Supplier<? extends X> empty) {
-				return nullable.apply(element);
-			}
-		};
+		return new Some<>(element);
 	}
 
 	static <T> Opt<T> ofNull() {
@@ -109,16 +126,16 @@ public interface Opt<T> {
 		return apply(nonNull, Opt::ofNull, Opt::none);
 	}
 
-	default <X> Optional<X> flatMapOptional(Function<? super T, Optional<X>> nonNull) {
-		return apply(nonNull, Optional::empty, Optional::empty);
-	}
-
 	default <X> Opt<X> flatMapNullable(Function<? super T, Opt<X>> nullable) {
 		return applyNullable(nullable, Opt::none);
 	}
 
 	default <X> Opt<X> flatMapNullable(Function<? super T, Opt<X>> nullable, Supplier<Opt<X>> empty) {
 		return applyNullable(nullable, empty);
+	}
+
+	default <X> Optional<X> flatMapOptional(Function<? super T, Optional<X>> nonNull) {
+		return apply(nonNull, Optional::empty, Optional::empty);
 	}
 
 	default T getEmptyAsNull() {
@@ -175,10 +192,6 @@ public interface Opt<T> {
 		return flatMapNonNull(nonNull.andThen(Opt::of));
 	}
 
-	default <X> Optional<X> mapOptional(Function<? super T, ? extends X> nonNull) {
-		return flatMapOptional(nonNull.andThen(Optional::of));
-	}
-
 	default <X> Opt<X> mapNullable(Function<? super T, ? extends X> nullable) {
 		return flatMapNullable(nullable.andThen(Opt::of));
 	}
@@ -190,6 +203,10 @@ public interface Opt<T> {
 
 	default <X> Opt<X> mapNullable(Function<? super T, ? extends X> nullable, Supplier<? extends X> empty) {
 		return flatMapNullable(nullable.andThen(Opt::of), wrap(empty));
+	}
+
+	default <X> Optional<X> mapOptional(Function<? super T, ? extends X> nonNull) {
+		return flatMapOptional(nonNull.andThen(Optional::of));
 	}
 
 	default T orElse(T other) {

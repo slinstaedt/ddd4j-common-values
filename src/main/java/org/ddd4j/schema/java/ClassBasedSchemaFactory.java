@@ -1,12 +1,13 @@
 package org.ddd4j.schema.java;
 
+import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.Objects;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.ByteDataInput;
-import org.ddd4j.io.ByteDataOutput;
+import org.ddd4j.io.Input;
+import org.ddd4j.io.Output;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.Schema.Fingerprint;
 import org.ddd4j.schema.SchemaFactory;
@@ -34,8 +35,8 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public void serialize(ByteDataOutput output) {
-			output.writeUTF(baseType.getName());
+		public void serialize(Output output) throws IOException {
+			output.asDataOutput().writeUTF(baseType.getName());
 		}
 
 		@Override
@@ -44,15 +45,21 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public Reader<T> createReader(ByteDataInput input) {
-			ObjectInput in = Throwing.ofSupplied(input::asObject).get();
+		public Reader<T> createReader(Input input) {
+			ObjectInput in = Throwing.ofApplied(Input::asObjectInput).apply(input);
 			return Throwing.ofSupplied(in::readObject).map(baseType::cast)::get;
 		}
 
 		@Override
-		public Writer<T> createWriter(ByteDataOutput output) {
-			ObjectOutput out = Throwing.ofSupplied(() -> output.asObject(true)).get();
-			return Throwing.ofConsumed(out::writeObject)::accept;
+		public Writer<T> createWriter(Output output) {
+			ObjectOutput out = Throwing.ofApplied(Output::asObjectOutput).apply(output, true);
+			return (datum, flush) -> {
+				if (flush) {
+					out.flush();
+				} else {
+					out.writeObject(datum);
+				}
+			};
 		}
 
 		@Override
@@ -63,6 +70,11 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		@Override
 		protected Object value() {
 			return baseType;
+		}
+
+		@Override
+		public boolean equal(Object o1, Object o2) {
+			return Objects.deepEquals(o1, o2);
 		}
 	}
 
@@ -80,8 +92,8 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public void serialize(ByteDataOutput output) {
-			output.writeUTF(baseType.getName());
+		public void serialize(Output output) throws IOException {
+			output.asDataOutput().writeUTF(baseType.getName());
 		}
 	}
 
@@ -91,12 +103,12 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public Fingerprint readFingerprint(ByteDataInput input) {
-		return new JavaFingerprint(SchemaFactory.classForName(input.readUTF()));
+	public Fingerprint readFingerprint(Input input) throws IOException {
+		return new JavaFingerprint(SchemaFactory.classForName(input.asDataInput().readUTF(), Throwing.rethrow()));
 	}
 
 	@Override
-	public Schema<?> readSchema(ByteDataInput input) {
-		return new JavaSchema<>(SchemaFactory.classForName(input.readUTF()));
+	public Schema<?> readSchema(Input input) throws IOException {
+		return new JavaSchema<>(SchemaFactory.classForName(input.asDataInput().readUTF(), Throwing.rethrow()));
 	}
 }

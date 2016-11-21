@@ -1,13 +1,14 @@
 package org.ddd4j.schema;
 
-import java.util.function.Function;
+import java.io.IOException;
 
-import org.ddd4j.io.ByteDataInput;
+import org.ddd4j.io.Input;
 import org.ddd4j.schema.Schema.Fingerprint;
+import org.ddd4j.value.Throwing.TFunction;
 
 public interface SchemaFactory {
 
-	static Class<?> classForName(String className, Function<? super ClassNotFoundException, Class<?>> notFound) {
+	static Class<?> classForName(String className, TFunction<? super ClassNotFoundException, Class<?>> notFound) {
 		try {
 			return Class.forName(className);
 		} catch (ClassNotFoundException e) {
@@ -17,7 +18,7 @@ public interface SchemaFactory {
 
 	<T> Schema<T> createSchema(Class<T> type);
 
-	Fingerprint readFingerprint(ByteDataInput input);
+	Fingerprint readFingerprint(Input input) throws IOException;
 
-	Schema<?> readSchema(ByteDataInput input);
+	Schema<?> readSchema(Input input) throws IOException;
 }

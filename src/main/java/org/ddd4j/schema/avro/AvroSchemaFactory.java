@@ -1,5 +1,6 @@
 package org.ddd4j.schema.avro;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.NoSuchAlgorithmException;
@@ -19,8 +20,8 @@ import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.reflect.ReflectData;
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.ByteDataInput;
-import org.ddd4j.io.ByteDataOutput;
+import org.ddd4j.io.Input;
+import org.ddd4j.io.Output;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.Schema.Fingerprint;
 import org.ddd4j.schema.SchemaFactory;
@@ -50,8 +51,8 @@ public class AvroSchemaFactory implements SchemaFactory {
 
 	static class AvroSchema<T> extends Value.Simple<Schema<T>> implements Schema<T> {
 
-		static AvroSchema<?> deserialize(AvroSchemaFactory factory, ByteDataInput input) {
-			org.apache.avro.Schema writerSchema = new Parser().parse(input.readUTF());
+		static AvroSchema<?> deserialize(AvroSchemaFactory factory, Input input) throws IOException {
+			org.apache.avro.Schema writerSchema = new Parser().parse(input.asDataInput().readUTF());
 			Class<?> type = factory.data.getClass(writerSchema);
 			if (type == null || type == Object.class) {
 				type = SchemaFactory.classForName(writerSchema.getFullName(), e -> Record.class);
@@ -80,8 +81,8 @@ public class AvroSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public void serialize(ByteDataOutput output) {
-			output.writeUTF(writerSchema.toString());
+		public void serialize(Output output) throws IOException {
+			output.asDataOutput().writeUTF(writerSchema.toString());
 		}
 
 		@Override
@@ -95,7 +96,7 @@ public class AvroSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public Reader<T> createReader(ByteDataInput input) {
+		public Reader<T> createReader(Input input) {
 			DatumReader<?> reader;
 			if (type == Record.class) {
 				reader = new GenericDatumReader<>(writerSchema, writerSchema, factory.data);
@@ -108,11 +109,17 @@ public class AvroSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public Writer<T> createWriter(ByteDataOutput output) {
+		public Writer<T> createWriter(Output output) {
 			Encoder encoder = factory.encoderFactory.apply(writerSchema, output.asStream());
 			@SuppressWarnings("unchecked")
 			DatumWriter<Object> writer = factory.data.createDatumWriter(writerSchema);
-			return o -> o.visitNullable(Throwing.ofConsumed(t -> writer.write(t, encoder)), Throwing.ofRunning(encoder::flush));
+			return (datum, flush) -> {
+				if (flush) {
+					encoder.flush();
+				} else {
+					writer.write(datum, encoder);
+				}
+			};
 		}
 
 		@Override
@@ -130,7 +137,7 @@ public class AvroSchemaFactory implements SchemaFactory {
 
 	static class AvroFingerprint extends Value.Simple<Fingerprint> implements Fingerprint {
 
-		static AvroFingerprint deserialize(ByteDataInput input) {
+		static AvroFingerprint deserialize(Input input) throws IOException {
 			return new AvroFingerprint(input.readByteArray());
 		}
 
@@ -141,7 +148,7 @@ public class AvroSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public void serialize(ByteDataOutput output) {
+		public void serialize(Output output) throws IOException {
 			output.writeByteArray(value);
 		}
 
@@ -175,12 +182,12 @@ public class AvroSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public Fingerprint readFingerprint(ByteDataInput input) {
+	public Fingerprint readFingerprint(Input input) throws IOException {
 		return AvroFingerprint.deserialize(input);
 	}
 
 	@Override
-	public Schema<?> readSchema(ByteDataInput input) {
+	public Schema<?> readSchema(Input input) throws IOException {
 		return AvroSchema.deserialize(this, input);
 	}
 }

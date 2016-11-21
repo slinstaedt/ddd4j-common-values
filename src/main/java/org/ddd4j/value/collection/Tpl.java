@@ -1,5 +1,6 @@
 package org.ddd4j.value.collection;
 
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -14,9 +15,31 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Value;
 
 @FunctionalInterface
 public interface Tpl<L, R> {
+
+	class Tuple<L, R> extends Value.Simple<Tuple<L, R>> implements Tpl<L, R> {
+
+		private final L left;
+		private final R right;
+
+		public Tuple(L left, R right) {
+			this.left = left;
+			this.right = right;
+		}
+
+		@Override
+		public <T> T fold(BiFunction<? super L, ? super R, ? extends T> function) {
+			return function.apply(left, right);
+		}
+
+		@Override
+		protected Object value() {
+			return Arrays.asList(left, right);
+		}
+	}
 
 	@FunctionalInterface
 	interface Void extends Tpl<Void, Void> {
@@ -40,42 +63,15 @@ public interface Tpl<L, R> {
 		return of(entry, entry);
 	}
 
-	static <L, R, X, Y> Tpl<X, Y> chain(Tpl<L, R> tuple, Function<? super L, ? extends X> leftMap, Function<? super R, ? extends Y> rightMap) {
-		Require.nonNullElements(tuple, leftMap, rightMap);
-		return new Tpl<X, Y>() {
-
-			@Override
-			public <T> T fold(BiFunction<? super X, ? super Y, ? extends T> function) {
-				return function.apply(tuple.foldLeft(leftMap), tuple.foldRight(rightMap));
-			}
-
-			@Override
-			public String toString() {
-				return flatten().toString();
-			}
-		};
-	}
-
 	static <L extends T, R extends T, T> void consume(Tpl<L, R> tuple, Consumer<T> consumer) {
-		tuple.consume((l, r) -> {
+		tuple.visit((l, r) -> {
 			consumer.accept(l);
 			consumer.accept(r);
 		});
 	}
 
 	static <L, R> Tpl<L, R> of(L left, R right) {
-		return new Tpl<L, R>() {
-
-			@Override
-			public <T> T fold(BiFunction<? super L, ? super R, ? extends T> function) {
-				return function.apply(left, right);
-			}
-
-			@Override
-			public String toString() {
-				return "(" + left + ", " + right + ")";
-			}
-		};
+		return new Tuple<>(left, right);
 	}
 
 	static <L> Tpl<L, Void> ofLeft(L left) {
@@ -113,13 +109,6 @@ public interface Tpl<L, R> {
 				accumulator.accept(accumulation, r);
 			}
 			return accumulation;
-		});
-	}
-
-	default void consume(BiConsumer<? super L, ? super R> consumer) {
-		fold((l, r) -> {
-			consumer.accept(l, r);
-			return null;
 		});
 	}
 
@@ -172,7 +161,7 @@ public interface Tpl<L, R> {
 	}
 
 	default <X, Y> Tpl<X, Y> map(Function<? super L, ? extends X> leftMap, Function<? super R, ? extends Y> rightMap) {
-		return chain(this, leftMap, rightMap);
+		return fold((l, r) -> Tpl.of(leftMap.apply(l), rightMap.apply(r)));
 	}
 
 	default <X> Tpl<X, R> mapLeft(Function<? super L, ? extends X> leftMap) {
@@ -214,6 +203,25 @@ public interface Tpl<L, R> {
 
 	default Object[] toArray() {
 		return collect(Collectors.toList()).toArray();
+	}
+
+	default Tpl<L, R> visit(BiConsumer<? super L, ? super R> consumer) {
+		return fold((l, r) -> {
+			consumer.accept(l, r);
+			return this;
+		});
+	}
+
+	default Tpl<L, R> visitLeft(Consumer<? super L> consumer) {
+		return visit((l, r) -> {
+			consumer.accept(l);
+		});
+	}
+
+	default Tpl<L, R> visitRight(Consumer<? super R> consumer) {
+		return visit((l, r) -> {
+			consumer.accept(r);
+		});
 	}
 
 	default <X> Tpl<X, R> updateLeft(X left) {

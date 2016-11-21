@@ -1,10 +1,10 @@
 package org.ddd4j.schema;
 
 import java.io.Flushable;
+import java.io.IOException;
 
-import org.ddd4j.io.ByteDataInput;
-import org.ddd4j.io.ByteDataOutput;
-import org.ddd4j.value.Opt;
+import org.ddd4j.io.Input;
+import org.ddd4j.io.Output;
 import org.ddd4j.value.Value;
 
 public interface Schema<T> extends Value<Schema<T>> {
@@ -15,26 +15,26 @@ public interface Schema<T> extends Value<Schema<T>> {
 	@FunctionalInterface
 	interface Reader<T> {
 
-		T read();
+		T read() throws IOException;
 	}
 
 	@FunctionalInterface
 	interface Writer<T> extends Flushable {
 
-		void writeOrFlush(Opt<T> value);
+		void writeOrFlush(T value, boolean flush) throws IOException;
 
-		default void write(T value) {
-			writeOrFlush(Opt.of(value));
+		default void write(T value) throws IOException {
+			writeOrFlush(value, false);
 		}
 
-		default void writeAndFlush(T value) {
+		default void writeAndFlush(T value) throws IOException {
 			write(value);
 			flush();
 		}
 
 		@Override
-		default void flush() {
-			writeOrFlush(Opt.none());
+		default void flush() throws IOException {
+			writeOrFlush(null, true);
 		}
 	}
 
@@ -50,7 +50,7 @@ public interface Schema<T> extends Value<Schema<T>> {
 
 	// boolean contains(Type<?> type);
 
-	Reader<T> createReader(ByteDataInput input);
+	Reader<T> createReader(Input input);
 
-	Writer<T> createWriter(ByteDataOutput output);
+	Writer<T> createWriter(Output output);
 }

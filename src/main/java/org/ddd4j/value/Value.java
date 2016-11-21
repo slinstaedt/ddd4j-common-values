@@ -1,11 +1,12 @@
 package org.ddd4j.value;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
-import org.ddd4j.io.ByteDataOutput;
+import org.ddd4j.io.Output;
 
 public interface Value<V extends Value<V>> extends Self<V> {
 
@@ -55,7 +56,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		return type.isInstance(this) ? Opt.of(type.cast(this)) : Opt.none();
 	}
 
-	default void serialize(ByteDataOutput output) {
+	default void serialize(Output output) throws IOException {
 		throw new UnsupportedOperationException();
 	}
 }

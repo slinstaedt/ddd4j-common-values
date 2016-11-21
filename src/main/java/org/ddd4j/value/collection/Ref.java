@@ -19,7 +19,7 @@ public interface Ref<T> {
 	interface RefOpt<T> extends Ref<Opt<T>> {
 
 		static <T> RefOpt<T> create(Opt<T> initial) {
-			return Ref.<Opt<T>> create().set(Require.nonNull(initial))::update;
+			return Ref.<Opt<T>>create().set(Require.nonNull(initial))::update;
 		}
 
 		default Ref<T> asNonEmpty() {
@@ -59,7 +59,7 @@ public interface Ref<T> {
 	interface RefTpl<L, R> extends Ref<Tpl<L, R>> {
 
 		static <L, R> RefTpl<L, R> create(L left, R right) {
-			return Ref.<Tpl<L, R>> create().set(Tpl.of(left, right))::update;
+			return Ref.<Tpl<L, R>>create().set(Tpl.of(left, right))::update;
 		}
 
 		default <T> T fold(BiFunction<? super L, ? super R, ? extends T> function) {
@@ -98,7 +98,7 @@ public interface Ref<T> {
 	}
 
 	static <T> Ref<T> create(T initial) {
-		return Ref.<T> create().set(initial);
+		return Ref.<T>create().set(initial);
 	}
 
 	static <T> Ref<T> createThreadsafe() {
@@ -127,7 +127,7 @@ public interface Ref<T> {
 	}
 
 	static <T> Ref<T> of(T value) {
-		return Ref.<T> create().set(value);
+		return Ref.<T>create().set(value);
 	}
 
 	default <X> X apply(Function<? super T, X> mapper) {
@@ -165,6 +165,10 @@ public interface Ref<T> {
 	default Ref<T> set(T value) {
 		getAndUpdate(t -> value);
 		return this;
+	}
+
+	default Ref<T> setOptional(Opt<T> value) {
+		return value.applyNullable(this::set, () -> this);
 	}
 
 	default Tpl<T, T> update(Supplier<? extends T> supplier) {

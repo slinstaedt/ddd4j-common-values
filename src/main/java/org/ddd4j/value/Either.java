@@ -34,6 +34,54 @@ public interface Either<L, R> {
 		}
 	}
 
+	class Left<L, R> extends Value.Simple<Left<L, R>> implements Either<L, R> {
+
+		private final L value;
+
+		public Left(L value) {
+			this.value = value;
+		}
+
+		@Override
+		public <X> X fold(Function<? super L, ? extends X> left, Function<? super R, ? extends X> right) {
+			return left.apply(value);
+		}
+
+		@Override
+		protected Object value() {
+			return value;
+		}
+
+		@Override
+		public String toString() {
+			return "Left[" + value + "]";
+		}
+	}
+
+	class Right<L, R> extends Value.Simple<Right<L, R>> implements Either<L, R> {
+
+		private final R value;
+
+		public Right(R value) {
+			this.value = value;
+		}
+
+		@Override
+		public <X> X fold(Function<? super L, ? extends X> left, Function<? super R, ? extends X> right) {
+			return right.apply(value);
+		}
+
+		@Override
+		protected Object value() {
+			return value;
+		}
+
+		@Override
+		public String toString() {
+			return "Right[" + value + "]";
+		}
+	}
+
 	static <L, R> Either<L, R> left(L value) {
 		return new Either<L, R>() {
 

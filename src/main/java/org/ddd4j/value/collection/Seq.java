@@ -161,7 +161,7 @@ public interface Seq<E> extends Iter.Able<E> {
 			return Tpl.of(limit(position), skip(position));
 		}
 
-		default Tpl<Optional<E>, Seq<E>> splitAtHead() {
+		default Tpl<Opt<E>, Seq<E>> splitAtHead() {
 			return apply(s -> Tpl.of(s.head(), s.tail()));
 		}
 
@@ -631,6 +631,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 	// XXX remove
 	public static void main(String[] args) {
+		System.out.println(Seq.of(null, "xxx").head().getNullable());
 		Seq.of("1", "1 22", "22 333", "1 22 333")
 				.filter()
 				.whereAny(m -> m.mappedArray(s -> s.split("\\s")), s -> s.length() >= 2)
@@ -733,12 +734,12 @@ public interface Seq<E> extends Iter.Able<E> {
 		}
 	}
 
-	default Optional<E> get(long index) {
+	default Opt<E> get(long index) {
 		return filter().skip(index).head();
 	}
 
-	default Optional<E> head() {
-		return stream().findFirst();
+	default Opt<E> head() {
+		return stream().map(Opt::of).findFirst().orElse(Opt.none());
 	}
 
 	default Seq<E> ifMatches(Predicate<? super Seq<E>> predicate, Function<? super Seq<E>, ? extends Seq<E>> function) {
