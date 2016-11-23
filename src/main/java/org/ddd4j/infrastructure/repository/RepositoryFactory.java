@@ -1,4 +1,4 @@
-package org.ddd4j.io.repository;
+package org.ddd4j.infrastructure.repository;
 
 import org.ddd4j.schema.Schema;
 

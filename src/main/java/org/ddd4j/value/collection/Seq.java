@@ -34,6 +34,25 @@ import org.ddd4j.value.collection.Seq.Mapper.Mapping;
 @FunctionalInterface
 public interface Seq<E> extends Iter.Able<E> {
 
+	class Value<E> extends org.ddd4j.value.Value.Simple<Value<E>> implements Seq<E> {
+
+		private final Supplier<Stream<E>> value;
+
+		public Value(Supplier<Stream<E>> value) {
+			this.value = Require.nonNull(value);
+		}
+
+		@Override
+		public Stream<E> stream() {
+			return value.get();
+		}
+
+		@Override
+		protected Object value() {
+			return fold().toList();
+		}
+	}
+
 	@FunctionalInterface
 	interface Extender<E> {
 
@@ -87,7 +106,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default <X> Seq<X> applyStream(Function<Stream<E>, Stream<X>> filter) {
 			Require.nonNull(filter);
-			return apply(s -> () -> filter.apply(s.stream()));
+			return apply(s -> new Value<>(() -> filter.apply(s.stream())));
 		}
 
 		default Seq<E> by(Predicate<? super E> predicate) {
@@ -462,11 +481,11 @@ public interface Seq<E> extends Iter.Able<E> {
 			}
 
 			default Seq<S> source() {
-				return () -> stream().map(Tpl::getLeft);
+				return new Value<>(() -> stream().map(Tpl::getLeft));
 			}
 
 			default Seq<T> target() {
-				return () -> stream().map(Tpl::getRight);
+				return new Value<>(() -> stream().map(Tpl::getRight));
 			}
 
 			default <X> Seq<X> to(BiFunction<? super S, ? super T, ? extends X> mapper) {
@@ -486,7 +505,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		<X, Y> Mapping<X, Y> apply(Function<Mapping<E, E>, Seq<Tpl<X, Y>>> function);
 
 		default <X, Y> Mapping<X, Y> applyStream(Function<Mapping<E, E>, Stream<Tpl<X, Y>>> mapper) {
-			return apply(m -> () -> mapper.apply(m));
+			return apply(m -> new Value<>(() -> mapper.apply(m)));
 		}
 
 		default <X> Mapping<E, X> cast(Class<X> type) {
@@ -555,7 +574,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		}
 
 		default <X> Mapping<E, Seq<X>> mappedStream(Function<? super E, ? extends Stream<X>> mapper) {
-			return mapped(e -> () -> mapper.apply(e));
+			return mapped(e -> new Value<>(() -> mapper.apply(e)));
 		}
 
 		default Mapping<Long, Seq<E>> partition(long partitionSize) {
@@ -610,9 +629,9 @@ public interface Seq<E> extends Iter.Able<E> {
 	@SuppressWarnings("unchecked")
 	static <E> Seq<E> cast(Seq<? extends E> sequence) {
 		Require.nonNull(sequence);
-		return () -> {
+		return new Value<>(() -> {
 			return (Stream<E>) sequence.stream();
-		};
+		});
 	}
 
 	static <E> Seq<E> concat(Seq<? extends E> a, Seq<? extends E> b) {
@@ -621,7 +640,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		} else if (b.isEmpty()) {
 			return Seq.cast(a);
 		} else {
-			return () -> Stream.concat(a.stream(), b.stream());
+			return new Value<>(() -> Stream.concat(a.stream(), b.stream()));
 		}
 	}
 
@@ -744,7 +763,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 	default Seq<E> ifMatches(Predicate<? super Seq<E>> predicate, Function<? super Seq<E>, ? extends Seq<E>> function) {
 		Require.nonNullElements(predicate, function);
-		return () -> predicate.test(this) ? function.apply(this).stream() : this.stream();
+		return new Value<>(() -> predicate.test(this) ? function.apply(this).stream() : this.stream());
 	}
 
 	/**

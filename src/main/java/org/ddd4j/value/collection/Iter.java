@@ -34,7 +34,7 @@ public interface Iter<T> {
 		}
 
 		default Seq<T> asSequence() {
-			return () -> StreamSupport.stream(spliterator(), false);
+			return new Seq.Value<>(() -> StreamSupport.stream(spliterator(), false));
 		}
 
 		Iter<T> iter();

@@ -3,28 +3,38 @@ package org.ddd4j.value;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
+import org.ddd4j.contract.Require;
 import org.ddd4j.io.Output;
 
 public interface Value<V extends Value<V>> extends Self<V> {
 
 	abstract class Simple<V extends Value<V>> implements Value<V> {
 
-		private IntSupplier hasher = () -> {
-			Object value = value();
-			int hashCode = value instanceof Object[] ? Arrays.deepHashCode((Object[]) value) : Objects.hashCode(value);
-			hasher = () -> hashCode;
-			return hashCode;
-		};
+		private transient IntSupplier hasher;
+		private transient Supplier<String> stringer;
 
-		private Supplier<String> stringer = () -> {
-			Object value = value();
-			String toString = value instanceof Object[] ? Arrays.asList((Object[]) value).toString() : String.valueOf(value);
-			stringer = () -> toString;
-			return toString;
-		};
+		protected Simple() {
+			this(v -> v.getClass().getSimpleName() + "(", v -> ")");
+		}
+
+		protected Simple(Function<? super V, String> prefix, Function<? super V, String> postfix) {
+			hasher = () -> {
+				Object value = value();
+				int hashCode = value instanceof Object[] ? Arrays.deepHashCode((Object[]) value) : Objects.hashCode(value);
+				hasher = () -> hashCode;
+				return hashCode;
+			};
+			stringer = () -> {
+				Object value = value();
+				String toString = prefix.apply(self()) + deepToString(value) + postfix.apply(self());
+				stringer = () -> toString;
+				return toString;
+			};
+		}
 
 		protected abstract Object value();
 
@@ -49,6 +59,53 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		@Override
 		public String toString() {
 			return stringer.get();
+		}
+	}
+
+	abstract class StringBased<V extends StringBased<V>> extends Simple<V> {
+
+		private final String value;
+
+		public StringBased(String value) {
+			super(v -> "", v -> "");
+			this.value = Require.nonNull(value);
+		}
+
+		@Override
+		public void serialize(Output output) throws IOException {
+			output.asDataOutput().writeUTF(value);
+		}
+
+		@Override
+		public Object value() {
+			return value;
+		}
+	}
+
+	static String deepToString(Object o) {
+		if (o != null && o.getClass().isArray()) {
+			Class<?> componentType = o.getClass().getComponentType();
+			if (componentType == boolean.class) {
+				return Arrays.toString((boolean[]) o);
+			} else if (componentType == byte.class) {
+				return Arrays.toString((byte[]) o);
+			} else if (componentType == char.class) {
+				return Arrays.toString((char[]) o);
+			} else if (componentType == double.class) {
+				return Arrays.toString((double[]) o);
+			} else if (componentType == float.class) {
+				return Arrays.toString((float[]) o);
+			} else if (componentType == int.class) {
+				return Arrays.toString((int[]) o);
+			} else if (componentType == long.class) {
+				return Arrays.toString((long[]) o);
+			} else if (componentType == short.class) {
+				return Arrays.toString((short[]) o);
+			} else {
+				return Arrays.toString((Object[]) o);
+			}
+		} else {
+			return String.valueOf(o);
 		}
 	}
 

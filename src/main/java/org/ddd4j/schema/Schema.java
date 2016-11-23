@@ -9,9 +9,6 @@ import org.ddd4j.value.Value;
 
 public interface Schema<T> extends Value<Schema<T>> {
 
-	interface Fingerprint extends Value<Fingerprint> {
-	}
-
 	@FunctionalInterface
 	interface Reader<T> {
 

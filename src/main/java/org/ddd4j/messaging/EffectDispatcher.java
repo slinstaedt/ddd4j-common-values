@@ -83,7 +83,7 @@ public interface EffectDispatcher<T> {
 	}
 
 	static EffectDispatcher<Nothing> ofCommand(Object command) {
-		Require.NOTHING.nonNull().not(EffectDispatcher.class::isInstance).test(command);
+		Require.NOTHING.nonNull().thatNot(EffectDispatcher.class::isInstance).test(command);
 		return d -> d.dispatch(command);
 	}
 

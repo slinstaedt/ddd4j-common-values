@@ -8,8 +8,8 @@ import java.util.Objects;
 import org.ddd4j.contract.Require;
 import org.ddd4j.io.Input;
 import org.ddd4j.io.Output;
+import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
-import org.ddd4j.schema.Schema.Fingerprint;
 import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Value;
@@ -31,7 +31,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 
 		@Override
 		public Fingerprint getFingerprint() {
-			return new JavaFingerprint(baseType);
+			return new Fingerprint(baseType.getName().getBytes());
 		}
 
 		@Override
@@ -78,33 +78,9 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 	}
 
-	static class JavaFingerprint extends Value.Simple<Fingerprint> implements Fingerprint {
-
-		private final Class<?> baseType;
-
-		public JavaFingerprint(Class<?> baseType) {
-			this.baseType = Require.nonNull(baseType);
-		}
-
-		@Override
-		protected Object value() {
-			return baseType;
-		}
-
-		@Override
-		public void serialize(Output output) throws IOException {
-			output.asDataOutput().writeUTF(baseType.getName());
-		}
-	}
-
 	@Override
 	public <T> Schema<T> createSchema(Class<T> type) {
 		return new JavaSchema<>(type);
-	}
-
-	@Override
-	public Fingerprint readFingerprint(Input input) throws IOException {
-		return new JavaFingerprint(SchemaFactory.classForName(input.asDataInput().readUTF(), Throwing.rethrow()));
 	}
 
 	@Override

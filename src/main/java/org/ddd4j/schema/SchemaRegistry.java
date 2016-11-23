@@ -4,9 +4,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.ddd4j.io.repository.Repository;
-import org.ddd4j.io.repository.RepositoryFactory;
-import org.ddd4j.schema.Schema.Fingerprint;
+import org.ddd4j.infrastructure.repository.Repository;
+import org.ddd4j.infrastructure.repository.RepositoryFactory;
 
 public interface SchemaRegistry {
 

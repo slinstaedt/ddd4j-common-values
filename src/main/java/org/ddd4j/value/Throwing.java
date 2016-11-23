@@ -66,6 +66,13 @@ public interface Throwing {
 			};
 		}
 
+		default TFunction<T, T> asFunction() {
+			return t -> {
+				acceptChecked(t);
+				return t;
+			};
+		}
+
 		default TConsumer<T> andThen(TRunnable runnable) {
 			return andThen(t -> runnable.run());
 		}

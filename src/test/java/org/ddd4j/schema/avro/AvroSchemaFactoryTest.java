@@ -5,16 +5,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.UUID;
 
-import org.apache.avro.Conversions;
-import org.apache.avro.io.DecoderFactory;
-import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.reflect.AvroAlias;
 import org.apache.avro.reflect.AvroDefault;
 import org.apache.avro.reflect.AvroName;
 import org.apache.avro.reflect.Nullable;
-import org.apache.avro.reflect.ReflectData;
 import org.ddd4j.schema.Schema;
-import org.ddd4j.schema.avro.AvroSchemaFactory.FingerprintAlgorithm;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -73,9 +68,7 @@ public class AvroSchemaFactoryTest {
 	@Before
 	public void setup() {
 		testValue = new V1("abc");
-		ReflectData data = new ReflectData();
-		data.addLogicalTypeConversion(new Conversions.UUIDConversion());
-		testUnit = new AvroSchemaFactory(FingerprintAlgorithm.SHA_256, data, EncoderFactory.get()::jsonEncoder, DecoderFactory.get()::jsonDecoder);
+		testUnit = new AvroSchemaFactory();
 	}
 
 	@Test

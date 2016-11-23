@@ -102,15 +102,11 @@ public interface Require<T> extends Function<Object, T> {
 
 	default <X extends T> Require<X> is(Class<X> type) {
 		Require.nonNull(type);
-		return o -> type.cast(Require.that(apply(o), t -> t == null || type.isInstance(t)));
+		return o -> type.cast(that(type::isInstance).apply(o));
 	}
 
 	default Require<T> nonNull() {
 		return that(Objects::nonNull);
-	}
-
-	default Require<T> not(Predicate<? super T> predicate) {
-		return that(predicate.negate());
 	}
 
 	default <X extends T> X test(X object) {
@@ -121,5 +117,9 @@ public interface Require<T> extends Function<Object, T> {
 	default Require<T> that(Predicate<? super T> predicate) {
 		Require.nonNull(predicate);
 		return o -> Require.that(apply(o), t -> t == null || predicate.test(t));
+	}
+
+	default Require<T> thatNot(Predicate<? super T> predicate) {
+		return that(predicate.negate());
 	}
 }
