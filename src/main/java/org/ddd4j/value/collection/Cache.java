@@ -17,12 +17,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing;
 
 public class Cache<K, V> implements Serializable {
 
@@ -215,7 +213,7 @@ public class Cache<K, V> implements Serializable {
 					} else {
 						value = producer.call();
 					}
-					return Optional.of(value);
+					return Optional.ofNullable(value);
 				} else {
 					return Optional.empty();
 				}
@@ -252,16 +250,13 @@ public class Cache<K, V> implements Serializable {
 		class Shared<K, V> implements UsageStrategy<K, V> {
 
 			private final ConcurrentNavigableMap<K, Future<V>> singletons;
-			private long waitTimeout;
-			private TimeUnit waitUnit;
-			private boolean retry;
 
 			public Shared(Comparator<? super K> comparator) {
 				this.singletons = new ConcurrentSkipListMap<>(comparator);
 			}
 
 			@Override
-			public Optional<V> acquire(K key, Callable<? extends V> producer) {
+			public Optional<V> acquire(K key, Callable<? extends V> producer) throws Exception {
 				Future<V> f = singletons.get(key);
 				if (f == null) {
 					FutureTask<V> task = new FutureTask<>(producer::call);
@@ -271,15 +266,7 @@ public class Cache<K, V> implements Serializable {
 						task.run();
 					}
 				}
-				try {
-					return f.get(waitTimeout, waitUnit);
-				} catch (Exception e) {
-					singletons.remove(key, f);
-					if (e instanceof TimeoutException) {
-						f.cancel(true);
-					}
-					return retry ? null : Throwing.unchecked(e);
-				}
+				return f.isDone() ? Optional.of(f.get()) : Optional.empty();
 			}
 
 			@Override
