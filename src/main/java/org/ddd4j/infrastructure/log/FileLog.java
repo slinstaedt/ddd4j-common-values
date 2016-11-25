@@ -7,7 +7,7 @@ import java.nio.channels.FileChannel;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 
-import org.ddd4j.stream.Broadcast;
+import org.ddd4j.infrastructure.scheduler.ResultStream;
 import org.reactivestreams.Publisher;
 
 public class FileLog implements Log<byte[]>, Runnable {
@@ -21,7 +21,7 @@ public class FileLog implements Log<byte[]>, Runnable {
 	public Publisher<Record<byte[]>> publisher(Offset initialOffset, boolean completeOnEnd) throws IOException {
 		FileInputStream stream = new FileInputStream(file);
 		FileChannel channel = stream.getChannel().position(initialOffset.getValue());
-		return Broadcast.create(n -> load(channel, n), stream);
+		return ResultStream.create(n -> load(channel, n), stream);
 	}
 
 	@Override

@@ -3,17 +3,23 @@ package org.ddd4j.value.collection;
 import static java.util.Objects.requireNonNull;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.NavigableSet;
+import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
-import java.util.function.IntFunction;
+import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
@@ -23,11 +29,22 @@ public class Cache<K, V> implements Serializable {
 	@FunctionalInterface
 	public interface Factory<K, V> {
 
-		V newInstance(K key);
+		V newInstance(K key) throws Exception;
 	}
 
 	@FunctionalInterface
 	public interface KeyLookupStrategy {
+
+		KeyLookupStrategy EQUALS = KeyLookupStrategy::equals;
+
+		KeyLookupStrategy FIRST = KeyLookupStrategy::first;
+
+		KeyLookupStrategy LAST = KeyLookupStrategy::last;
+
+		KeyLookupStrategy CEILING = NavigableSet::ceiling;
+		KeyLookupStrategy HIGHER = NavigableSet::higher;
+		KeyLookupStrategy FLOOR = NavigableSet::floor;
+		KeyLookupStrategy LOWER = NavigableSet::lower;
 
 		static <K> K equals(NavigableSet<K> keys, K key) {
 			return keys.contains(key) ? key : null;
@@ -40,14 +57,6 @@ public class Cache<K, V> implements Serializable {
 		static <K> K last(NavigableSet<K> keys, K key) {
 			return keys.isEmpty() ? null : keys.last();
 		}
-
-		KeyLookupStrategy EQUALS = KeyLookupStrategy::equals;
-		KeyLookupStrategy FIRST = KeyLookupStrategy::first;
-		KeyLookupStrategy LAST = KeyLookupStrategy::last;
-		KeyLookupStrategy CEILING = NavigableSet::ceiling;
-		KeyLookupStrategy HIGHER = NavigableSet::higher;
-		KeyLookupStrategy FLOOR = NavigableSet::floor;
-		KeyLookupStrategy LOWER = NavigableSet::lower;
 
 		<K> K apply(NavigableSet<K> keys, K key);
 
@@ -81,6 +90,17 @@ public class Cache<K, V> implements Serializable {
 			}
 
 			private UsageStrategy<K, Entry> delegate;
+			private ConcurrentMap<V, Entry> entries;
+
+			@Override
+			public Optional<V> acquire(K key, Callable<? extends V> producer) throws Exception {
+				return delegate.acquire(key, () -> new Entry(key, producer.call())).value();
+			}
+
+			@Override
+			public boolean evict(K key, V value) {
+				return delegate.evict(key, entries.get(value));
+			}
 
 			@Override
 			public NavigableSet<K> keys() {
@@ -88,34 +108,122 @@ public class Cache<K, V> implements Serializable {
 			}
 
 			@Override
-			public V acquire(K key, Factory<K, V> factory) {
-				return delegate.acquire(key, k -> new Entry(k, factory.newInstance(k))).value();
+			public void release(K key, V value) {
+				delegate.release(key, entries.get(value));
+			}
+
+			@Override
+			public int size() {
+				return delegate.size();
+			}
+		}
+
+		class CapacityStrategy<K, V> implements UsageStrategy<K, V> {
+
+			private final UsageStrategy<K, V> delegate;
+			private final long timeoutInMillis;
+			private final Semaphore semaphore;
+
+			public CapacityStrategy(UsageStrategy<K, V> delegate, long timeoutInMillis, int capacity, boolean fair) {
+				this.delegate = Require.nonNull(delegate);
+				this.timeoutInMillis = Require.that(timeoutInMillis, timeoutInMillis >= 0);
+				this.semaphore = new Semaphore(capacity, fair);
+			}
+
+			@Override
+			public Optional<V> acquire(K key, Callable<? extends V> producer) throws Exception {
+				final long started = System.currentTimeMillis();
+				Optional<V> result = Optional.empty();
+				long waitInMillis;
+				do {
+					waitInMillis = timeoutInMillis + started - System.currentTimeMillis();
+					if (semaphore.tryAcquire(waitInMillis, TimeUnit.MILLISECONDS)) {
+						result = delegate.acquire(key, producer);
+						if (!result.isPresent()) {
+							semaphore.release();
+						}
+					}
+				} while (!result.isPresent() && waitInMillis > 0);
+				return result;
 			}
 
 			@Override
 			public boolean evict(K key, V value) {
-				return delegate.;
+				return delegate.evict(key, value);
+			}
+
+			@Override
+			public NavigableSet<K> keys() {
+				return delegate.keys();
 			}
 
 			@Override
 			public void release(K key, V value) {
 				delegate.release(key, value);
+				semaphore.release();
+			}
+
+			@Override
+			public int size() {
+				return delegate.size();
 			}
 		}
 
 		class Exclusive<K, V> implements UsageStrategy<K, V> {
+
+			@Override
+			public Optional<V> acquire(K key, Callable<? extends V> producer) throws Exception {
+				return Optional.of(producer.call());
+			}
+
+			@Override
+			public boolean evict(K key, V value) {
+				return false;
+			}
+
+			@Override
+			public NavigableSet<K> keys() {
+				return Collections.emptyNavigableSet();
+			}
+
+			@Override
+			public void release(K key, V value) {
+			}
+
+			@Override
+			public int size() {
+				return 0;
+			}
 		}
 
 		class Pooled<K, V> implements UsageStrategy<K, V> {
 
 			private final ConcurrentNavigableMap<K, BlockingQueue<V>> pool;
-			private IntFunction<BlockingQueue<V>> queueFactory;
-			private int capacity;
-			private long waitTimeout;
-			private TimeUnit waitUnit;
+			private Supplier<BlockingQueue<V>> queueFactory;
 
 			public Pooled(Comparator<? super K> comparator) {
 				this.pool = new ConcurrentSkipListMap<>(comparator);
+			}
+
+			@Override
+			public Optional<V> acquire(K key, Callable<? extends V> producer) throws Exception {
+				BlockingQueue<V> queue = pool.get(key);
+				if (queue != null) {
+					V value = queue.poll();
+					if (value != null) {
+						pool.computeIfPresent(key, (k, q) -> q.isEmpty() ? null : q);
+					} else {
+						value = producer.call();
+					}
+					return Optional.of(value);
+				} else {
+					return Optional.empty();
+				}
+			}
+
+			@Override
+			public boolean evict(K key, V value) {
+				return pool.remove(key, value);
 			}
 
 			@Override
@@ -124,31 +232,20 @@ public class Cache<K, V> implements Serializable {
 			}
 
 			@Override
-			public V acquire(K key, Factory<K, V> factory) {
-				BlockingQueue<V> queue = pool.get(key);
-				if (queue != null) {
-					try {
-						V value = queue.poll(waitTimeout, waitUnit);
-						if (value != null) {
-							return value;
-						} else {
-							throw new TimeoutException();
-						}
-					} catch (InterruptedException | TimeoutException e) {
-						return Throwing.unchecked(e);
-					}
-				}
-			}
-
-			@Override
-			public void release(K key, V value) {
+			public synchronized void release(K key, V value) {
 				pool.compute(key, (k, q) -> {
 					if (q == null) {
-						q = queueFactory.apply(capacity);
+						q = queueFactory.get();
 					}
 					q.offer(value);
 					return q;
 				});
+				notify();
+			}
+
+			@Override
+			public int size() {
+				return pool.values().stream().mapToInt(Queue::size).sum();
 			}
 		}
 
@@ -164,15 +261,10 @@ public class Cache<K, V> implements Serializable {
 			}
 
 			@Override
-			public NavigableSet<K> keys() {
-				return singletons.keySet();
-			}
-
-			@Override
-			public V acquire(K key, Factory<K, V> factory) {
+			public Optional<V> acquire(K key, Callable<? extends V> producer) {
 				Future<V> f = singletons.get(key);
 				if (f == null) {
-					FutureTask<V> task = new FutureTask<>(() -> factory.newInstance(key));
+					FutureTask<V> task = new FutureTask<>(producer::call);
 					f = singletons.putIfAbsent(key, task);
 					if (f == null) {
 						f = task;
@@ -196,18 +288,29 @@ public class Cache<K, V> implements Serializable {
 			}
 
 			@Override
+			public NavigableSet<K> keys() {
+				return singletons.keySet();
+			}
+
+			@Override
 			public void release(K key, V value) {
-				Require.that(singletons.containsKey(key));
+			}
+
+			@Override
+			public int size() {
+				return singletons.size();
 			}
 		}
 
-		NavigableSet<K> keys();
+		Optional<V> acquire(K key, Callable<? extends V> producer) throws Exception;
 
 		boolean evict(K key, V value);
 
-		V acquire(K key, Factory<K, V> factory);
+		NavigableSet<K> keys();
 
 		void release(K key, V value);
+
+		int size();
 	}
 
 	private static final long serialVersionUID = 1L;
@@ -227,10 +330,14 @@ public class Cache<K, V> implements Serializable {
 	}
 
 	public V acquire(K key) {
+		return acquire(key, () -> factory.newInstance(key));
+	}
+
+	public V acquire(K key, Callable<? extends V> producer) {
 		V value = null;
 		while (value == null) {
 			K effectiveKey = keyLookupStrategy.find(usageStrategy.keys(), key);
-			value = usageStrategy.acquire(effectiveKey, factory);
+			value = usageStrategy.acquire(effectiveKey, producer);
 		}
 		return value;
 	}

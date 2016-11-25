@@ -19,18 +19,18 @@ public interface Throwing {
 		default R apply(T t, U u) {
 			try {
 				return applyChecked(t, u);
-			} catch (Throwable e) {
+			} catch (Exception e) {
 				return Throwing.unchecked(e);
 			}
 		}
 
-		R applyChecked(T t, U u) throws Throwable;
+		R applyChecked(T t, U u) throws Exception;
 
-		default BiFunction<T, U, Either<R, Throwable>> asEither() {
+		default BiFunction<T, U, Either<R, Exception>> asEither() {
 			return (t, u) -> {
 				try {
 					return Either.left(applyChecked(t, u));
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					return Either.right(e);
 				}
 			};
@@ -40,7 +40,7 @@ public interface Throwing {
 			return (t, u) -> {
 				try {
 					return Opt.of(applyChecked(t, u));
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					return Opt.none();
 				}
 			};
@@ -54,7 +54,7 @@ public interface Throwing {
 		default void accept(T t) {
 			try {
 				acceptChecked(t);
-			} catch (Throwable e) {
+			} catch (Exception e) {
 				Throwing.unchecked(e);
 			}
 		}
@@ -78,14 +78,14 @@ public interface Throwing {
 		}
 
 		default TConsumer<T> ignoreExceptions() {
-			return ignore(Throwable.class);
+			return ignore(Exception.class);
 		}
 
-		default TConsumer<T> ignore(Class<? extends Throwable> exceptionType) {
+		default TConsumer<T> ignore(Class<? extends Exception> exceptionType) {
 			return t -> {
 				try {
 					acceptChecked(t);
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					if (!exceptionType.isInstance(e)) {
 						Throwing.unchecked(e);
 					}
@@ -93,22 +93,22 @@ public interface Throwing {
 			};
 		}
 
-		default TPredicate<T> catching(Class<? extends Throwable> exceptionType) {
+		default TPredicate<T> catching(Class<? extends Exception> exceptionType) {
 			return t -> {
 				try {
 					acceptChecked(t);
 					return true;
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					return exceptionType.isInstance(e) ? false : Throwing.unchecked(e);
 				}
 			};
 		}
 
 		default TPredicate<T> catchingExceptions() {
-			return catching(Throwable.class);
+			return catching(Exception.class);
 		}
 
-		void acceptChecked(T t) throws Throwable;
+		void acceptChecked(T t) throws Exception;
 	}
 
 	@FunctionalInterface
@@ -118,18 +118,18 @@ public interface Throwing {
 		default R apply(T t) {
 			try {
 				return applyChecked(t);
-			} catch (Throwable e) {
+			} catch (Exception e) {
 				return Throwing.unchecked(e);
 			}
 		}
 
-		R applyChecked(T t) throws Throwable;
+		R applyChecked(T t) throws Exception;
 
-		default Function<T, Either<R, Throwable>> asEither() {
+		default Function<T, Either<R, Exception>> asEither() {
 			return t -> {
 				try {
 					return Either.left(applyChecked(t));
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					return Either.right(e);
 				}
 			};
@@ -139,7 +139,7 @@ public interface Throwing {
 			return t -> {
 				try {
 					return Opt.of(applyChecked(t));
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					return Opt.none();
 				}
 			};
@@ -149,13 +149,13 @@ public interface Throwing {
 	@FunctionalInterface
 	interface TRunnable extends Runnable {
 
-		void runChecked() throws Throwable;
+		void runChecked() throws Exception;
 
 		@Override
 		default void run() {
 			try {
 				runChecked();
-			} catch (Throwable e) {
+			} catch (Exception e) {
 				Throwing.unchecked(e);
 			}
 		}
@@ -164,40 +164,40 @@ public interface Throwing {
 	@FunctionalInterface
 	interface TPredicate<T> extends Predicate<T> {
 
-		boolean testChecked(T t) throws Throwable;
+		boolean testChecked(T t) throws Exception;
 
 		@Override
 		default boolean test(T t) {
 			try {
 				return testChecked(t);
-			} catch (Throwable e) {
+			} catch (Exception e) {
 				return Throwing.unchecked(e);
 			}
 		}
 
-		default TPredicate<T> returningFalseOn(Class<? extends Throwable> exceptionType) {
+		default TPredicate<T> returningFalseOn(Class<? extends Exception> exceptionType) {
 			return t -> {
 				try {
 					return testChecked(t);
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					return exceptionType.isInstance(e) ? false : Throwing.unchecked(e);
 				}
 			};
 		}
 
 		default TPredicate<T> returningFalseOnException() {
-			return returningFalseOn(Throwable.class);
+			return returningFalseOn(Exception.class);
 		}
 	}
 
 	@FunctionalInterface
 	interface TSupplier<T> extends Supplier<T> {
 
-		default Supplier<Either<T, Throwable>> asEither() {
+		default Supplier<Either<T, Exception>> asEither() {
 			return () -> {
 				try {
 					return Either.left(getChecked());
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					return Either.right(e);
 				}
 			};
@@ -207,7 +207,7 @@ public interface Throwing {
 			return () -> {
 				try {
 					return Opt.of(getChecked());
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					return Opt.none();
 				}
 			};
@@ -221,29 +221,29 @@ public interface Throwing {
 		default T get() {
 			try {
 				return getChecked();
-			} catch (Throwable e) {
+			} catch (Exception e) {
 				return Throwing.unchecked(e);
 			}
 		}
 
-		T getChecked() throws Throwable;
+		T getChecked() throws Exception;
 	}
 
 	String EXCEPTION_MESSAGE_TEMPLATE = "Could not invoke this with arguments %s";
 
 	@SuppressWarnings("unchecked")
-	static <X, E extends Throwable> X any(Throwable throwable) throws E {
+	static <X, E extends Exception> X any(Throwable throwable) throws E {
 		Require.nonNull(throwable);
 		throw (E) throwable;
 	}
 
-	static <E extends Throwable, R> TFunction<E, R> rethrow() {
+	static <E extends Exception, R> TFunction<E, R> rethrow() {
 		return e -> {
 			throw e;
 		};
 	}
 
-	static Throwing of(Function<? super String, ? extends Throwable> exceptionFactory) {
+	static Throwing of(Function<? super String, ? extends Exception> exceptionFactory) {
 		return Require.nonNull(exceptionFactory)::apply;
 	}
 
@@ -271,8 +271,8 @@ public interface Throwing {
 		return Require.nonNull(predicate);
 	}
 
-	static <X> X unchecked(Throwable throwable) {
-		return Throwing.<X, RuntimeException>any(throwable);
+	static <X> X unchecked(Exception exception) {
+		return Throwing.<X, RuntimeException>any(exception);
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction() {
@@ -291,26 +291,26 @@ public interface Throwing {
 		return () -> throwChecked();
 	}
 
-	Throwable createThrowable(String message);
+	Exception createException(String message);
 
 	default String formatMessage(Object... args) {
 		return Arrays.asList(args).toString();
 	}
 
-	default <X> X throwChecked(Object... args) throws Throwable {
-		return any(createThrowable(formatMessage(args)));
+	default <X> X throwChecked(Object... args) throws Exception {
+		return any(createException(formatMessage(args)));
 	}
 
 	default <X> X throwUnchecked(Object... args) {
-		return unchecked(createThrowable(formatMessage(args)));
+		return unchecked(createException(formatMessage(args)));
 	}
 
 	default Throwing withMessage(Function<Object[], String> messageFormatter) {
 		return new Throwing() {
 
 			@Override
-			public Throwable createThrowable(String message) {
-				return Throwing.this.createThrowable(message);
+			public Exception createException(String message) {
+				return Throwing.this.createException(message);
 			}
 
 			@Override

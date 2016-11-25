@@ -1,22 +1,18 @@
-package org.ddd4j.stream;
+package org.ddd4j.infrastructure.scheduler;
 
-import java.util.List;
 import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongFunction;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing;
 import org.reactivestreams.Processor;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public class Broadcast<T> implements Processor<T, T> {
+public class ScheduledProcessor<T> implements Processor<T, T> {
 
 	private class Target implements Subscription, Runnable {
 
@@ -32,7 +28,7 @@ public class Broadcast<T> implements Processor<T, T> {
 
 		@Override
 		public void cancel() {
-			cancelTarget(this);
+			cancelSubscription(subscriber);
 		}
 
 		void onComplete() {
@@ -79,38 +75,36 @@ public class Broadcast<T> implements Processor<T, T> {
 		}
 	};
 
-	public static <T> Broadcast<T> create(LongFunction<CompletionStage<List<T>>> reader, AutoCloseable closer) {
-		Broadcast<T> broadcast = new Broadcast<>();
-		broadcast.registerCallback(reader, closer);
-		return broadcast;
-	}
-
 	private final Executor executor;
-	private final Set<SingleThreaded<Target>> subscriptions;
+	private final Agent<ScheduledProcessor<T>> self;
+	private final ConcurrentMap<Subscriber<? super T>, Agent<Target>> subscriptions;
 	private final AtomicLong alreadyRequested;
 	private Subscription subscription;
 
-	public Broadcast() {
-		this(Runnable::run);
-	}
-
-	public Broadcast(Executor executor) {
+	public ScheduledProcessor(Executor executor) {
 		this.executor = Require.nonNull(executor);
-		this.subscriptions = new CopyOnWriteArraySet<>();
+		this.self = new Agent<>(executor, this);
+		this.subscriptions = new ConcurrentHashMap<>();
 		this.alreadyRequested = new AtomicLong(0);
 		this.subscription = NONE;
 	}
 
-	private void cancelTarget(Target target) {
-		if (subscriptions.remove(target) && subscriptions.isEmpty()) {
+	private void cancelSubscription(Subscriber<? super T> subscriber) {
+		if (subscriptions.remove(subscriber) != null && subscriptions.isEmpty()) {
 			executor.execute(subscription::cancel);
 			subscription = NONE;
 		}
 	}
 
+	private Agent<Target> newSubscription(Subscriber<? super T> subscriber) {
+		Target target = new Target(subscriber, alreadyRequested.get());
+		subscriber.onSubscribe(target);
+		return new Agent<>(executor, target);
+	}
+
 	private void requestMoreIfNeeded() {
 		long already = alreadyRequested.get();
-		long request = subscriptions.stream().mapToLong(t -> t.getDelegate().requested).map(r -> r - already).min().orElse(0);
+		long request = subscriptions.values().stream().mapToLong(t -> t.getDelegate().requested).map(r -> r - already).min().orElse(0);
 		if (request > 0 && alreadyRequested.compareAndSet(already, already + request)) {
 			executor.execute(() -> subscription.request(request));
 		}
@@ -118,18 +112,18 @@ public class Broadcast<T> implements Processor<T, T> {
 
 	@Override
 	public void onComplete() {
-		subscriptions.stream().map(SingleThreaded::getDelegate).forEach(t -> t.onComplete());
+		subscriptions.values().stream().forEach(a -> a.perform(t -> t.onComplete()));
 	}
 
 	@Override
 	public void onError(Throwable exception) {
-		subscriptions.stream().map(SingleThreaded::getDelegate).forEach(t -> t.onError(exception));
+		subscriptions.values().stream().forEach(a -> a.perform(t -> t.onError(exception)));
 	}
 
 	@Override
 	public void onNext(T value) {
 		alreadyRequested.decrementAndGet();
-		subscriptions.stream().map(SingleThreaded::getDelegate).forEach(t -> t.onNext(value));
+		subscriptions.values().stream().forEach(a -> a.perform(t -> t.onNext(value)));
 	}
 
 	@Override
@@ -138,41 +132,8 @@ public class Broadcast<T> implements Processor<T, T> {
 		this.subscription = Require.nonNull(subscription);
 	}
 
-	public void registerCallback(LongFunction<CompletionStage<List<T>>> reader, AutoCloseable closer) {
-		onSubscribe(new Subscription() {
-
-			@Override
-			public void cancel() {
-				try {
-					closer.close();
-				} catch (Exception e) {
-					Throwing.unchecked(e);
-				}
-			}
-
-			@Override
-			public void request(long n) {
-				reader.apply(n).whenComplete(this::handle);
-			}
-
-			private void handle(List<T> results, Throwable exception) {
-				if (results != null) {
-					if (results.isEmpty()) {
-						// TODO
-					} else {
-						results.forEach(Broadcast.this::onNext);
-					}
-				} else if (exception != null) {
-					onError(exception);
-				}
-			}
-		});
-	}
-
 	@Override
 	public void subscribe(Subscriber<? super T> subscriber) {
-		Target target = new Target(subscriber, alreadyRequested.get());
-		subscriber.onSubscribe(target);
-		subscriptions.add(new SingleThreaded<>(target));
+		subscriptions.computeIfAbsent(subscriber, this::newSubscription);
 	}
 }

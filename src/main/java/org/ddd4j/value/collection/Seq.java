@@ -331,7 +331,7 @@ public interface Seq<E> extends Iter.Able<E> {
 			return collect(Collectors.toSet());
 		}
 
-		default <T extends Throwable> void toString(ThrowingConsumer<String, T> consumer) throws T {
+		default <T extends Exception> void toString(ThrowingConsumer<String, T> consumer) throws T {
 			consumer.accept(joined(", ", "[", "]"));
 		}
 	}
@@ -621,7 +621,7 @@ public interface Seq<E> extends Iter.Able<E> {
 	}
 
 	@FunctionalInterface
-	interface ThrowingConsumer<E, T extends Throwable> {
+	interface ThrowingConsumer<E, T extends Exception> {
 
 		void accept(E entry) throws T;
 	}
@@ -738,7 +738,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		return filter.apply(this);
 	}
 
-	default <T, R> Folder<E> fold() {
+	default Folder<E> fold() {
 		return this::fold;
 	}
 
@@ -746,7 +746,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		return downstream.apply(checkFinite().stream().map(mapper));
 	}
 
-	default <T extends Throwable> void forEachThrowing(ThrowingConsumer<? super E, T> action) throws T {
+	default <T extends Exception> void forEachThrowing(ThrowingConsumer<? super E, T> action) throws T {
 		Iterator<E> iterator = iterator();
 		while (iterator.hasNext()) {
 			action.accept(iterator.next());

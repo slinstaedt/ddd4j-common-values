@@ -50,7 +50,7 @@ public interface Try<T> extends Callable<T> {
 		return requireNonNull(callable)::call;
 	}
 
-	static <T> Try<T> ofFailure(Throwable throwable) {
+	static <T> Try<T> ofFailure(Exception throwable) {
 		requireNonNull(throwable);
 		return () -> Throwing.unchecked(throwable);
 	}
@@ -93,7 +93,7 @@ public interface Try<T> extends Callable<T> {
 	}
 
 	default Try<T> cacheSuccessAndFailure() {
-		AtomicReference<Either<T, Throwable>> reference = new AtomicReference<>();
+		AtomicReference<Either<T, Exception>> reference = new AtomicReference<>();
 		return () -> reference.updateAndGet(this::invokeIfNull).foldRight(Throwing::unchecked);
 	}
 
@@ -116,29 +116,29 @@ public interface Try<T> extends Callable<T> {
 		return dispatchAsync(executor).mapSuccess(Throwing.ofApplied(f -> f.get(timeout, unit)));
 	}
 
-	default Try<Throwable> failed() {
+	default Try<Exception> failed() {
 		return map(Throwing.of(UnsupportedOperationException::new).asFunction(), Function.identity());
 	}
 
-	default <X, E extends Throwable> Try<X> flatMap(Function<? super T, Try<X>> success, Function<? super E, Try<X>> failure, Class<E> failureType) {
+	default <X, E extends Exception> Try<X> flatMap(Function<? super T, Try<X>> success, Function<? super E, Try<X>> failure, Class<E> failureType) {
 		requireNonNull(success);
 		requireNonNull(failure);
 		requireNonNull(failureType);
-		Function<Throwable, Try<? extends X>> elseFailure = e -> failureType.isInstance(e) ? failure.apply(failureType.cast(e)) : Throwing.unchecked(e);
+		Function<Exception, Try<? extends X>> elseFailure = e -> failureType.isInstance(e) ? failure.apply(failureType.cast(e)) : Throwing.unchecked(e);
 		return () -> invokeReturnEither().fold(success, elseFailure).invokeChecked();
 	}
 
-	default <X> Try<X> flatMap(Function<? super T, Try<X>> success, Function<? super Throwable, Try<X>> failure) {
+	default <X> Try<X> flatMap(Function<? super T, Try<X>> success, Function<? super Exception, Try<X>> failure) {
 		requireNonNull(success);
 		requireNonNull(failure);
 		return () -> invokeReturnEither().fold(success, failure).invokeChecked();
 	}
 
-	default <E extends Throwable> Try<T> flatMapFailure(Function<? super E, Try<T>> failure, Class<E> failureType) {
+	default <E extends Exception> Try<T> flatMapFailure(Function<? super E, Try<T>> failure, Class<E> failureType) {
 		return flatMap(Function.<T>identity().andThen(Try::ofSuccess), failure, failureType);
 	}
 
-	default Try<T> flatMapFailure(Function<? super Throwable, Try<T>> failure) {
+	default Try<T> flatMapFailure(Function<? super Exception, Try<T>> failure) {
 		return flatMap(Function.<T>identity().andThen(Try::ofSuccess), failure);
 	}
 
@@ -157,9 +157,9 @@ public interface Try<T> extends Callable<T> {
 		return executor.apply(this);
 	}
 
-	T invokeChecked() throws Throwable;
+	T invokeChecked() throws Exception;
 
-	default Either<T, Throwable> invokeIfNull(Either<T, Throwable> existing) {
+	default Either<T, Exception> invokeIfNull(Either<T, Exception> existing) {
 		return existing != null ? existing : invokeReturnEither();
 	}
 
@@ -167,10 +167,10 @@ public interface Try<T> extends Callable<T> {
 		return existing != null ? existing : invokeUnchecked();
 	}
 
-	default Either<T, Throwable> invokeReturnEither() {
+	default Either<T, Exception> invokeReturnEither() {
 		try {
 			return Either.left(invokeChecked());
-		} catch (Throwable e) {
+		} catch (Exception e) {
 			return Either.right(e);
 		}
 	}
@@ -195,25 +195,25 @@ public interface Try<T> extends Callable<T> {
 		return visitFailure(e -> Logger.getLogger(loggerName).log(Level.SEVERE, e.getMessage(), e));
 	}
 
-	default <X, E extends Throwable> Try<X> map(Function<? super T, ? extends X> success, Function<? super E, ? extends X> failure, Class<E> failureType) {
+	default <X, E extends Exception> Try<X> map(Function<? super T, ? extends X> success, Function<? super E, ? extends X> failure, Class<E> failureType) {
 		requireNonNull(success);
 		requireNonNull(failure);
 		requireNonNull(failureType);
-		Function<Throwable, X> elseFailure = e -> failureType.isInstance(e) ? failure.apply(failureType.cast(e)) : Throwing.unchecked(e);
+		Function<Exception, X> elseFailure = e -> failureType.isInstance(e) ? failure.apply(failureType.cast(e)) : Throwing.unchecked(e);
 		return () -> invokeReturnEither().fold(success, elseFailure);
 	}
 
-	default <X> Try<X> map(Function<? super T, ? extends X> success, Function<? super Throwable, ? extends X> failure) {
+	default <X> Try<X> map(Function<? super T, ? extends X> success, Function<? super Exception, ? extends X> failure) {
 		requireNonNull(success);
 		requireNonNull(failure);
 		return () -> invokeReturnEither().fold(success, failure);
 	}
 
-	default <E extends Throwable> Try<T> mapFailure(Function<? super E, ? extends T> failure, Class<E> failureType) {
+	default <E extends Exception> Try<T> mapFailure(Function<? super E, ? extends T> failure, Class<E> failureType) {
 		return map(Function.identity(), failure, failureType);
 	}
 
-	default Try<T> mapFailure(Function<? super Throwable, ? extends T> failure) {
+	default Try<T> mapFailure(Function<? super Exception, ? extends T> failure) {
 		return map(Function.identity(), failure);
 	}
 
@@ -233,11 +233,11 @@ public interface Try<T> extends Callable<T> {
 		if (retryCount > 0) {
 			// return flatMapFailure(e -> dispatchAsyncAndWait(executor).flatMapFailure(e2 -> retry(retryCount - 1)));
 			return () -> {
-				Throwable exception = null;
+				Exception exception = null;
 				for (int i = 0; i < retryCount; i++) {
 					try {
 						return invokeChecked();
-					} catch (Throwable e) {
+					} catch (Exception e) {
 						exception = e;
 					}
 				}
@@ -248,7 +248,7 @@ public interface Try<T> extends Callable<T> {
 		}
 	}
 
-	default Try<T> visitFailure(Consumer<? super Throwable> consumer) {
+	default Try<T> visitFailure(Consumer<? super Exception> consumer) {
 		return mapFailure(e -> {
 			consumer.accept(e);
 			return Throwing.unchecked(e);
