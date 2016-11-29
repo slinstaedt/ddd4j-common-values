@@ -12,7 +12,7 @@ import org.ddd4j.io.Output;
 
 public interface Value<V extends Value<V>> extends Self<V> {
 
-	abstract class Simple<V extends Value<V>> implements Value<V> {
+	abstract class Simple<V extends Value<V>, T> implements Value<V> {
 
 		private transient IntSupplier hasher;
 		private transient Supplier<String> stringer;
@@ -36,8 +36,6 @@ public interface Value<V extends Value<V>> extends Self<V> {
 			};
 		}
 
-		protected abstract Object value();
-
 		@Override
 		public boolean equals(Object obj) {
 			if (this == obj) {
@@ -47,7 +45,9 @@ public interface Value<V extends Value<V>> extends Self<V> {
 			} else if (getClass() != obj.getClass()) {
 				return false;
 			} else {
-				return Objects.deepEquals(value(), ((Simple<?>) obj).value());
+				@SuppressWarnings("unchecked")
+				Simple<?, T> other = (Simple<?, T>) obj;
+				return testEquality(this.value(), other.value());
 			}
 		}
 
@@ -56,13 +56,19 @@ public interface Value<V extends Value<V>> extends Self<V> {
 			return hasher.getAsInt();
 		}
 
+		protected boolean testEquality(T o1, T o2) {
+			return Objects.deepEquals(o1, o2);
+		}
+
 		@Override
 		public String toString() {
 			return stringer.get();
 		}
+
+		protected abstract T value();
 	}
 
-	abstract class StringBased<V extends StringBased<V>> extends Simple<V> {
+	abstract class StringBased<V extends StringBased<V>> extends Simple<V, String> {
 
 		private final String value;
 
@@ -77,7 +83,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		}
 
 		@Override
-		public Object value() {
+		public String value() {
 			return value;
 		}
 	}

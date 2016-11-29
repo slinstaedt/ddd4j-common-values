@@ -20,7 +20,7 @@ import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Value;
 
-public class AvroSchema<T> extends Value.Simple<Schema<T>> implements Schema<T> {
+public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schema> implements Schema<T> {
 
 	static AvroSchema<?> deserialize(AvroSchemaFactory factory, Input input) throws IOException {
 		org.apache.avro.Schema writerSchema = new Parser().parse(input.asDataInput().readUTF());
@@ -41,36 +41,15 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>> implements Schema<T> 
 		this.writerSchema = Require.nonNull(schema);
 	}
 
-	@Override
-	public String getName() {
-		return writerSchema.getFullName();
-	}
-
-	@Override
-	public Fingerprint getFingerprint() {
-		AvroFingerprintAlgorithm algorithm = factory.getConfiguration()
-				.getEnum(AvroFingerprintAlgorithm.class, "fingerprint")
-				.orElse(AvroFingerprintAlgorithm.SHA_256);
-		return algorithm.parsingFingerprint(writerSchema);
-	}
-
-	@Override
-	public void serialize(Output output) throws IOException {
-		output.asDataOutput().writeUTF(writerSchema.toString());
-	}
-
-	@Override
-	public boolean equal(Object o1, Object o2) {
-		return factory.getData().compare(o1, o2, writerSchema) == 0;
-	}
-
-	@Override
-	public int hashCode(Object object) {
-		return factory.getData().hashCode(object, writerSchema);
-	}
-
 	private AvroCoder coder() {
 		return factory.getConfiguration().getEnum(AvroCoder.class, "coding", AvroCoder.JSON);
+	}
+
+	@Override
+	public boolean compatibleWith(Schema<?> existing) {
+		return existing.<AvroSchema> as(AvroSchema.class)
+				.mapNonNull(o -> SchemaCompatibility.checkReaderWriterCompatibility(writerSchema, o.writerSchema).getType())
+				.checkEqual(SchemaCompatibilityType.COMPATIBLE);
 	}
 
 	@Override
@@ -101,14 +80,34 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>> implements Schema<T> 
 	}
 
 	@Override
-	public boolean compatibleWith(Schema<?> existing) {
-		return existing.<AvroSchema>as(AvroSchema.class)
-				.mapNonNull(o -> SchemaCompatibility.checkReaderWriterCompatibility(writerSchema, o.writerSchema).getType())
-				.checkEqual(SchemaCompatibilityType.COMPATIBLE);
+	public boolean equal(Object o1, Object o2) {
+		return factory.getData().compare(o1, o2, writerSchema) == 0;
 	}
 
 	@Override
-	protected Object value() {
+	public Fingerprint getFingerprint() {
+		AvroFingerprintAlgorithm algorithm = factory.getConfiguration().getEnum(AvroFingerprintAlgorithm.class, "fingerprint")
+				.orElse(AvroFingerprintAlgorithm.SHA_256);
+		return algorithm.parsingFingerprint(writerSchema);
+	}
+
+	@Override
+	public String getName() {
+		return writerSchema.getFullName();
+	}
+
+	@Override
+	public int hashCode(Object object) {
+		return factory.getData().hashCode(object, writerSchema);
+	}
+
+	@Override
+	public void serialize(Output output) throws IOException {
+		output.asDataOutput().writeUTF(writerSchema.toString());
+	}
+
+	@Override
+	protected org.apache.avro.Schema value() {
 		return writerSchema;
 	}
 }

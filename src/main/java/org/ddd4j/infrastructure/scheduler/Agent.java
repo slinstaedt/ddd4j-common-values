@@ -1,7 +1,6 @@
 package org.ddd4j.infrastructure.scheduler;
 
 import java.util.Optional;
-import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -73,7 +72,7 @@ public abstract class Agent<T> {
 	}
 
 	private final Executor executor;
-	private final Queue<Agent.Task<T, ?>> tasks;
+	private final Queue<Task<T, ?>> tasks;
 	private final AtomicBoolean scheduled;
 
 	private volatile Optional<Thread> runner;

@@ -16,7 +16,7 @@ import org.ddd4j.value.Value;
 
 public class ClassBasedSchemaFactory implements SchemaFactory {
 
-	static class JavaSchema<T> extends Value.Simple<Schema<T>> implements Schema<T> {
+	static class JavaSchema<T> extends Value.Simple<Schema<T>, Class<T>> implements Schema<T> {
 
 		private final Class<T> baseType;
 
@@ -25,23 +25,8 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public String getName() {
-			return baseType.getName();
-		}
-
-		@Override
-		public Fingerprint getFingerprint() {
-			return new Fingerprint(baseType.getName().getBytes());
-		}
-
-		@Override
-		public void serialize(Output output) throws IOException {
-			output.asDataOutput().writeUTF(baseType.getName());
-		}
-
-		@Override
-		public int hashCode(Object object) {
-			return Objects.hashCode(object);
+		public boolean compatibleWith(Schema<?> existing) {
+			return existing.<JavaSchema> as(JavaSchema.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
 		}
 
 		@Override
@@ -63,18 +48,33 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public boolean compatibleWith(Schema<?> existing) {
-			return existing.<JavaSchema>as(JavaSchema.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
-		}
-
-		@Override
-		protected Object value() {
-			return baseType;
-		}
-
-		@Override
 		public boolean equal(Object o1, Object o2) {
 			return Objects.deepEquals(o1, o2);
+		}
+
+		@Override
+		public Fingerprint getFingerprint() {
+			return new Fingerprint(baseType.getName().getBytes());
+		}
+
+		@Override
+		public String getName() {
+			return baseType.getName();
+		}
+
+		@Override
+		public int hashCode(Object object) {
+			return Objects.hashCode(object);
+		}
+
+		@Override
+		public void serialize(Output output) throws IOException {
+			output.asDataOutput().writeUTF(baseType.getName());
+		}
+
+		@Override
+		protected Class<T> value() {
+			return baseType;
 		}
 	}
 

@@ -34,25 +34,6 @@ import org.ddd4j.value.collection.Seq.Mapper.Mapping;
 @FunctionalInterface
 public interface Seq<E> extends Iter.Able<E> {
 
-	class Value<E> extends org.ddd4j.value.Value.Simple<Value<E>> implements Seq<E> {
-
-		private final Supplier<Stream<E>> value;
-
-		public Value(Supplier<Stream<E>> value) {
-			this.value = Require.nonNull(value);
-		}
-
-		@Override
-		public Stream<E> stream() {
-			return value.get();
-		}
-
-		@Override
-		protected Object value() {
-			return fold().toList();
-		}
-	}
-
 	@FunctionalInterface
 	interface Extender<E> {
 
@@ -492,13 +473,13 @@ public interface Seq<E> extends Iter.Able<E> {
 				return map().to(tpl -> tpl.fold(mapper));
 			}
 
-			default Map<S, T> toMap() {
-				return fold().toMap(Tpl::getLeft, Tpl::getRight);
-			}
-
 			default Index<S, T> toIndex() {
 				// TODO
 				return null;
+			}
+
+			default Map<S, T> toMap() {
+				return fold().toMap(Tpl::getLeft, Tpl::getRight);
 			}
 		}
 
@@ -532,6 +513,7 @@ public interface Seq<E> extends Iter.Able<E> {
 			return consecutivePairwise().to(operator);
 		}
 
+		// TODO return Seq<X> directly?
 		default <X> Mapping<E, X> flat(Function<? super E, ? extends Seq<? extends X>> mapper) {
 			return flatStream(mapper.andThen(Seq::stream));
 		}
@@ -588,7 +570,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default Mapping<E, E> recursively(Function<? super E, ? extends Seq<? extends E>> mapper) {
 			Require.nonNull(mapper);
-			return apply(m -> m.append().seq(this.<E>flat(mapper).target().map().recursively(mapper)));
+			return apply(m -> m.append().seq(this.<E> flat(mapper).target().map().recursively(mapper)));
 		}
 
 		default Mapping<E, E> recursivelyArray(Function<? super E, E[]> mapper) {
@@ -598,12 +580,12 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default Mapping<E, E> recursivelyCollection(Function<? super E, ? extends Collection<? extends E>> mapper) {
 			Require.nonNull(mapper);
-			return apply(m -> m.append().seq(this.<E>flatCollection(mapper).target().map().recursivelyCollection(mapper)));
+			return apply(m -> m.append().seq(this.<E> flatCollection(mapper).target().map().recursivelyCollection(mapper)));
 		}
 
 		default Mapping<E, E> recursivelyStream(Function<? super E, ? extends Stream<? extends E>> mapper) {
 			Require.nonNull(mapper);
-			return apply(m -> m.append().seq(this.<E>flatStream(mapper).target().map().recursivelyStream(mapper)));
+			return apply(m -> m.append().seq(this.<E> flatStream(mapper).target().map().recursivelyStream(mapper)));
 		}
 
 		default <X> Seq<X> to(Function<? super E, X> mapper) {
@@ -624,6 +606,25 @@ public interface Seq<E> extends Iter.Able<E> {
 	interface ThrowingConsumer<E, T extends Exception> {
 
 		void accept(E entry) throws T;
+	}
+
+	class Value<E> extends org.ddd4j.value.Value.Simple<Value<E>, List<E>> implements Seq<E> {
+
+		private final Supplier<Stream<E>> value;
+
+		public Value(Supplier<Stream<E>> value) {
+			this.value = Require.nonNull(value);
+		}
+
+		@Override
+		public Stream<E> stream() {
+			return value.get();
+		}
+
+		@Override
+		protected List<E> value() {
+			return fold().toList();
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -651,10 +652,7 @@ public interface Seq<E> extends Iter.Able<E> {
 	// XXX remove
 	public static void main(String[] args) {
 		System.out.println(Seq.of(null, "xxx").head().getNullable());
-		Seq.of("1", "1 22", "22 333", "1 22 333")
-				.filter()
-				.whereAny(m -> m.mappedArray(s -> s.split("\\s")), s -> s.length() >= 2)
-				.fold()
+		Seq.of("1", "1 22", "22 333", "1 22 333").filter().whereAny(m -> m.mappedArray(s -> s.split("\\s")), s -> s.length() >= 2).fold()
 				.toString(System.out::println);
 		Seq.of("1", "22", "333").filter().where(m -> m.mapped(String::length), l -> l >= 2).fold().toString(System.out::println);
 		Seq.of("a", "b", "c").join().inner(Seq.of(1, 2), (x, y) -> x + y).result().fold().toString(System.out::println);
@@ -767,7 +765,8 @@ public interface Seq<E> extends Iter.Able<E> {
 	}
 
 	/**
-	 * Seq.of(1, 2, 3).intersect().inner(Seq.of("a", "b", "c"), String::concat) -> Seq.of("1null", "1a", "2a", "2b", "3b", "3c")
+	 * Seq.of(1, 2, 3).intersect().inner(Seq.of("a", "b", "c"), String::concat) -> Seq.of("1null", "1a", "2a", "2b",
+	 * "3b", "3c")
 	 */
 	default Joiner<E> intersect() {
 		return this::intersect;
@@ -814,7 +813,8 @@ public interface Seq<E> extends Iter.Able<E> {
 			RefTpl<E, R> next = RefTpl.create(null, null);
 			Function<Iter<E>, T> visitNext1 = i -> i.visitNextOrOptional(next::setLeft, leftFill) ? next.fold(mapper) : next.fold(mapper);
 			RefTpl<Iter<E>, Iter<R>> iterators = RefTpl.create(this.iter(), other.iter());
-			// iterators.getAndUpdate(Tpl::reverse).fold((i1, i2) -> visitNext.apply(i1).orElseMapGet(() -> visitNext.apply(i2)));
+			// iterators.getAndUpdate(Tpl::reverse).fold((i1, i2) -> visitNext.apply(i1).orElseMapGet(() ->
+			// visitNext.apply(i2)));
 			// TODO
 			return () -> null;
 		};
@@ -852,15 +852,10 @@ public interface Seq<E> extends Iter.Able<E> {
 			Opt<R> rightFill) {
 		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
 		return this.map()
-				.flat(l -> other.filter()
-						.by(r -> predicate.test(l, r))
-						.ifMatches(Seq::isEmpty, s -> rightFill.applyNullable(e -> s.append().entry(e), () -> s))
-						.map()
-						.to(r -> mapper.apply(l, r)))
-				.target()
-				.append()
-				.seq(other.filter().by(r -> !leftFill.isEmpty() && this.stream().noneMatch(l -> predicate.test(l, r))).map().to(
-						r -> leftFill.applyNullable(e -> mapper.apply(e, r))));
+				.flat(l -> other.filter().by(r -> predicate.test(l, r)).ifMatches(Seq::isEmpty, s -> rightFill.applyNullable(e -> s.append().entry(e), () -> s))
+						.map().to(r -> mapper.apply(l, r)))
+				.target().append().seq(other.filter().by(r -> !leftFill.isEmpty() && this.stream().noneMatch(l -> predicate.test(l, r))).map()
+						.to(r -> leftFill.applyNullable(e -> mapper.apply(e, r))));
 	}
 
 	default Mapper<E> map() {
@@ -925,7 +920,8 @@ public interface Seq<E> extends Iter.Able<E> {
 			Iter<E> i1 = this.iter();
 			Iter<R> i2 = other.iter();
 			// TODO
-			// return c -> i1.visitNextOrOptional(ref::setLeft, leftFill) | i2.visitNextOrOptional(ref::setRight, rightFill) && ref.get().test(predicate) &&
+			// return c -> i1.visitNextOrOptional(ref::setLeft, leftFill) | i2.visitNextOrOptional(ref::setRight,
+			// rightFill) && ref.get().test(predicate) &&
 			// c.acceptIf(() -> true, () -> ref.get().fold(mapper));
 			return null;
 		};

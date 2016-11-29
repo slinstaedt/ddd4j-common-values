@@ -6,6 +6,16 @@ import java.util.Optional;
 public interface Queue<E> {
 
 	@FunctionalInterface
+	interface Batch<E> extends AutoCloseable {
+
+		void add(E value);
+
+		@Override
+		default void close() {
+		}
+	}
+
+	@FunctionalInterface
 	interface Consumer<E> extends AutoCloseable {
 
 		@Override
@@ -26,36 +36,28 @@ public interface Queue<E> {
 		default void close() {
 		}
 
-		Transaction<E> nextEntries(int n);
-
-		default Transaction<E> nextEntry() {
-			return nextEntries(1);
+		default Batch<E> nextBatch() {
+			return nextBatch(1);
 		}
 
+		Batch<E> nextBatch(int n);
+
 		default void publish(E value) {
-			try (Transaction<E> tx = nextEntry()) {
-				tx.add(value);
+			try (Batch<E> batch = nextBatch()) {
+				batch.add(value);
 			}
 		}
 
 		default void publishAll(Collection<? extends E> values) {
-			try (Transaction<E> tx = nextEntries(values.size())) {
-				values.forEach(tx::add);
+			try (Batch<E> batch = nextBatch(values.size())) {
+				values.forEach(batch::add);
 			}
 		}
 	}
 
-	@FunctionalInterface
-	interface Transaction<E> extends AutoCloseable {
-
-		void add(E value);
-
-		@Override
-		default void close() {
-		}
-	}
-
 	Consumer<E> consumer();
+
+	int getBufferSize();
 
 	Producer<E> producer();
 }

@@ -9,6 +9,30 @@ import com.lmax.disruptor.RingBuffer;
 
 public class DisruptorQueue<E> implements Queue<E> {
 
+	class DisruptorBatch implements Batch<E> {
+
+		private final long seqLo;
+		private final long seqHi;
+		private long current;
+
+		DisruptorBatch(int n) {
+			seqHi = buffer.next(n);
+			seqLo = seqHi - n + 1;
+			current = seqLo;
+		}
+
+		@Override
+		public void add(E value) {
+			Require.that(current < seqHi);
+			buffer.get(current++).value = Require.nonNull(value);
+		}
+
+		@Override
+		public void close() {
+			buffer.publish(seqLo, seqHi);
+		}
+	}
+
 	class DisruptorConsumer implements Consumer<E>, EventPoller.Handler<DisruptorEvent<E>> {
 
 		private final EventPoller<DisruptorEvent<E>> poller;
@@ -44,30 +68,6 @@ public class DisruptorQueue<E> implements Queue<E> {
 		private E value;
 	}
 
-	class DisruptorTransaction implements Transaction<E> {
-
-		private final long seqLo;
-		private final long seqHi;
-		private long current;
-
-		DisruptorTransaction(int n) {
-			seqHi = buffer.next(n);
-			seqLo = seqHi - n + 1;
-			current = seqLo;
-		}
-
-		@Override
-		public void add(E value) {
-			Require.that(current < seqHi);
-			buffer.get(current++).value = Require.nonNull(value);
-		}
-
-		@Override
-		public void close() {
-			buffer.publish(seqLo, seqHi);
-		}
-	}
-
 	private final RingBuffer<DisruptorEvent<E>> buffer;
 
 	public DisruptorQueue(int bufferSize) {
@@ -80,7 +80,12 @@ public class DisruptorQueue<E> implements Queue<E> {
 	}
 
 	@Override
+	public int getBufferSize() {
+		return buffer.getBufferSize();
+	}
+
+	@Override
 	public Producer<E> producer() {
-		return DisruptorTransaction::new;
+		return DisruptorBatch::new;
 	}
 }

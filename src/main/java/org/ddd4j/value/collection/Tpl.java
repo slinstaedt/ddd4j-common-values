@@ -1,6 +1,7 @@
 package org.ddd4j.value.collection;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -20,7 +21,7 @@ import org.ddd4j.value.Value;
 @FunctionalInterface
 public interface Tpl<L, R> {
 
-	class Tuple<L, R> extends Value.Simple<Tuple<L, R>> implements Tpl<L, R> {
+	class Tuple<L, R> extends Value.Simple<Tuple<L, R>, List<?>> implements Tpl<L, R> {
 
 		private final L left;
 		private final R right;
@@ -36,7 +37,7 @@ public interface Tpl<L, R> {
 		}
 
 		@Override
-		protected Object value() {
+		protected List<?> value() {
 			return Arrays.asList(left, right);
 		}
 	}
@@ -205,6 +206,14 @@ public interface Tpl<L, R> {
 		return collect(Collectors.toList()).toArray();
 	}
 
+	default <X> Tpl<X, R> updateLeft(X left) {
+		return mapLeft(l -> left);
+	}
+
+	default <Y> Tpl<L, Y> updateRight(Y right) {
+		return mapRight(r -> right);
+	}
+
 	default Tpl<L, R> visit(BiConsumer<? super L, ? super R> consumer) {
 		return fold((l, r) -> {
 			consumer.accept(l, r);
@@ -222,13 +231,5 @@ public interface Tpl<L, R> {
 		return visit((l, r) -> {
 			consumer.accept(r);
 		});
-	}
-
-	default <X> Tpl<X, R> updateLeft(X left) {
-		return mapLeft(l -> left);
-	}
-
-	default <Y> Tpl<L, Y> updateRight(Y right) {
-		return mapRight(r -> right);
 	}
 }

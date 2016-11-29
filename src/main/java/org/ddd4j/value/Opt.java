@@ -19,7 +19,7 @@ import org.ddd4j.value.collection.Seq;
 @FunctionalInterface
 public interface Opt<T> {
 
-	class Some<T> extends Value.Simple<Some<T>> implements Opt<T> {
+	class Some<T> extends Value.Simple<Some<T>, T> implements Opt<T> {
 
 		private final T value;
 
@@ -33,7 +33,7 @@ public interface Opt<T> {
 		}
 
 		@Override
-		protected Object value() {
+		protected T value() {
 			return value;
 		}
 	}

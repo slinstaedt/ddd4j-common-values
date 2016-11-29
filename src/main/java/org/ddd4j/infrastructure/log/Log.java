@@ -8,7 +8,14 @@ import org.reactivestreams.Publisher;
 
 public interface Log<T> {
 
-	class Offset extends Value.Simple<Offset> {
+	class Commit<T> implements Value<Commit<T>> {
+
+		private T value;
+		private Offset expected;
+		private Long timestamp;
+	}
+
+	class Offset extends Value.Simple<Offset, Long> {
 
 		public static final Offset START = new Offset(0);
 		public static final Offset LATEST = new Offset(-1);
@@ -19,16 +26,16 @@ public interface Log<T> {
 			this.value = value;
 		}
 
+		public long getValue() {
+			return value;
+		}
+
 		public boolean isEnd() {
 			return value == -1;
 		}
 
 		@Override
-		protected Object value() {
-			return value;
-		}
-
-		public long getValue() {
+		protected Long value() {
 			return value;
 		}
 	}
@@ -39,13 +46,6 @@ public interface Log<T> {
 		private Offset committed;
 		private Offset nextExpected;
 		private long timestamp;
-	}
-
-	class Commit<T> implements Value<Commit<T>> {
-
-		private T value;
-		private Offset expected;
-		private Long timestamp;
 	}
 
 	Publisher<Record<T>> publisher(Offset initialOffset, boolean completeOnEnd) throws IOException;

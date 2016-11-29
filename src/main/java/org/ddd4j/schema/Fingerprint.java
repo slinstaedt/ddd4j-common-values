@@ -8,7 +8,7 @@ import org.ddd4j.io.Input;
 import org.ddd4j.io.Output;
 import org.ddd4j.value.Value;
 
-public class Fingerprint extends Value.Simple<Fingerprint> {
+public class Fingerprint extends Value.Simple<Fingerprint, byte[]> {
 
 	public static Fingerprint copied(byte[] value) {
 		return new Fingerprint(Arrays.copyOf(value, value.length));
@@ -31,7 +31,7 @@ public class Fingerprint extends Value.Simple<Fingerprint> {
 	}
 
 	@Override
-	protected Object value() {
+	protected byte[] value() {
 		return value;
 	}
 }
