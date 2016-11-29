@@ -1,66 +1,52 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentMap;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import org.ddd4j.contract.Require;
 import org.reactivestreams.Processor;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public class ScheduledProcessor<T> implements Processor<T, T> {
+public class ScheduledProcessor<T> extends Agent.Inherited<ScheduledProcessor<T>> implements Processor<T, T> {
 
-	private class Target implements Subscription, Runnable {
+	private static class ScheduledSubscription<T> extends Agent.Inherited<ScheduledSubscription<T>> implements RequestingSubscription {
 
+		private final Agent<ScheduledProcessor<T>> processor;
 		private final Subscriber<? super T> subscriber;
-		private final Queue<T> queue;
-		private long requested;
+		private volatile long requested;
 
-		public Target(Subscriber<? super T> subscriber, long requested) {
+		ScheduledSubscription(Agent<ScheduledProcessor<T>> processor, Subscriber<? super T> subscriber, long requested) {
+			super(processor.getExecutor());
+			this.processor = Require.nonNull(processor);
 			this.subscriber = Require.nonNull(subscriber);
-			this.queue = new ConcurrentLinkedQueue<>();
 			this.requested = requested;
+			perform(s -> s.subscriber.onSubscribe(this));
 		}
 
 		@Override
 		public void cancel() {
-			cancelSubscription(subscriber);
+			processor.perform(p -> p.cancelSubscription(subscriber));
 		}
 
 		void onComplete() {
-			cancel();
-			subscriber.onComplete();
+			perform(s -> s.subscriber.onComplete());
 		}
 
 		void onError(Throwable exception) {
-			cancel();
-			subscriber.onError(exception);
+			perform(s -> s.subscriber.onError(exception));
 		}
 
 		void onNext(T value) {
-			queue.offer(value);
+			perform(s -> s.subscriber.onNext(value));
 		}
 
 		@Override
 		public void request(long n) {
-			requested += n;
-			if (requested < 0) {
-				requested = Long.MAX_VALUE;
-			}
-			requestMoreIfNeeded();
-		}
-
-		@Override
-		public void run() {
-			T value = null;
-			while ((value = queue.poll()) != null) {
-				requested--;
-				subscriber.onNext(value);
-			}
+			requested = requesting(requested, n);
+			processor.perform(p -> p.requestMoreIfNeeded());
 		}
 	}
 
@@ -75,55 +61,41 @@ public class ScheduledProcessor<T> implements Processor<T, T> {
 		}
 	};
 
-	private final Executor executor;
-	private final Agent<ScheduledProcessor<T>> self;
-	private final ConcurrentMap<Subscriber<? super T>, Agent<Target>> subscriptions;
-	private final AtomicLong alreadyRequested;
+	private final Map<Subscriber<? super T>, ScheduledSubscription<T>> subscriptions;
+	private long alreadyRequested;
 	private Subscription subscription;
 
 	public ScheduledProcessor(Executor executor) {
-		this.executor = Require.nonNull(executor);
-		this.self = new Agent<>(executor, this);
-		this.subscriptions = new ConcurrentHashMap<>();
-		this.alreadyRequested = new AtomicLong(0);
+		super(executor);
+		this.subscriptions = new HashMap<>();
+		this.alreadyRequested = 0;
 		this.subscription = NONE;
 	}
 
 	private void cancelSubscription(Subscriber<? super T> subscriber) {
 		if (subscriptions.remove(subscriber) != null && subscriptions.isEmpty()) {
-			executor.execute(subscription::cancel);
+			subscription.cancel();
 			subscription = NONE;
 		}
 	}
 
-	private Agent<Target> newSubscription(Subscriber<? super T> subscriber) {
-		Target target = new Target(subscriber, alreadyRequested.get());
-		subscriber.onSubscribe(target);
-		return new Agent<>(executor, target);
-	}
-
-	private void requestMoreIfNeeded() {
-		long already = alreadyRequested.get();
-		long request = subscriptions.values().stream().mapToLong(t -> t.getDelegate().requested).map(r -> r - already).min().orElse(0);
-		if (request > 0 && alreadyRequested.compareAndSet(already, already + request)) {
-			executor.execute(() -> subscription.request(request));
-		}
+	private ScheduledSubscription<T> newSubscription(Subscriber<? super T> subscriber) {
+		return new ScheduledSubscription<>(this, subscriber, alreadyRequested);
 	}
 
 	@Override
 	public void onComplete() {
-		subscriptions.values().stream().forEach(a -> a.perform(t -> t.onComplete()));
+		performOnSubscriptions(s -> s.onComplete());
 	}
 
 	@Override
 	public void onError(Throwable exception) {
-		subscriptions.values().stream().forEach(a -> a.perform(t -> t.onError(exception)));
+		performOnSubscriptions(s -> s.onError(exception));
 	}
 
 	@Override
 	public void onNext(T value) {
-		alreadyRequested.decrementAndGet();
-		subscriptions.values().stream().forEach(a -> a.perform(t -> t.onNext(value)));
+		performOnSubscriptions(s -> s.onNext(value));
 	}
 
 	@Override
@@ -132,8 +104,20 @@ public class ScheduledProcessor<T> implements Processor<T, T> {
 		this.subscription = Require.nonNull(subscription);
 	}
 
+	private void performOnSubscriptions(Consumer<ScheduledSubscription<T>> action) {
+		perform(p -> p.subscriptions.values().stream().forEach(action));
+	}
+
+	private void requestMoreIfNeeded() {
+		long request = subscriptions.values().stream().mapToLong(t -> t.requested - alreadyRequested).min().orElse(0);
+		if (request > 0) {
+			alreadyRequested += request;
+			perform(p -> p.subscription.request(request));
+		}
+	}
+
 	@Override
 	public void subscribe(Subscriber<? super T> subscriber) {
-		subscriptions.computeIfAbsent(subscriber, this::newSubscription);
+		perform(p -> p.subscriptions.computeIfAbsent(subscriber, this::newSubscription));
 	}
 }

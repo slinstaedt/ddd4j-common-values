@@ -9,10 +9,24 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Self;
+import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.Throwing.TFunction;
 
-public class Agent<T> {
+public abstract class Agent<T> {
+
+	public static class Inherited<T extends Inherited<T>> extends Agent<T> implements Self<T> {
+
+		public Inherited(Executor executor) {
+			super(executor);
+		}
+
+		@Override
+		protected T getState() {
+			return self();
+		}
+	}
 
 	private static class Task<T, R> extends CompletableFuture<R> {
 
@@ -22,7 +36,7 @@ public class Agent<T> {
 			this.action = Require.nonNull(action);
 		}
 
-		void run(T state) {
+		void performOn(T state) {
 			try {
 				complete(action.applyChecked(state));
 			} catch (Exception e) {
@@ -31,65 +45,90 @@ public class Agent<T> {
 		}
 	}
 
+	public static final class Transitioning<T> extends Agent<T> {
+
+		private T state;
+
+		public Transitioning(Executor executor, T initialState) {
+			super(executor);
+			this.state = Require.nonNull(initialState);
+		}
+
+		@Override
+		protected T getState() {
+			return state;
+		}
+
+		public CompletionStage<T> performTransition(TFunction<? super T, ? extends T> transition) {
+			return scheduleIfNeeded(new Task<T, T>(transition)).whenComplete(this::updateState);
+		}
+
+		private void updateState(T state, Throwable exception) {
+			this.state = exception != null ? Throwing.unchecked(exception) : state;
+		}
+	}
+
+	public static <T> Transitioning<T> create(Executor executor, T initialState) {
+		return new Transitioning<>(executor, initialState);
+	}
+
 	private final Executor executor;
 	private final Queue<Agent.Task<T, ?>> tasks;
 	private final AtomicBoolean scheduled;
 
-	private volatile T state;
 	private volatile Optional<Thread> runner;
 
-	public Agent(Executor executor, T initialState) {
+	protected Agent(Executor executor) {
 		this.executor = Require.nonNull(executor);
 		this.tasks = new ConcurrentLinkedQueue<>();
 		this.scheduled = new AtomicBoolean(false);
-		this.state = Require.nonNull(initialState);
 		this.runner = Optional.empty();
 	}
 
-	private <R> Task<T, R> scheduleIfNeeded(Task<T, R> task) {
-		tasks.offer(task);
-		if (scheduled.compareAndSet(false, true)) {
-			executor.execute(this::run);
-		}
-		return task;
+	<R> R ask(TFunction<? super T, R> query) {
+		return query.apply(getState());
 	}
 
-	public <R> CompletionStage<R> ask(TFunction<? super T, R> query) {
-		return scheduleIfNeeded(new Task<>(query));
+	public <R> CompletionStage<R> execute(TFunction<? super T, R> task) {
+		return scheduleIfNeeded(new Task<>(task));
 	}
 
-	public void perform(TConsumer<T> task) {
-		scheduleIfNeeded(new Task<>(task.asFunction()));
+	public Executor getExecutor() {
+		return executor;
 	}
 
-	public CompletionStage<T> perform(TFunction<? super T, ? extends T> task) {
-		return scheduleIfNeeded(new Task<T, T>(task)).whenComplete((t, e) -> {
-			if (t != null) {
-				state = t;
-			}
-		});
+	protected abstract T getState();
+
+	public void interrupt() {
+		runner.ifPresent(Thread::interrupt);
 	}
 
 	public boolean isRunning() {
 		return runner.isPresent();
 	}
 
-	public void interrupt() {
-		runner.ifPresent(Thread::interrupt);
+	public CompletionStage<T> perform(TConsumer<T> action) {
+		return scheduleIfNeeded(new Task<>(action.asFunction()));
 	}
 
 	private void run() {
 		runner = Optional.of(Thread.currentThread());
-		T current = state;
 		try {
 			Task<T, ?> task = null;
 			while ((task = tasks.poll()) != null) {
-				task.apply(current);
+				task.performOn(getState());
 			}
 		} finally {
-			state = current;
 			scheduled.set(false);
 			runner = Optional.empty();
 		}
+	}
+
+	protected <R> Task<T, R> scheduleIfNeeded(Task<T, R> task) {
+		tasks.offer(task);
+		if (scheduled.compareAndSet(false, true)) {
+			executor.execute(this::run);
+		}
+		return task;
 	}
 }

@@ -59,6 +59,8 @@ public interface Throwing {
 			}
 		}
 
+		void acceptChecked(T t) throws Exception;
+
 		default TConsumer<T> andThen(TConsumer<? super T> consumer) {
 			return t -> {
 				accept(t);
@@ -66,30 +68,14 @@ public interface Throwing {
 			};
 		}
 
-		default TFunction<T, T> asFunction() {
-			return t -> {
-				acceptChecked(t);
-				return t;
-			};
-		}
-
 		default TConsumer<T> andThen(TRunnable runnable) {
 			return andThen(t -> runnable.run());
 		}
 
-		default TConsumer<T> ignoreExceptions() {
-			return ignore(Exception.class);
-		}
-
-		default TConsumer<T> ignore(Class<? extends Exception> exceptionType) {
+		default TFunction<T, T> asFunction() {
 			return t -> {
-				try {
-					acceptChecked(t);
-				} catch (Exception e) {
-					if (!exceptionType.isInstance(e)) {
-						Throwing.unchecked(e);
-					}
-				}
+				acceptChecked(t);
+				return t;
 			};
 		}
 
@@ -108,7 +94,21 @@ public interface Throwing {
 			return catching(Exception.class);
 		}
 
-		void acceptChecked(T t) throws Exception;
+		default TConsumer<T> ignore(Class<? extends Exception> exceptionType) {
+			return t -> {
+				try {
+					acceptChecked(t);
+				} catch (Exception e) {
+					if (!exceptionType.isInstance(e)) {
+						Throwing.unchecked(e);
+					}
+				}
+			};
+		}
+
+		default TConsumer<T> ignoreExceptions() {
+			return ignore(Exception.class);
+		}
 	}
 
 	@FunctionalInterface
@@ -147,33 +147,7 @@ public interface Throwing {
 	}
 
 	@FunctionalInterface
-	interface TRunnable extends Runnable {
-
-		void runChecked() throws Exception;
-
-		@Override
-		default void run() {
-			try {
-				runChecked();
-			} catch (Exception e) {
-				Throwing.unchecked(e);
-			}
-		}
-	}
-
-	@FunctionalInterface
 	interface TPredicate<T> extends Predicate<T> {
-
-		boolean testChecked(T t) throws Exception;
-
-		@Override
-		default boolean test(T t) {
-			try {
-				return testChecked(t);
-			} catch (Exception e) {
-				return Throwing.unchecked(e);
-			}
-		}
 
 		default TPredicate<T> returningFalseOn(Class<? extends Exception> exceptionType) {
 			return t -> {
@@ -188,6 +162,32 @@ public interface Throwing {
 		default TPredicate<T> returningFalseOnException() {
 			return returningFalseOn(Exception.class);
 		}
+
+		@Override
+		default boolean test(T t) {
+			try {
+				return testChecked(t);
+			} catch (Exception e) {
+				return Throwing.unchecked(e);
+			}
+		}
+
+		boolean testChecked(T t) throws Exception;
+	}
+
+	@FunctionalInterface
+	interface TRunnable extends Runnable {
+
+		@Override
+		default void run() {
+			try {
+				runChecked();
+			} catch (Exception e) {
+				Throwing.unchecked(e);
+			}
+		}
+
+		void runChecked() throws Exception;
 	}
 
 	@FunctionalInterface
@@ -213,10 +213,6 @@ public interface Throwing {
 			};
 		}
 
-		default <X> TSupplier<X> map(TFunction<? super T, X> mapper) {
-			return () -> mapper.applyChecked(getChecked());
-		}
-
 		@Override
 		default T get() {
 			try {
@@ -227,6 +223,10 @@ public interface Throwing {
 		}
 
 		T getChecked() throws Exception;
+
+		default <X> TSupplier<X> map(TFunction<? super T, X> mapper) {
+			return () -> mapper.applyChecked(getChecked());
+		}
 	}
 
 	String EXCEPTION_MESSAGE_TEMPLATE = "Could not invoke this with arguments %s";
@@ -237,21 +237,15 @@ public interface Throwing {
 		throw (E) throwable;
 	}
 
-	static <E extends Exception, R> TFunction<E, R> rethrow() {
-		return e -> {
-			throw e;
-		};
-	}
-
 	static Throwing of(Function<? super String, ? extends Exception> exceptionFactory) {
 		return Require.nonNull(exceptionFactory)::apply;
 	}
 
-	static <T, R> TFunction<T, R> ofApplied(TFunction<T, R> function) {
+	static <T, U, R> TBiFunction<T, U, R> ofApplied(TBiFunction<T, U, R> function) {
 		return Require.nonNull(function);
 	}
 
-	static <T, U, R> TBiFunction<T, U, R> ofApplied(TBiFunction<T, U, R> function) {
+	static <T, R> TFunction<T, R> ofApplied(TFunction<T, R> function) {
 		return Require.nonNull(function);
 	}
 
@@ -271,8 +265,14 @@ public interface Throwing {
 		return Require.nonNull(predicate);
 	}
 
-	static <X> X unchecked(Exception exception) {
-		return Throwing.<X, RuntimeException>any(exception);
+	static <E extends Exception, R> TFunction<E, R> rethrow() {
+		return e -> {
+			throw e;
+		};
+	}
+
+	static <X> X unchecked(Throwable exception) {
+		return Throwing.<X, RuntimeException> any(exception);
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction() {
