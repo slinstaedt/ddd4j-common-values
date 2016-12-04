@@ -7,12 +7,12 @@ import java.util.List;
 import java.util.function.IntFunction;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing;
+import org.ddd4j.value.Throwing.TCloseable;
 import org.ddd4j.value.Throwing.TRunnable;
 import org.ddd4j.value.Throwing.TSupplier;
 
 @FunctionalInterface
-public interface Resource<T> extends AutoCloseable {
+public interface Resource<T> extends TCloseable {
 
 	class Lazy<T> implements Resource<T> {
 
@@ -28,8 +28,8 @@ public interface Resource<T> extends AutoCloseable {
 		}
 
 		@Override
-		public void close() throws Exception {
-			delegate.getChecked().close();
+		public void closeChecked() throws Exception {
+			delegate.getChecked().closeChecked();
 		}
 
 		@Override
@@ -49,7 +49,7 @@ public interface Resource<T> extends AutoCloseable {
 		}
 
 		@Override
-		public void close() throws Exception {
+		public void closeChecked() throws Exception {
 			closer.close();
 		}
 
@@ -73,15 +73,7 @@ public interface Resource<T> extends AutoCloseable {
 	}
 
 	@Override
-	default void close() throws Exception {
-	}
-
-	default void closeUnchecked() {
-		try {
-			close();
-		} catch (Exception e) {
-			Throwing.unchecked(e);
-		}
+	default void closeChecked() throws Exception {
 	}
 
 	List<? extends T> request(int n) throws Exception;

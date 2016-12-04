@@ -19,7 +19,7 @@ public interface Ref<T> {
 	interface RefOpt<T> extends Ref<Opt<T>> {
 
 		static <T> RefOpt<T> create(Opt<T> initial) {
-			return Ref.<Opt<T>>create().set(Require.nonNull(initial))::update;
+			return Ref.<Opt<T>> create().set(Require.nonNull(initial))::update;
 		}
 
 		default Ref<T> asNonEmpty() {
@@ -50,8 +50,8 @@ public interface Ref<T> {
 			return !isEmpty();
 		}
 
-		default boolean isNotNull() {
-			return get().isNotNull();
+		default boolean isPresent() {
+			return get().isPresent();
 		}
 	}
 
@@ -59,7 +59,7 @@ public interface Ref<T> {
 	interface RefTpl<L, R> extends Ref<Tpl<L, R>> {
 
 		static <L, R> RefTpl<L, R> create(L left, R right) {
-			return Ref.<Tpl<L, R>>create().set(Tpl.of(left, right))::update;
+			return Ref.<Tpl<L, R>> create().set(Tpl.of(left, right))::update;
 		}
 
 		default <T> T fold(BiFunction<? super L, ? super R, ? extends T> function) {
@@ -98,7 +98,7 @@ public interface Ref<T> {
 	}
 
 	static <T> Ref<T> create(T initial) {
-		return Ref.<T>create().set(initial);
+		return Ref.<T> create().set(initial);
 	}
 
 	static <T> Ref<T> createThreadsafe() {
@@ -127,7 +127,7 @@ public interface Ref<T> {
 	}
 
 	static <T> Ref<T> of(T value) {
-		return Ref.<T>create().set(value);
+		return Ref.<T> create().set(value);
 	}
 
 	default <X> X apply(Function<? super T, X> mapper) {
@@ -146,6 +146,14 @@ public interface Ref<T> {
 		return getAndUpdate(t -> supplier.get(), predicate);
 	}
 
+	default T getAndUpdate(UnaryOperator<T> updateFunction) {
+		return update(updateFunction).foldLeft(Function.identity());
+	}
+
+	default T getAndUpdate(UnaryOperator<T> updateFunction, Predicate<? super T> predicate) {
+		return update(updateFunction, predicate).foldLeft(Function.identity());
+	}
+
 	default T getAndUpdateWithValue(T newValue) {
 		return getAndUpdate(t -> newValue);
 	}
@@ -154,12 +162,8 @@ public interface Ref<T> {
 		return getAndUpdate(t -> newValue, predicate);
 	}
 
-	default T getAndUpdate(UnaryOperator<T> updateFunction) {
-		return update(updateFunction).foldLeft(Function.identity());
-	}
-
-	default T getAndUpdate(UnaryOperator<T> updateFunction, Predicate<? super T> predicate) {
-		return update(updateFunction, predicate).foldLeft(Function.identity());
+	default boolean isNull() {
+		return get() == null;
 	}
 
 	default Ref<T> set(T value) {
@@ -179,16 +183,9 @@ public interface Ref<T> {
 		return update(t -> supplier.get(), predicate);
 	}
 
-	default Tpl<T, T> updateWithValue(T value) {
-		return update(t -> value);
-	}
-
-	default Tpl<T, T> updateWithValue(T value, Predicate<? super T> predicate) {
-		return update(t -> value, predicate);
-	}
-
 	/**
-	 * Updates this reference with the given function. Returns a {@link Tpl} with left containing the old value and right the new one.
+	 * Updates this reference with the given function. Returns a {@link Tpl} with left containing the old value and
+	 * right the new one.
 	 *
 	 * @param updateFunction
 	 *            The function to update this reference with
@@ -208,6 +205,14 @@ public interface Ref<T> {
 		return updateAndGet(t -> supplier.get(), predicate);
 	}
 
+	default T updateAndGet(UnaryOperator<T> updateFunction) {
+		return update(updateFunction).foldRight(Function.identity());
+	}
+
+	default T updateAndGet(UnaryOperator<T> updateFunction, Predicate<? super T> predicate) {
+		return update(updateFunction, predicate).foldRight(Function.identity());
+	}
+
 	default T updateAndGetWithValue(T value) {
 		return updateAndGet(t -> value);
 	}
@@ -216,11 +221,11 @@ public interface Ref<T> {
 		return updateAndGet(t -> value, predicate);
 	}
 
-	default T updateAndGet(UnaryOperator<T> updateFunction) {
-		return update(updateFunction).foldRight(Function.identity());
+	default Tpl<T, T> updateWithValue(T value) {
+		return update(t -> value);
 	}
 
-	default T updateAndGet(UnaryOperator<T> updateFunction, Predicate<? super T> predicate) {
-		return update(updateFunction, predicate).foldRight(Function.identity());
+	default Tpl<T, T> updateWithValue(T value, Predicate<? super T> predicate) {
+		return update(t -> value, predicate);
 	}
 }

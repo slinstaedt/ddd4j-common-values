@@ -2,24 +2,44 @@ package org.ddd4j.infrastructure.queue;
 
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.function.IntConsumer;
+
+import org.ddd4j.contract.Require;
+import org.ddd4j.value.Throwing.TCloseable;
+import org.ddd4j.value.Throwing.TConsumer;
+import org.ddd4j.value.Throwing.TRunnable;
 
 public interface Queue<E> {
 
-	@FunctionalInterface
-	interface Batch<E> extends AutoCloseable {
+	interface Batch<E> extends TCloseable {
 
 		void add(E value);
-
-		@Override
-		default void close() {
-		}
 	}
 
-	@FunctionalInterface
-	interface Consumer<E> extends AutoCloseable {
+	interface Consumer<E> extends TCloseable {
 
-		@Override
-		default void close() {
+		default int consumeAll(TConsumer<? super E> consumer) {
+			int consumed = 0;
+			E entry;
+			while ((entry = next()) != null) {
+				consumer.accept(entry);
+				consumed++;
+			}
+			return consumed;
+		}
+
+		default Runnable createAsyncConsumer(TConsumer<? super E> consumer, TRunnable start, IntConsumer finish, TConsumer<Exception> failed) {
+			Require.nonNull(consumer);
+			return () -> {
+				try {
+					start.run();
+					int consumed = consumeAll(consumer);
+					finish.accept(consumed);
+				} catch (Exception e) {
+					failed.accept(e);
+				}
+			};
 		}
 
 		E next();
@@ -27,13 +47,17 @@ public interface Queue<E> {
 		default Optional<E> nextOptional() {
 			return Optional.ofNullable(next());
 		}
+
+		default TCloseable scheduleConsumptionOnEnqueue(Executor executor) {
+
+		}
 	}
 
 	@FunctionalInterface
-	interface Producer<E> extends AutoCloseable {
+	interface Producer<E> extends TCloseable {
 
 		@Override
-		default void close() {
+		default void closeChecked() throws Exception {
 		}
 
 		default Batch<E> nextBatch() {

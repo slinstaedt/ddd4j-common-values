@@ -48,6 +48,21 @@ public interface Throwing {
 	}
 
 	@FunctionalInterface
+	interface TCloseable extends AutoCloseable {
+
+		@Override
+		default void close() {
+			try {
+				closeChecked();
+			} catch (Exception e) {
+				Throwing.unchecked(e);
+			}
+		}
+
+		void closeChecked() throws Exception;
+	}
+
+	@FunctionalInterface
 	interface TConsumer<T> extends Consumer<T> {
 
 		@Override

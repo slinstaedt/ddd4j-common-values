@@ -1,29 +1,17 @@
 package org.ddd4j.spi;
 
-import java.util.ServiceLoader;
-
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.queue.Queue;
-import org.ddd4j.infrastructure.queue.QueueFactory;
-import org.ddd4j.spi.ServiceProvider.Loader;
 import org.ddd4j.value.Type;
 import org.ddd4j.value.collection.Seq;
 
 public class ServiceLocator {
 
-	public static ServiceLocator create() {
-		return new ServiceLocator(Seq.of(ServiceLoader.load(Loader.class)));
-	}
+	private final ServiceProvider.Loader providerLoader;
+	private final Configuration.Loader configLoader;
 
-	public static void main(String[] args) {
-		Queue<String> queue = create().locate(QueueFactory.class).create();
-		System.out.println(queue);
-	}
-
-	private final Seq<Loader> loaders;
-
-	public ServiceLocator(Seq<Loader> loaders) {
-		this.loaders = Require.nonNull(loaders);
+	public ServiceLocator(ServiceProvider.Loader providerLoader, Configuration.Loader configLoader) {
+		this.providerLoader = Require.nonNull(providerLoader);
+		this.configLoader = Require.nonNull(configLoader);
 	}
 
 	public <S extends Service<S, P>, P extends ServiceProvider<S>> S locate(Class<S> serviceType) {
@@ -32,8 +20,11 @@ public class ServiceLocator {
 
 	public <S extends Service<S, P>, P extends ServiceProvider<S>> S locate(Type<S> serviceType) {
 		Type<? extends ServiceProvider<?>> providerType = serviceType.resolve(Service.P);
-		Seq<? extends ServiceProvider<?>> providers = loaders.map().flat(l -> l.load(providerType)).target();
-		Service<?, ?> service = providers.head().getNonNull().provideService(Configuration.NONE, this);
-		return serviceType.cast(service).get();
+		Seq<? extends ServiceProvider<?>> providers = providerLoader.load(providerType);
+		// TODO how to handle multiple?
+		ServiceProvider<?> provider = providers.head().getNonNull();
+		Configuration configuration = configLoader.loadFor(provider);
+		Service<?, ?> service = provider.provideService(configuration, this);
+		return serviceType.cast(service);
 	}
 }

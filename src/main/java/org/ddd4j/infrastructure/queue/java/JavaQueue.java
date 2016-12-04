@@ -25,7 +25,7 @@ public class JavaQueue<E> implements Queue<E> {
 		}
 
 		@Override
-		public void close() {
+		public void closeChecked() throws Exception {
 			consumers.forEach(c -> c.publish(values));
 		}
 	}
@@ -39,7 +39,7 @@ public class JavaQueue<E> implements Queue<E> {
 		}
 
 		@Override
-		public void close() {
+		public void closeChecked() {
 			consumers.remove(this);
 		}
 

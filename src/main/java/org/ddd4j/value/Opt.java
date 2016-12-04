@@ -172,12 +172,12 @@ public interface Opt<T> {
 		return !isEmpty();
 	}
 
-	default boolean isNotNull() {
-		return applyNullable(Objects::nonNull, () -> false);
-	}
-
 	default boolean isNull() {
 		return applyNullable(Objects::isNull, () -> false);
+	}
+
+	default boolean isPresent() {
+		return applyNullable(Objects::nonNull, () -> false);
 	}
 
 	default <X> Opt<X> map(Function<? super T, ? extends X> nonNull, Supplier<? extends X> nill) {

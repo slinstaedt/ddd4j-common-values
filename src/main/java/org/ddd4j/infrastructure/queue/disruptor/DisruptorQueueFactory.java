@@ -14,8 +14,8 @@ public class DisruptorQueueFactory implements QueueFactory {
 	}
 
 	@Override
-	public <E> Queue<E> create() {
-		return new DisruptorQueue<>(configuration.get(BUFFER_SIZE));
+	public <E> Queue<E> create(int bufferSize) {
+		return new DisruptorQueue<>(bufferSize);
 	}
 
 	@Override

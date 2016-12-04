@@ -26,7 +26,7 @@ public class ResourceSubscription<T> implements RequestingSubscription {
 	public void cancel() {
 		if (requested >= 0) {
 			requested = -1;
-			resource.closeUnchecked();
+			resource.close();
 		}
 	}
 

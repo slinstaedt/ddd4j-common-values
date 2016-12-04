@@ -3,7 +3,6 @@ package org.ddd4j.value;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.TypeVariable;
-import java.util.Optional;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.ddd4j.contract.Require;
@@ -95,15 +94,15 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 
 	@SuppressWarnings("unchecked")
 	public <X> Type<X> asSubType(Class<? super X> type) {
-		if (TypeUtils.isAssignable(getGenericType(), type)) {
-			return (Type<X>) this;
-		} else {
-			throw new ClassCastException("Can not cast: '" + TypeUtils.toString(getGenericType()) + "' to '" + type.getTypeName() + "'");
-		}
+		return TypeUtils.isAssignable(getGenericType(), type) ? (Type<X>) this : castException(type.getTypeName());
 	}
 
-	public Optional<T> cast(Object value) {
-		return isAssignableFrom(value.getClass()) ? Optional.of(getRawType().cast(value)) : Optional.empty();
+	public T cast(Object value) {
+		return isAssignableFrom(value.getClass()) ? getRawType().cast(value) : castException(value);
+	}
+
+	private <X> X castException(Object o) {
+		return Throwing.unchecked(new ClassCastException("Can not cast: '" + String.valueOf(o) + "' to '" + TypeUtils.toString(getGenericType()) + "'"));
 	}
 
 	public final java.lang.reflect.Type getGenericType() {

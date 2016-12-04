@@ -14,8 +14,8 @@ public class JavaQueueFactory implements QueueFactory {
 	}
 
 	@Override
-	public <E> Queue<E> create() {
-		return new JavaQueue<>(configuration.get(BUFFER_SIZE));
+	public <E> Queue<E> create(int bufferSize) {
+		return new JavaQueue<>(bufferSize);
 	}
 
 	@Override

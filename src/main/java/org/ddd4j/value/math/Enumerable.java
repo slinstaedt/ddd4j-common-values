@@ -8,7 +8,9 @@ public interface Enumerable<T extends Enumerable<T>> extends Comparable<T> {
 
 	int offset(T other);
 
-	Sign offsetSign(T other);
+	default Sign offsetSign(T other) {
+		return Sign.of(offset(other));
+	}
 
 	default T predecessor() {
 		return neighbour(-1);

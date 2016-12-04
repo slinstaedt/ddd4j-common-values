@@ -8,6 +8,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.infrastructure.queue.Queue;
 import org.ddd4j.value.Self;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TConsumer;
@@ -126,7 +127,7 @@ public abstract class Agent<T> {
 	protected <R> Task<T, R> scheduleIfNeeded(Task<T, R> task) {
 		tasks.offer(task);
 		if (scheduled.compareAndSet(false, true)) {
-			executor.execute(this::run);
+			executor.execute(tasks.consumer().createAsyncConsumer(t -> t.performOn(getState()), null, null, null));
 		}
 		return task;
 	}

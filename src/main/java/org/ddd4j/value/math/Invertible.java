@@ -1,7 +1,6 @@
 package org.ddd4j.value.math;
 
-import static java.util.Objects.requireNonNull;
-
+import org.ddd4j.contract.Require;
 import org.ddd4j.value.ValueWrapper;
 
 public interface Invertible<T extends Invertible<T>> extends Summable<T> {
@@ -11,7 +10,7 @@ public interface Invertible<T extends Invertible<T>> extends Summable<T> {
 
 			@Override
 			<V extends Invertible<V>> V apply(V value) {
-				return requireNonNull(value);
+				return Require.nonNull(value);
 			}
 		},
 		NEGATIVE {
@@ -25,8 +24,7 @@ public interface Invertible<T extends Invertible<T>> extends Summable<T> {
 
 			@Override
 			<V extends Invertible<V>> V apply(V value) {
-				// TODO
-				return null;
+				return Require.nonNull(value);
 			}
 		};
 

@@ -7,5 +7,9 @@ public interface QueueFactory extends Service<QueueFactory, QueueFactoryProvider
 
 	Configuration.Key<Integer> BUFFER_SIZE = Configuration.keyOfInteger("buffer.size", 1024);
 
-	<E> Queue<E> create();
+	default <E> Queue<E> create() {
+		return create(getConfiguration().get(BUFFER_SIZE));
+	}
+
+	<E> Queue<E> create(int bufferSize);
 }

@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Tpl;
@@ -100,6 +101,10 @@ public interface Either<L, R> {
 				return right.apply(value);
 			}
 		};
+	}
+
+	static <L, R> Either<L, R> when(boolean condition, Supplier<? extends L> left, Supplier<? extends R> right) {
+		return condition ? left(left.get()) : right(right.get());
 	}
 
 	default void consume(Consumer<? super L> left, Consumer<? super R> right) {

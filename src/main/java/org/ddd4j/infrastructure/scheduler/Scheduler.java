@@ -4,12 +4,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 
+import org.ddd4j.spi.Service;
 import org.ddd4j.value.Throwing.TSupplier;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 
 @FunctionalInterface
-public interface Scheduler extends Executor {
+public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvider> {
 
 	default <T> Publisher<T> asyncPublisher(Publisher<T> publisher) {
 		return new ScheduledPublisher<>(invokeAsync(publisher));

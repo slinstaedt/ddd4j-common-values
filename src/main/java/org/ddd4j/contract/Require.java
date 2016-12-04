@@ -11,74 +11,72 @@ public interface Require<T> extends Function<Object, T> {
 	Require<Object> NOTHING = x -> x;
 
 	static String nonEmpty(String text) {
-		assert text != null;
-		assert !text.isEmpty();
+		nonNull(text != null);
+		that(!text.isEmpty());
 		return text;
 	}
 
 	static <T extends Iterable<?>> T nonEmpty(T collection) {
-		assert collection != null;
+		nonNull(collection);
 		if (collection instanceof Collection) {
-			assert !((Collection<?>) collection).isEmpty();
+			that(!((Collection<?>) collection).isEmpty());
 		} else {
-			assert collection.iterator().hasNext();
+			that(collection.iterator().hasNext());
 		}
-		return collection;
-	}
-
-	static <T extends Collection<?>> T nonEmpty(T collection) {
-		assert collection != null;
-		assert !collection.isEmpty();
 		return collection;
 	}
 
 	static <T> T nonNull(T object) {
-		assert object != null;
+		return nonNull(object, null);
+	}
+
+	static <T> T nonNull(T object, String message) {
+		if (object == null) {
+			throw new AssertionError(message);
+		}
 		return object;
 	}
 
 	static void nonNullElements(Object... objects) {
-		assert objects != null;
+		nonNull(objects);
 		for (int i = 0; i < objects.length; i++) {
-			assert objects[i] != null : i + ". parameter is NULL";
+			nonNull(objects[i], i + ". parameter is NULL");
 		}
 	}
 
 	static void nonNullElements(Object o) {
-		assert o != null;
+		nonNull(o);
 	}
 
 	static void nonNullElements(Object o1, Object o2) {
-		assert o1 != null;
-		assert o2 != null;
+		nonNull(o1);
+		nonNull(o2);
 	}
 
 	static void nonNullElements(Object o1, Object o2, Object o3) {
-		assert o1 != null;
-		assert o2 != null;
-		assert o3 != null;
+		nonNull(o1);
+		nonNull(o2);
+		nonNull(o3);
 	}
 
 	static void nonNullElements(Object o1, Object o2, Object o3, Object o4) {
-		assert o1 != null;
-		assert o2 != null;
-		assert o3 != null;
-		assert o4 != null;
+		nonNull(o1);
+		nonNull(o2);
+		nonNull(o3);
+		nonNull(o4);
 	}
 
 	static void nonNullElements(Object o1, Object o2, Object o3, Object o4, Object o5) {
-		assert o1 != null;
-		assert o2 != null;
-		assert o3 != null;
-		assert o4 != null;
-		assert o5 != null;
+		nonNull(o1);
+		nonNull(o2);
+		nonNull(o3);
+		nonNull(o4);
+		nonNull(o5);
 	}
 
 	static <T extends Iterable<?>> T nonNullElements(T iterable) {
-		assert iterable != null;
-		iterable.forEach(t -> {
-			assert t != null;
-		});
+		nonNull(iterable);
+		iterable.forEach(Require::nonNull);
 		return iterable;
 	}
 
@@ -87,21 +85,23 @@ public interface Require<T> extends Function<Object, T> {
 	}
 
 	static void that(boolean condition) {
-		assert condition;
+		if (condition) {
+			throw new AssertionError();
+		}
 	}
 
 	static <T> T that(T object, boolean condition) {
-		assert condition;
+		that(condition);
 		return object;
 	}
 
 	static <T> T that(T object, Predicate<? super T> predicate) {
-		assert predicate.test(object);
+		that(predicate.test(object));
 		return object;
 	}
 
 	default <X extends T> Require<X> is(Class<X> type) {
-		Require.nonNull(type);
+		nonNull(type);
 		return o -> type.cast(that(type::isInstance).apply(o));
 	}
 
@@ -115,7 +115,7 @@ public interface Require<T> extends Function<Object, T> {
 	}
 
 	default Require<T> that(Predicate<? super T> predicate) {
-		Require.nonNull(predicate);
+		nonNull(predicate);
 		return o -> Require.that(apply(o), t -> t == null || predicate.test(t));
 	}
 

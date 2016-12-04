@@ -513,9 +513,8 @@ public interface Seq<E> extends Iter.Able<E> {
 			return consecutivePairwise().to(operator);
 		}
 
-		// TODO return Seq<X> directly?
-		default <X> Mapping<E, X> flat(Function<? super E, ? extends Seq<? extends X>> mapper) {
-			return flatStream(mapper.andThen(Seq::stream));
+		default <X> Seq<X> flat(Function<? super E, ? extends Seq<X>> mapper) {
+			return flatStream(mapper.andThen(Seq::stream)).target();
 		}
 
 		default <X> Mapping<E, X> flatArray(Function<? super E, X[]> mapper) {
@@ -524,6 +523,10 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default <X> Mapping<E, X> flatCollection(Function<? super E, ? extends Collection<? extends X>> mapper) {
 			return flatStream(mapper.andThen(Collection::stream));
+		}
+
+		default <X> Mapping<E, X> flatSeq(Function<? super E, ? extends Seq<? extends X>> mapper) {
+			return flatStream(mapper.andThen(Seq::stream));
 		}
 
 		default <X> Mapping<E, X> flatStream(Function<? super E, ? extends Stream<? extends X>> mapper) {
@@ -570,7 +573,7 @@ public interface Seq<E> extends Iter.Able<E> {
 
 		default Mapping<E, E> recursively(Function<? super E, ? extends Seq<? extends E>> mapper) {
 			Require.nonNull(mapper);
-			return apply(m -> m.append().seq(this.<E> flat(mapper).target().map().recursively(mapper)));
+			return apply(m -> m.append().seq(this.<E> flatSeq(mapper).target().map().recursively(mapper)));
 		}
 
 		default Mapping<E, E> recursivelyArray(Function<? super E, E[]> mapper) {
@@ -822,7 +825,7 @@ public interface Seq<E> extends Iter.Able<E> {
 	}
 
 	default boolean isEmpty() {
-		return sizeIfKnown() == 0L;
+		return sizeIfKnown() == 0L || head().isNotEmpty();
 	}
 
 	default boolean isFinite() {
@@ -854,7 +857,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		return this.map()
 				.flat(l -> other.filter().by(r -> predicate.test(l, r)).ifMatches(Seq::isEmpty, s -> rightFill.applyNullable(e -> s.append().entry(e), () -> s))
 						.map().to(r -> mapper.apply(l, r)))
-				.target().append().seq(other.filter().by(r -> !leftFill.isEmpty() && this.stream().noneMatch(l -> predicate.test(l, r))).map()
+				.append().seq(other.filter().by(r -> !leftFill.isEmpty() && this.stream().noneMatch(l -> predicate.test(l, r))).map()
 						.to(r -> leftFill.applyNullable(e -> mapper.apply(e, r))));
 	}
 

@@ -1,109 +1,199 @@
 package org.ddd4j.spi;
 
-import java.io.IOException;
+import java.net.URI;
+import java.net.URL;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.Properties;
-import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.Output;
+import org.ddd4j.value.Throwing.TFunction;
 import org.ddd4j.value.Value;
 
-public class Configuration extends Value.Simple<Configuration, Properties> {
+public interface Configuration extends Value<Configuration> {
 
-	public static class Key<T> {
+	interface Key<V> {
 
-		private final String value;
-		private final Function<? super String, ? extends T> converter;
-		private final T defaultValue;
+		static Key<String> of(String key, String defaultValue) {
+			Require.nonEmpty(key);
+			return new Key<String>() {
 
-		public Key(String value, Function<? super String, ? extends T> converter, T defaultValue) {
-			this.value = Require.nonEmpty(value);
-			this.converter = Require.nonNull(converter);
-			this.defaultValue = defaultValue;
+				@Override
+				public Configuration toConfig(Configuration configuration, String value) {
+					return configuration.with(key, value);
+				}
+
+				@Override
+				public String valueOf(Configuration configuration) {
+					return configuration.getString(key).orElse(defaultValue);
+				}
+			};
 		}
 
-		public T convert(String value) {
-			return value != null ? converter.apply(value) : Require.nonNull(defaultValue);
+		static <V> Key<V> ofStringable(String key, V defaultValue, TFunction<String, V> converter) {
+			Require.nonNullElements(key, defaultValue, converter);
+			return new Key<V>() {
+
+				@Override
+				public Configuration toConfig(Configuration configuration, V value) {
+					return configuration.with(key, value.toString());
+				}
+
+				@Override
+				public V valueOf(Configuration configuration) {
+					return configuration.getString(key).map(converter).orElse(defaultValue);
+				}
+			};
+		}
+
+		default <X> Key<X> map(TFunction<? super V, ? extends X> reader, TFunction<? super X, ? extends V> writer) {
+			Require.nonNullElements(reader, writer);
+			return new Key<X>() {
+
+				@Override
+				public Configuration toConfig(Configuration configuration, X value) {
+					return Key.this.toConfig(configuration, writer.apply(value));
+				}
+
+				@Override
+				public X valueOf(Configuration configuration) {
+					return reader.apply(Key.this.valueOf(configuration));
+				}
+			};
+		}
+
+		Configuration toConfig(Configuration configuration, V value);
+
+		V valueOf(Configuration configuration);
+
+		default Key<V> withDefault(V value) {
+			Require.nonNull(value);
+			return new Key<V>() {
+
+				@Override
+				public Configuration toConfig(Configuration configuration, V value) {
+					return Key.this.toConfig(configuration, value);
+				}
+
+				@Override
+				public V valueOf(Configuration configuration) {
+					V v = Key.this.valueOf(configuration);
+					return v != null ? v : value;
+				}
+			};
 		}
 	}
 
-	public static final Configuration NONE = new Configuration();
+	@FunctionalInterface
+	interface Loader {
 
-	public static Key<Boolean> keyOfBoolean(String key, Boolean defaultValue) {
-		return new Key<>(key, Boolean::valueOf, defaultValue);
+		Configuration loadFor(ServiceProvider<?> provider);
 	}
 
-	public static <E extends Enum<E>> Key<E> keyOfEnum(Class<E> enumType, String key, E defaultValue) {
-		return new Key<>(key, s -> Enum.valueOf(enumType, s), defaultValue);
+	String KEY_DELIMITER = ".";
+
+	Configuration NONE = k -> Optional.empty();
+
+	static Key<Boolean> keyOfBoolean(String key, Boolean defaultValue) {
+		return Key.ofStringable(key, defaultValue, Boolean::valueOf);
 	}
 
-	public static Key<Integer> keyOfInteger(String key, Integer defaultValue) {
-		return new Key<>(key, Integer::valueOf, defaultValue);
+	static Key<Class<?>> keyOfClass(String key, Class<?> defaultValue) {
+		return Key.ofStringable(key, defaultValue, Class::forName);
 	}
 
-	public static Key<Long> keyOfLong(String key, Long defaultValue) {
-		return new Key<>(key, Long::valueOf, defaultValue);
+	static <E extends Enum<E>> Key<E> keyOfEnum(Class<E> enumType, String key, E defaultValue) {
+		return Key.ofStringable(key, defaultValue, s -> Enum.valueOf(enumType, s));
 	}
 
-	private final Properties properties;
-
-	public Configuration() {
-		this.properties = new Properties();
+	static Key<Integer> keyOfInteger(String key, Integer defaultValue) {
+		return Key.ofStringable(key, defaultValue, Integer::valueOf);
 	}
 
-	public <T> T get(Key<T> key) {
-		return key.convert(properties.getProperty(key.value));
+	static Key<LocalDate> keyOfLocalDate(String key, LocalDate defaultValue) {
+		return Key.ofStringable(key, defaultValue, LocalDate::parse);
 	}
 
-	public Optional<Boolean> getBoolean(String key) {
+	static Key<LocalDateTime> keyOfLocalDateTime(String key, LocalDateTime defaultValue) {
+		return Key.ofStringable(key, defaultValue, LocalDateTime::parse);
+	}
+
+	static Key<Long> keyOfLong(String key, Long defaultValue) {
+		return Key.ofStringable(key, defaultValue, Long::valueOf);
+	}
+
+	static Key<URI> keyOfURI(String key, URI defaultValue) {
+		return Key.ofStringable(key, defaultValue, URI::new);
+	}
+
+	static Key<URL> keyOfURL(String key, URL defaultValue) {
+		return Key.ofStringable(key, defaultValue, URL::new);
+	}
+
+	default Configuration fallbackTo(Configuration fallback) {
+		Require.nonNull(fallback);
+		return new Configuration() {
+
+			@Override
+			public Optional<String> getString(String key) {
+				Optional<String> value = Configuration.this.getString(key);
+				return value.isPresent() ? value : fallback.getString(key);
+			}
+
+			@Override
+			public Configuration with(String key, String value) {
+				return Configuration.this.with(key, value).fallbackTo(fallback);
+			}
+		};
+	}
+
+	default <V> V get(Key<V> key) {
+		return key.valueOf(this);
+	}
+
+	default Optional<Boolean> getBoolean(String key) {
 		return getString(key).map(Boolean::valueOf);
 	}
 
-	public boolean getBoolean(String key, boolean defaultValue) {
-		return getBoolean(key).orElse(defaultValue);
-	}
-
-	public <E extends Enum<E>> Optional<E> getEnum(Class<E> enumType, String key) {
+	default <E extends Enum<E>> Optional<E> getEnum(Class<E> enumType, String key) {
 		return getString(key).map(s -> Enum.valueOf(enumType, s));
 	}
 
-	public <E extends Enum<E>> E getEnum(Class<E> enumType, String key, E defaultValue) {
-		return getEnum(enumType, key).orElse(defaultValue);
-	}
-
-	public Optional<Integer> getInteger(String key) {
+	default Optional<Integer> getInteger(String key) {
 		return getString(key).map(Integer::valueOf);
 	}
 
-	public int getInteger(String key, int defaultValue) {
-		return getInteger(key).orElse(defaultValue);
-	}
-
-	public Optional<Long> getLong(String key) {
+	default Optional<Long> getLong(String key) {
 		return getString(key).map(Long::valueOf);
 	}
 
-	public long getLong(String key, long defaultValue) {
-		return getLong(key).orElse(defaultValue);
+	Optional<String> getString(String key);
+
+	default String getString(String key, String defaultValue) {
+		return getString(key).orElse(defaultValue);
 	}
 
-	public Optional<String> getString(String key) {
-		return Optional.ofNullable(properties.getProperty(key));
+	default Configuration prefixed(String keyPrefix) {
+		Require.nonEmpty(keyPrefix);
+		return new Configuration() {
+
+			@Override
+			public Optional<String> getString(String key) {
+				return Configuration.this.getString(keyPrefix + KEY_DELIMITER + key);
+			}
+
+			@Override
+			public Configuration with(String key, String value) {
+				return Configuration.this.with(keyPrefix + KEY_DELIMITER + key, value);
+			}
+		};
 	}
 
-	public String getString(String key, String defaultValue) {
-		return properties.getProperty(key, defaultValue);
+	default <V> Configuration with(Key<V> key, V value) {
+		return key.toConfig(this, value);
 	}
 
-	@Override
-	public void serialize(Output output) throws IOException {
-		// TODO magic value?
-		properties.store(output.asStream(), null);
-	}
-
-	@Override
-	protected Properties value() {
-		return properties;
+	default Configuration with(String key, String value) {
+		throw new UnsupportedOperationException();
 	}
 }

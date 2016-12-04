@@ -4,7 +4,7 @@ import org.ddd4j.value.Type;
 import org.ddd4j.value.collection.Seq;
 
 @FunctionalInterface
-public interface ServiceProvider<S extends Service<S, ?>> {
+public interface ServiceProvider<S extends Service<S, ?>> extends Named {
 
 	@FunctionalInterface
 	interface Loader {
