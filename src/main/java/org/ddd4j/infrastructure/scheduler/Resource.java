@@ -10,9 +10,24 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing.TCloseable;
 import org.ddd4j.value.Throwing.TRunnable;
 import org.ddd4j.value.Throwing.TSupplier;
+import org.reactivestreams.Subscriber;
 
 @FunctionalInterface
 public interface Resource<T> extends TCloseable {
+
+	class Publisher<T> implements org.reactivestreams.Publisher<T> {
+
+		private final TSupplier<? extends Resource<T>> factory;
+
+		public Publisher(TSupplier<? extends Resource<T>> factory) {
+			this.factory = Require.nonNull(factory);
+		}
+
+		@Override
+		public void subscribe(Subscriber<? super T> subscriber) {
+			subscriber.onSubscribe(new ResourceSubscription<>(subscriber, factory.get()));
+		}
+	}
 
 	class Lazy<T> implements Resource<T> {
 
@@ -69,7 +84,7 @@ public interface Resource<T> extends TCloseable {
 
 	static <T> Resource<T> of(TSupplier<? extends T> reader, TRunnable closer) {
 		Require.nonNullElements(reader, closer);
-		return of((int n) -> reader.<List<T>> map(t -> t != null ? singletonList(t) : emptyList()).get(), closer::runChecked);
+		return of((int n) -> reader.<List<T>>map(t -> t != null ? singletonList(t) : emptyList()).get(), closer::runChecked);
 	}
 
 	@Override

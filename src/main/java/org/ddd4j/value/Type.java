@@ -79,6 +79,12 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		return new Known<>(javaType);
 	}
 
+	public static <T> Type<T> ofInstance(T object) {
+		@SuppressWarnings("unchecked")
+		Class<T> javaType = (Class<T>) object.getClass();
+		return new Known<>(javaType);
+	}
+
 	public static <D, T> Variable<D, T> variable(Class<? super D> declaration, int variableIndex, Class<? super T> baseType) {
 		return new Variable<>(of(declaration), of(baseType), variableIndex);
 	}
@@ -103,6 +109,19 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 
 	private <X> X castException(Object o) {
 		return Throwing.unchecked(new ClassCastException("Can not cast: '" + String.valueOf(o) + "' to '" + TypeUtils.toString(getGenericType()) + "'"));
+	}
+
+	public ClassLoader getClassLoader() {
+		return getRawType().getClassLoader();
+	}
+
+	public Class<?>[] getInterfaceClosure() {
+		Class<T> rawType = getRawType();
+		if (rawType.isInterface()) {
+			return new Class<?>[] { rawType };
+		} else {
+			return rawType.getInterfaces();
+		}
 	}
 
 	public final java.lang.reflect.Type getGenericType() {
