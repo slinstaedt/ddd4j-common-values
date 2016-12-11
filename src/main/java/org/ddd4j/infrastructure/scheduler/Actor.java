@@ -1,54 +1,108 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Self;
+import org.ddd4j.value.Throwing;
+import org.ddd4j.value.Throwing.TConsumer;
+import org.ddd4j.value.Throwing.TFunction;
 
-public class Actor<M> {
+public abstract class Actor<T> {
+
+	public static class Inherited<T extends Inherited<T>> extends Actor<T> implements Self<T> {
+
+		public Inherited(Executor executor, int burst) {
+			super(executor, burst);
+		}
+
+		@Override
+		protected T getState() {
+			return self();
+		}
+	}
+
+	public static final class Transitioning<T> extends Actor<T> {
+
+		private T state;
+
+		public Transitioning(Executor executor, int burst, T initialState) {
+			super(executor, burst);
+			this.state = Require.nonNull(initialState);
+		}
+
+		@Override
+		protected T getState() {
+			return state;
+		}
+
+		public CompletableResult<T> performTransition(TFunction<? super T, ? extends T> transition) {
+			return scheduleIfNeeded(new Task<T, T>(getExecutor(), transition)).whenComplete(this::updateState);
+		}
+
+		private void updateState(T state, Throwable exception) {
+			this.state = exception != null ? Throwing.unchecked(exception) : state;
+		}
+	}
+
+	public static <T> Transitioning<T> create(Scheduler scheduler, T initialState) {
+		return new Transitioning<>(scheduler, scheduler.getBurstProcessing(), initialState);
+	}
 
 	private final Executor executor;
 	private final int burst;
-	private final Consumer<? super M> messageHandler;
-	private final BiFunction<? super M, ? super Exception, Optional<M>> errorHandler;
-	private final Queue<M> messages;
+	private final Queue<Task<T, ?>> tasks;
 	private final AtomicBoolean scheduled;
 
-	public Actor(Executor executor, int burst, Consumer<? super M> messageHandler, BiFunction<? super M, ? super Exception, Optional<M>> errorHandler) {
+	protected Actor(Executor executor, int burst) {
 		this.executor = Require.nonNull(executor);
 		this.burst = Require.that(burst, burst > 0);
-		this.messageHandler = Require.nonNull(messageHandler);
-		this.errorHandler = Require.nonNull(errorHandler);
-		this.messages = new ConcurrentLinkedQueue<>();
+		this.tasks = new ConcurrentLinkedQueue<>();
 		this.scheduled = new AtomicBoolean(false);
 	}
 
-	public void handle(M message) {
-		messages.offer(Require.nonNull(message));
-		if (!scheduled.getAndSet(true)) {
-			executor.execute(this::run);
-		}
+	<R> R ask(TFunction<? super T, R> query) {
+		return query.apply(getState());
+	}
+
+	public <R> CompletableResult<R> execute(TFunction<? super T, ? extends R> task) {
+		return scheduleIfNeeded(new Task<>(executor, task));
+	}
+
+	protected int getBurst() {
+		return burst;
+	}
+
+	protected Executor getExecutor() {
+		return executor;
+	}
+
+	protected abstract T getState();
+
+	public CompletableResult<T> perform(TConsumer<T> action) {
+		return scheduleIfNeeded(new Task<>(executor, action.asFunction()));
 	}
 
 	private void run() {
-		M message = null;
 		try {
-			for (int i = 0; i < burst && (message = messages.poll()) != null; i++) {
-				messageHandler.accept(message);
+			int iteration = 0;
+			Task<T, ?> task = null;
+			while (iteration++ < burst && (task = tasks.poll()) != null) {
+				task.executeWith(getState());
 			}
-		} catch (Exception e) {
-			errorHandler.apply(message, e).ifPresent(this::handle);
 		} finally {
-			if (messages.isEmpty()) {
-				scheduled.set(false);
-			} else {
-				executor.execute(this::run);
-			}
+			scheduled.set(false);
 		}
+	}
+
+	protected <R> Task<T, R> scheduleIfNeeded(Task<T, R> task) {
+		tasks.offer(task);
+		if (scheduled.compareAndSet(false, true)) {
+			executor.execute(this::run);
+		}
+		return task;
 	}
 }

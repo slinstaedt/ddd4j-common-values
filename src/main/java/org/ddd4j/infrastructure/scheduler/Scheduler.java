@@ -1,14 +1,10 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 import org.ddd4j.spi.Service;
-import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TSupplier;
 import org.ddd4j.value.Type;
 import org.reactivestreams.Publisher;
@@ -16,20 +12,12 @@ import org.reactivestreams.Publisher;
 @FunctionalInterface
 public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvider> {
 
-	default int getBurstProcessing() {
-		return Integer.MAX_VALUE;
+	default <T> Actor<T> createActor(T initialState) {
+		return Actor.create(this, initialState);
 	}
 
-	default <M> Actor<M> createActor(Consumer<? super M> messageHandler) {
-		return createActor(messageHandler, (m, e) -> Throwing.unchecked(e));
-	}
-
-	default <M> Actor<M> createActor(Consumer<? super M> messageHandler, BiFunction<? super M, ? super Exception, Optional<M>> errorHandler) {
-		return new Actor<>(this, getBurstProcessing(), messageHandler, errorHandler);
-	}
-
-	default <T> T createActorDecorator(Type<T> type, T delegate) {
-		return ScheduledInvocationHandler.create(this, type, delegate);
+	default <T> T createActorDecorator(Type<T> type, T initialState) {
+		return ActorInvocationHandler.create(this, type, initialState);
 	}
 
 	default <T> Publisher<T> createLazyPublisher(PublisherType type, TSupplier<? extends Resource<T>> factory) {
@@ -43,11 +31,15 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 		return processor;
 	}
 
+	default int getBurstProcessing() {
+		return Integer.MAX_VALUE;
+	}
+
 	default <T> CompletionStage<T> supplyAsyncResult(TSupplier<T> supplier) {
 		return CompletableFuture.supplyAsync(supplier, this);
 	}
 
-	default <T> ScheduledResult<T> wrap(CompletionStage<T> stage) {
-		return new ScheduledResult<>(this, stage);
+	default <T> CompletableResult<T> wrap(CompletionStage<T> stage) {
+		return new CompletableResult<>(this, stage);
 	}
 }

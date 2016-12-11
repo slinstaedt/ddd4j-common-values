@@ -49,7 +49,7 @@ public class ScheduledQueue<E> implements Queue<E> {
 
 		void scheduleIfNeeded(Executor executor) {
 			if (scheduled.compareAndSet(false, true)) {
-				executor.execute(createAsyncConsumer(t -> t.performOn(getState()), null, null, null));
+				executor.execute(createAsyncConsumer(t -> t.executeWith(getState()), null, null, null));
 			}
 		}
 	}

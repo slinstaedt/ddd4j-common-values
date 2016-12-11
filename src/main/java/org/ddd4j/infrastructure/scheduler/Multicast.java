@@ -1,105 +1,95 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Type;
 import org.reactivestreams.Processor;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public class Multicast<T> implements Processor<T, T> {
+public class Multicast<T> extends Actor.Inherited<Multicast<T>> implements Processor<T, T> {
 
-	private class MulticastSubscription implements RequestingSubscription {
+	private static class MulticastSubscription<T> extends Actor.Inherited<MulticastSubscription<T>> implements RequestingSubscription {
 
+		private final Actor<Multicast<T>> processor;
 		private final Subscriber<? super T> subscriber;
-		private final Subscriber<? super T> asyncSubscriber;
 		private volatile long requested;
 
-		MulticastSubscription(Subscriber<? super T> subscriber, long requested) {
+		MulticastSubscription(Actor<Multicast<T>> processor, Subscriber<? super T> subscriber, long requested) {
+			super(processor.getExecutor(), processor.getBurst());
+			this.processor = Require.nonNull(processor);
 			this.subscriber = Require.nonNull(subscriber);
-			this.asyncSubscriber = scheduler.createActorDecorator(Type.of(Subscriber.class), subscriber);
 			this.requested = requested;
-			asyncSubscriber.onSubscribe(this);
+			perform(s -> s.subscriber.onSubscribe(this));
 		}
 
 		@Override
 		public void cancel() {
-			cancelSubscription(subscriber);
+			processor.perform(p -> p.cancelSubscription(subscriber));
+		}
+
+		void onComplete() {
+			perform(s -> s.subscriber.onComplete());
+		}
+
+		void onError(Throwable exception) {
+			perform(s -> s.subscriber.onError(exception));
+		}
+
+		void onNext(T value) {
+			perform(s -> s.subscriber.onNext(value));
 		}
 
 		@Override
 		public void request(long n) {
 			requested = requesting(requested, n);
-			requestHandler.handle(subscriber);
-		}
-
-		void onNext(T value) {
-			asyncSubscriber.onNext(value);
-		}
-
-		void onError(Throwable exception) {
-			asyncSubscriber.onError(exception);
-		}
-
-		void onComplete() {
-			asyncSubscriber.onComplete();
+			processor.perform(p -> p.requestMoreIfNeeded());
 		}
 	}
 
 	private static final Subscription NONE = new Subscription() {
 
 		@Override
-		public void request(long n) {
+		public void cancel() {
 		}
 
 		@Override
-		public void cancel() {
+		public void request(long n) {
 		}
 	};
 
 	public static <T> Publisher<T> create(Scheduler scheduler, Publisher<T> delegate) {
-		Multicast<T> multicast = new Multicast<>(scheduler);
+		Multicast<T> multicast = new Multicast<>(scheduler, scheduler.getBurstProcessing());
 		delegate.subscribe(multicast);
 		return multicast;
 	}
 
-	private final Scheduler scheduler;
-	private final ConcurrentMap<Subscriber<? super T>, MulticastSubscription> subscriptions;
-	private final Actor<Subscriber<? super T>> requestHandler;
-	private Subscription subscription;
+	private final Map<Subscriber<? super T>, MulticastSubscription<T>> subscriptions;
 	private long alreadyRequested;
+	private Subscription subscription;
 
-	public Multicast(Scheduler scheduler) {
-		this.scheduler = Require.nonNull(scheduler);
-		this.subscriptions = new ConcurrentHashMap<>(1);
-		this.requestHandler = scheduler.createActor(this::requestMoreIfNeeded);
-		this.subscription = NONE;
+	public Multicast(Executor executor, int burst) {
+		super(executor, burst);
+		this.subscriptions = new HashMap<>();
 		this.alreadyRequested = 0;
+		this.subscription = NONE;
 	}
 
 	private void cancelSubscription(Subscriber<? super T> subscriber) {
+		perform(p -> {
+		});
 		if (subscriptions.remove(subscriber) != null && subscriptions.isEmpty()) {
 			subscription.cancel();
 			subscription = NONE;
 		}
 	}
 
-	private void requestMoreIfNeeded(Subscriber<? super T> source) {
-		long request = subscriptions.values().stream().mapToLong(t -> t.requested - alreadyRequested).min().orElse(0);
-		if (request > 0) {
-			alreadyRequested += request;
-			subscription.request(request);
-		}
-	}
-
-	@Override
-	public void onSubscribe(Subscription subscription) {
-		Require.that(subscription == NONE);
-		this.subscription = Require.nonNull(subscription);
+	private MulticastSubscription<T> newSubscription(Subscriber<? super T> subscriber) {
+		return new MulticastSubscription<>(this, subscriber, alreadyRequested);
 	}
 
 	@Override
@@ -117,12 +107,26 @@ public class Multicast<T> implements Processor<T, T> {
 		performOnSubscriptions(s -> s.onNext(value));
 	}
 
-	private void performOnSubscriptions(Consumer<MulticastSubscription> action) {
-		subscriptions.values().stream().forEach(action);
+	@Override
+	public void onSubscribe(Subscription subscription) {
+		Require.that(subscription == NONE);
+		this.subscription = Require.nonNull(subscription);
+	}
+
+	private void performOnSubscriptions(Consumer<MulticastSubscription<T>> action) {
+		perform(p -> p.subscriptions.values().stream().forEach(action));
+	}
+
+	private void requestMoreIfNeeded() {
+		long request = subscriptions.values().stream().mapToLong(t -> t.requested - alreadyRequested).min().orElse(0);
+		if (request > 0) {
+			alreadyRequested += request;
+			perform(p -> p.subscription.request(request));
+		}
 	}
 
 	@Override
 	public void subscribe(Subscriber<? super T> subscriber) {
-		subscriptions.computeIfAbsent(subscriber, s -> new MulticastSubscription(s, alreadyRequested));
+		perform(p -> p.subscriptions.computeIfAbsent(subscriber, this::newSubscription));
 	}
 }

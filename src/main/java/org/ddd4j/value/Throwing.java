@@ -109,7 +109,8 @@ public interface Throwing {
 			return catching(Exception.class);
 		}
 
-		default TConsumer<T> ignore(Class<? extends Exception> exceptionType) {
+		default TConsumer<T> ignoring(Class<? extends Exception> exceptionType) {
+			Require.nonNull(exceptionType);
 			return t -> {
 				try {
 					acceptChecked(t);
@@ -121,8 +122,8 @@ public interface Throwing {
 			};
 		}
 
-		default TConsumer<T> ignoreExceptions() {
-			return ignore(Exception.class);
+		default TConsumer<T> ignoringExceptions() {
+			return ignoring(Exception.class);
 		}
 	}
 
