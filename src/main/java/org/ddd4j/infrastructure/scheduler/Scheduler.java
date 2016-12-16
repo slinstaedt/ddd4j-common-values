@@ -24,9 +24,13 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 		return createPublisher(type, Resource.lazy(factory));
 	}
 
+	default <T> Publisher<T> createPublisher(TSupplier<Source.Cold<T>> coldSource) {
+
+	}
+
 	default <T> Publisher<T> createPublisher(PublisherType type, Resource<? extends T> resource) {
 		type.create(this, null);
-		ScheduledProcessor<T> processor = new ScheduledProcessor<>(this);
+		ScheduledPublisher<T> processor = new ScheduledPublisher<>(this);
 		processor.onSubscribe(new ResourceSubscription<>(processor, resource));
 		return processor;
 	}

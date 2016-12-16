@@ -23,7 +23,7 @@ public class ActorInvocationHandler implements InvocationHandler {
 		return type.cast(proxy);
 	}
 
-	private final Actor.Transitioning<Object> actor;
+	private final Actor<Object> actor;
 
 	private ActorInvocationHandler(Scheduler scheduler, Object delegate) {
 		this.actor = Actor.create(scheduler, delegate);
