@@ -1,8 +1,8 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 
 import org.ddd4j.spi.Service;
 import org.ddd4j.value.Throwing.TSupplier;
@@ -20,30 +20,23 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 		return ActorInvocationHandler.create(this, type, initialState);
 	}
 
-	default <T> Publisher<T> createLazyPublisher(PublisherType type, TSupplier<? extends Resource<T>> factory) {
-		return createPublisher(type, Resource.lazy(factory));
+	default <T> Publisher<T> createPublisher(ColdSource<T> source) {
+		return new ScheduledPublisher<>(this, new ColdPublisher<>(source));
 	}
 
-	default <T> Publisher<T> createPublisher(TSupplier<Source.Cold<T>> coldSource) {
-
+	default <T> CompletableResult<T> createResult(CompletionStage<T> stage) {
+		return CompletableResult.of(this, stage);
 	}
 
-	default <T> Publisher<T> createPublisher(PublisherType type, Resource<? extends T> resource) {
-		type.create(this, null);
-		ScheduledPublisher<T> processor = new ScheduledPublisher<>(this);
-		processor.onSubscribe(new ResourceSubscription<>(processor, resource));
-		return processor;
+	default <T> CompletableResult<T> createResult(Future<T> future) {
+		return CompletableResult.ofWaiting(this, future);
+	}
+
+	default <T> CompletableResult<T> createResult(TSupplier<T> supplier) {
+		return CompletableResult.ofLazy(this, supplier);
 	}
 
 	default int getBurstProcessing() {
 		return Integer.MAX_VALUE;
-	}
-
-	default <T> CompletionStage<T> supplyAsyncResult(TSupplier<T> supplier) {
-		return CompletableFuture.supplyAsync(supplier, this);
-	}
-
-	default <T> CompletableResult<T> wrap(CompletionStage<T> stage) {
-		return new CompletableResult<>(this, stage);
 	}
 }

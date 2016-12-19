@@ -1,9 +1,8 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import java.util.Optional;
-
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.scheduler.ColdSource.Connection;
+import org.ddd4j.value.Throwing;
 import org.ddd4j.value.collection.Seq;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -11,13 +10,13 @@ import org.reactivestreams.Subscription;
 
 public class ColdPublisher<T> extends RegisteringPublisher<T> implements Publisher<T> {
 
-	private static class ColdSubscription<T> implements Subscription {
+	private class ColdSubscription implements Subscription {
 
 		private final Subscriber<? super T> subscriber;
 		private final Connection<T> connection;
 		private final Requesting requesting;
 
-		public ColdSubscription(Subscriber<? super T> subscriber, Connection<T> connection) {
+		ColdSubscription(Subscriber<? super T> subscriber, Connection<T> connection) {
 			this.subscriber = Require.nonNull(subscriber);
 			this.connection = Require.nonNull(connection);
 			this.requesting = new Requesting();
@@ -36,42 +35,39 @@ public class ColdPublisher<T> extends RegisteringPublisher<T> implements Publish
 				try {
 					subscriber.onError(e);
 				} finally {
-					connection.close();
+					cancel();
 				}
 			}
 		}
 
 		@Override
 		public void cancel() {
-			connection.close();
+			if (unsubscribe(subscriber)) {
+				connection.close();
+			}
 		}
 	}
 
-	private final Scheduler scheduler;
 	private final ColdSource<T> source;
 
-	public ColdPublisher(Scheduler scheduler, ColdSource<T> source) {
-		this.scheduler = Require.nonNull(scheduler);
+	public ColdPublisher(ColdSource<T> source) {
 		this.source = Require.nonNull(source);
 	}
 
-	private Optional<Connection<T>> openConnection(Subscriber<? super T> subscriber) {
+	private Connection<T> openConnection(Subscriber<? super T> subscriber) {
 		try {
-			return Optional.of(source.open());
+			return source.open();
 		} catch (Exception e) {
 			subscriber.onError(e);
-			return Optional.empty();
+			return Throwing.unchecked(e);
 		}
-	}
-
-	@Override
-	public void subscribe(Subscriber<? super T> subscriber) {
-		Require.nonNull(subscriber);
-		openConnection(subscriber).map(c -> new ColdSubscription<>(subscriber, c)).ifPresent(subscriber::onSubscribe);
 	}
 
 	@Override
 	protected Subscription subscribeNew(Subscriber<? super T> subscriber) {
-		openConnection(subscriber).map(c -> new ColdSubscription<>(subscriber, c)).ifPresent(subscriber::onSubscribe);
+		Connection<T> connection = openConnection(subscriber);
+		ColdSubscription subscription = new ColdSubscription(subscriber, connection);
+		subscriber.onSubscribe(subscription);
+		return subscription;
 	}
 }

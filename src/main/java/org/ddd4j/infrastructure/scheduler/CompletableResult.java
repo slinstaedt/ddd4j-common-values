@@ -1,18 +1,63 @@
 package org.ddd4j.infrastructure.scheduler;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TFunction;
+import org.ddd4j.value.Throwing.TSupplier;
 
 public interface CompletableResult<T> {
 
+	static <T> CompletableResult<T> ofWaiting(Executor executor, Future<T> future) {
+		Require.nonNullElements(executor, future);
+		return new CompletableResult<T>() {
+
+			private final CompletableFuture<T> waiting = new CompletableFuture<>();
+
+			@Override
+			public <X> CompletableResult<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
+				executor.execute(this::checkFuture);
+				return of(executor, fn.apply(executor, waiting));
+			}
+
+			void checkFuture() {
+				try {
+					T value = future.get(500, TimeUnit.MILLISECONDS);
+					waiting.complete(value);
+				} catch (ExecutionException e) {
+					waiting.completeExceptionally(e.getCause());
+				} catch (InterruptedException | TimeoutException e) {
+					executor.execute(this::checkFuture);
+				}
+			}
+		};
+	}
+
+	static <T> CompletableResult<T> ofLazy(Executor executor, TSupplier<T> supplier) {
+		Require.nonNullElements(executor, supplier);
+		return new CompletableResult<T>() {
+
+			@Override
+			public <X> CompletableResult<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
+				CompletableFuture<T> supplied = CompletableFuture.supplyAsync(supplier, executor);
+				return of(executor, fn.apply(executor, supplied));
+			}
+		};
+	}
+
 	static <T> CompletableResult<T> of(Executor executor, CompletionStage<T> stage) {
+		Require.nonNullElements(executor, stage);
 		return new CompletableResult<T>() {
 
 			@Override
