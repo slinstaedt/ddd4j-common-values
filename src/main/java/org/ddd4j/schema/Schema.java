@@ -18,20 +18,58 @@ public interface Schema<T> extends Value<Schema<T>> {
 	@FunctionalInterface
 	interface Writer<T> extends Flushable {
 
-		void writeOrFlush(T value, boolean flush) throws IOException;
+		interface IOSink<T> {
+
+			void write(T value) throws IOException;
+		}
+
+		enum Mode {
+
+			NONE {
+
+				@Override
+				public <T> void apply(T value, IOSink<? super T> sink, Flushable flusher) throws IOException {
+				}
+			},
+			WRITE {
+
+				@Override
+				public <T> void apply(T value, IOSink<? super T> sink, Flushable flusher) throws IOException {
+					sink.write(value);
+				}
+			},
+			FLUSH {
+
+				@Override
+				public <T> void apply(T value, IOSink<? super T> sink, Flushable flusher) throws IOException {
+					flusher.flush();
+				}
+			},
+			BOTH {
+
+				@Override
+				public <T> void apply(T value, IOSink<? super T> sink, Flushable flusher) throws IOException {
+					sink.write(value);
+					flusher.flush();
+				}
+			};
+
+			public abstract <T> void apply(T value, IOSink<? super T> sink, Flushable flusher) throws IOException;
+		}
+
+		void apply(Mode mode, T value) throws IOException;
 
 		default void write(T value) throws IOException {
-			writeOrFlush(value, false);
+			apply(Mode.WRITE, value);
 		}
 
 		default void writeAndFlush(T value) throws IOException {
-			write(value);
-			flush();
+			apply(Mode.BOTH, value);
 		}
 
 		@Override
 		default void flush() throws IOException {
-			writeOrFlush(null, true);
+			apply(Mode.FLUSH, null);
 		}
 	}
 

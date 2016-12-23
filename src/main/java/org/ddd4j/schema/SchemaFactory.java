@@ -16,6 +16,7 @@ public interface SchemaFactory extends Service<SchemaFactory, SchemaFactoryProvi
 		}
 	}
 
+	// TODO use Type here?
 	<T> Schema<T> createSchema(Class<T> type);
 
 	Schema<?> readSchema(Input input) throws IOException;

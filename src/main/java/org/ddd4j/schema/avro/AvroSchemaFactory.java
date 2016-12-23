@@ -41,11 +41,6 @@ public class AvroSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public String getServiceName() {
-		return "avro";
-	}
-
-	@Override
 	public Configuration getConfiguration() {
 		return configuration;
 	}

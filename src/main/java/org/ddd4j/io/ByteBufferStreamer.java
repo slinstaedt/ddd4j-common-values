@@ -10,7 +10,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 
-import org.ddd4j.value.collection.Cache;
+import org.ddd4j.infrastructure.Cache;
 
 public class ByteBufferStreamer {
 

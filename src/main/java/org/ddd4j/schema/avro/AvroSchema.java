@@ -17,10 +17,13 @@ import org.ddd4j.io.Output;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
+import org.ddd4j.spi.Configuration;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Value;
 
 public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schema> implements Schema<T> {
+
+	private static final Configuration.Key<AvroCoder> CODER = Configuration.keyOfEnum(AvroCoder.class, "coding", AvroCoder.JSON);
 
 	static AvroSchema<?> deserialize(AvroSchemaFactory factory, Input input) throws IOException {
 		org.apache.avro.Schema writerSchema = new Parser().parse(input.asDataInput().readUTF());
@@ -42,12 +45,12 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 	}
 
 	private AvroCoder coder() {
-		return factory.getConfiguration().getEnum(AvroCoder.class, "coding", AvroCoder.JSON);
+		return factory.getConfiguration().get(CODER);
 	}
 
 	@Override
 	public boolean compatibleWith(Schema<?> existing) {
-		return existing.<AvroSchema> as(AvroSchema.class)
+		return existing.<AvroSchema>as(AvroSchema.class)
 				.mapNonNull(o -> SchemaCompatibility.checkReaderWriterCompatibility(writerSchema, o.writerSchema).getType())
 				.checkEqual(SchemaCompatibilityType.COMPATIBLE);
 	}
@@ -62,7 +65,7 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 			reader = factory.getData().createDatumReader(writerSchema, readerSchema);
 		}
 		Decoder decoder = coder().createDecoder(writerSchema, input.asStream());
-		return Throwing.ofSupplied(() -> reader.read(null, decoder)).map(type::cast)::get;
+		return () -> type.cast(reader.read(null, decoder));
 	}
 
 	@Override
@@ -70,13 +73,7 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 		Encoder encoder = coder().createEncoder(writerSchema, output.asStream());
 		@SuppressWarnings("unchecked")
 		DatumWriter<Object> writer = factory.getData().createDatumWriter(writerSchema);
-		return (datum, flush) -> {
-			if (flush) {
-				encoder.flush();
-			} else {
-				writer.write(datum, encoder);
-			}
-		};
+		return (mode, value) -> mode.apply(value, v -> writer.write(v, encoder), encoder);
 	}
 
 	@Override
@@ -86,7 +83,8 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 
 	@Override
 	public Fingerprint getFingerprint() {
-		AvroFingerprintAlgorithm algorithm = factory.getConfiguration().getEnum(AvroFingerprintAlgorithm.class, "fingerprint")
+		AvroFingerprintAlgorithm algorithm = factory.getConfiguration()
+				.getEnum(AvroFingerprintAlgorithm.class, "fingerprint")
 				.orElse(AvroFingerprintAlgorithm.SHA_256);
 		return algorithm.parsingFingerprint(writerSchema);
 	}

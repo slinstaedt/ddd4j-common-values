@@ -85,7 +85,7 @@ public interface Require<T> extends Function<Object, T> {
 	}
 
 	static void that(boolean condition) {
-		if (condition) {
+		if (!condition) {
 			throw new AssertionError();
 		}
 	}

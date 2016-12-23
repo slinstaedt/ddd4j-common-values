@@ -7,7 +7,6 @@ import java.nio.channels.FileChannel;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 
-import org.ddd4j.infrastructure.scheduler.ResultStream;
 import org.reactivestreams.Publisher;
 
 public class FileLog implements Log<byte[]>, Runnable {

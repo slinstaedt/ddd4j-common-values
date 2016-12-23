@@ -253,7 +253,7 @@ public interface Throwing {
 		throw (E) throwable;
 	}
 
-	static Throwing of(Function<? super String, ? extends Exception> exceptionFactory) {
+	static Throwing of(Function<? super String, ? extends Error> exceptionFactory) {
 		return Require.nonNull(exceptionFactory)::apply;
 	}
 
@@ -288,7 +288,7 @@ public interface Throwing {
 	}
 
 	static <X> X unchecked(Throwable exception) {
-		return Throwing.<X, RuntimeException> any(exception);
+		return Throwing.<X, RuntimeException>any(exception);
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction() {
@@ -307,7 +307,7 @@ public interface Throwing {
 		return () -> throwChecked();
 	}
 
-	Exception createException(String message);
+	Error createException(String message);
 
 	default String formatMessage(Object... args) {
 		return Arrays.asList(args).toString();
@@ -325,7 +325,7 @@ public interface Throwing {
 		return new Throwing() {
 
 			@Override
-			public Exception createException(String message) {
+			public Error createException(String message) {
 				return Throwing.this.createException(message);
 			}
 

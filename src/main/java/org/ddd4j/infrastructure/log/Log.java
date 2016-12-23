@@ -1,16 +1,17 @@
 package org.ddd4j.infrastructure.log;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.CompletionStage;
 
 import org.ddd4j.value.Value;
 import org.reactivestreams.Publisher;
 
-public interface Log<T> {
+public interface Log {
 
-	class Commit<T> implements Value<Commit<T>> {
+	class Commit implements Value<Commit> {
 
-		private T value;
+		private ByteBuffer value;
 		private Offset expected;
 		private Long timestamp;
 	}
@@ -40,23 +41,23 @@ public interface Log<T> {
 		}
 	}
 
-	class Record<T> implements Value<Record<T>> {
+	class Record implements Value<Record> {
 
-		private T value;
+		private ByteBuffer value;
 		private Offset committed;
 		private Offset nextExpected;
 		private long timestamp;
 	}
 
-	Publisher<Record<T>> publisher(Offset initialOffset, boolean completeOnEnd) throws IOException;
+	Publisher<Record> publisher(Offset initialOffset, boolean completeOnEnd) throws IOException;
 
-	default Publisher<Record<T>> readFrom(Offset initialOffset) throws IOException {
+	default Publisher<Record> readFrom(Offset initialOffset) throws IOException {
 		return publisher(initialOffset, true);
 	}
 
-	default Publisher<Record<T>> registerListener(Offset initialOffset) throws IOException {
+	default Publisher<Record> registerListener(Offset initialOffset) throws IOException {
 		return publisher(initialOffset, false);
 	}
 
-	CompletionStage<Record<T>> tryAppend(Commit<T> commit) throws IOException;
+	CompletionStage<Record> tryAppend(Commit commit) throws IOException;
 }

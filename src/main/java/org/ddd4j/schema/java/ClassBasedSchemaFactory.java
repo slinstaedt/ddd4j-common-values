@@ -26,7 +26,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 
 		@Override
 		public boolean compatibleWith(Schema<?> existing) {
-			return existing.<JavaSchema> as(JavaSchema.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
+			return existing.<JavaSchema>as(JavaSchema.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
 		}
 
 		@Override
@@ -38,13 +38,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		@Override
 		public Writer<T> createWriter(Output output) {
 			ObjectOutput out = Throwing.ofApplied(Output::asObjectOutput).apply(output, true);
-			return (datum, flush) -> {
-				if (flush) {
-					out.flush();
-				} else {
-					out.writeObject(datum);
-				}
-			};
+			return (mode, value) -> mode.apply(value, out::writeObject, out::flush);
 		}
 
 		@Override
