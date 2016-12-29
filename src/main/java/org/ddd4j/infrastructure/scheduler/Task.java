@@ -13,7 +13,7 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Outcome;
 import org.ddd4j.value.Throwing.TFunction;
 
-public class Task<T, R> implements Future<R>, Outcome<R> {
+public class Task<T, R> implements Future<R>, Outcome.Stage<R> {
 
 	private final Executor executor;
 	private final TFunction<? super T, ? extends R> action;
@@ -26,8 +26,8 @@ public class Task<T, R> implements Future<R>, Outcome<R> {
 	}
 
 	@Override
-	public <X> Outcome<X> apply(BiFunction<Executor, CompletionStage<R>, CompletionStage<X>> fn) {
-		return Outcome.of(executor, fn.apply(executor, future));
+	public <X> Outcome.Stage<X> apply(BiFunction<Executor, CompletionStage<R>, CompletionStage<X>> fn) {
+		return Outcome.ofStage(executor, fn.apply(executor, future));
 	}
 
 	@Override

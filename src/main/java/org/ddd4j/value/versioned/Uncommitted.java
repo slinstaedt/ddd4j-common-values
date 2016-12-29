@@ -5,26 +5,25 @@ import java.util.function.Function;
 
 import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.collection.Seq;
 
 public class Uncommitted<E> implements Recorded<E> {
 
 	private final Identifier identifier;
-	private final Seq<E> changes;
+	private final E entry;
 	private final Revision expected;
 
-	public Uncommitted(Identifier identifier, Seq<E> changes, Revision expected) {
+	public Uncommitted(Identifier identifier, E entry, Revision expected) {
 		this.identifier = Require.nonNull(identifier);
-		this.changes = Require.nonNull(changes);
+		this.entry = Require.nonNull(entry);
 		this.expected = Require.nonNull(expected);
 	}
 
-	public Seq<Committed<E>> committed(Revision nextExpected, LocalDateTime timestamp) {
+	public Committed<E> committed(Revision nextExpected, LocalDateTime timestamp) {
 		return new Committed<>(identifier, entry, expected, nextExpected, timestamp);
 	}
 
-	public Conflict<E> conflictsWith(Revision actual, Seq<E> entries) {
-		return new Conflict<>(identifier, expected, actual, entries);
+	public Conflicted<E> conflictsWith(Revision actual) {
+		return new Conflicted<>(identifier, expected, actual);
 	}
 
 	@Override
@@ -32,10 +31,12 @@ public class Uncommitted<E> implements Recorded<E> {
 		return uncommitted.apply(this);
 	}
 
-	public Seq<E> getChanges() {
-		return changes;
+	@Override
+	public E getEntry() {
+		return entry;
 	}
 
+	@Override
 	public Revision getExpected() {
 		return expected;
 	}
