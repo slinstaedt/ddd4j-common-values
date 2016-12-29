@@ -10,7 +10,9 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 
+import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Cache;
+import org.ddd4j.infrastructure.Cache.Pool;
 
 public class ByteBufferStreamer {
 
@@ -73,16 +75,16 @@ public class ByteBufferStreamer {
 		}
 
 		@Override
-		public void write(int b) {
-			ensureCapacity(buffers).put((byte) b);
-		}
-
-		@Override
 		public void write(byte[] b, int off, int len) {
 			ByteBuffer src = ByteBuffer.wrap(b, off, len);
 			while (src.hasRemaining()) {
 				copy(src, ensureCapacity(buffers));
 			}
+		}
+
+		@Override
+		public void write(int b) {
+			ensureCapacity(buffers).put((byte) b);
 		}
 	}
 
@@ -99,18 +101,17 @@ public class ByteBufferStreamer {
 		return bytesToCopy;
 	}
 
-	private final int bufferSize;
-	private final Cache<Integer, ByteBuffer> cache;
+	private final Pool<ByteBuffer> cache;
 
 	public ByteBufferStreamer(int bufferSize) {
-		this.bufferSize = bufferSize;
-		this.cache = Cache.createPooled(ByteBuffer::capacity);
+		Require.that(bufferSize > 0);
+		this.cache = Cache.exclusive(ByteBuffer::capacity).lookupValuesWithEqualKeys().withFactory(ByteBuffer::allocate).pooledBy(bufferSize);
 	}
 
 	private ByteBuffer ensureCapacity(Deque<ByteBuffer> buffers) {
 		ByteBuffer buffer = buffers.isEmpty() ? null : buffers.getLast();
 		if (buffer == null || !buffer.hasRemaining()) {
-			buffer = cache.acquire(bufferSize);
+			buffer = cache.acquire();
 			buffers.addLast(buffer);
 		}
 		return buffer;

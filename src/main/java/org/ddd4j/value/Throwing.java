@@ -1,6 +1,7 @@
 package org.ddd4j.value;
 
 import java.util.Arrays;
+import java.util.concurrent.Callable;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -207,7 +208,7 @@ public interface Throwing {
 	}
 
 	@FunctionalInterface
-	interface TSupplier<T> extends Supplier<T> {
+	interface TSupplier<T> extends Supplier<T>, Callable<T> {
 
 		default Supplier<Either<T, Exception>> asEither() {
 			return () -> {
@@ -227,6 +228,11 @@ public interface Throwing {
 					return Opt.none();
 				}
 			};
+		}
+
+		@Override
+		default T call() throws Exception {
+			return getChecked();
 		}
 
 		@Override
@@ -253,7 +259,7 @@ public interface Throwing {
 		throw (E) throwable;
 	}
 
-	static Throwing of(Function<? super String, ? extends Error> exceptionFactory) {
+	static Throwing of(Function<? super String, ? extends Throwable> exceptionFactory) {
 		return Require.nonNull(exceptionFactory)::apply;
 	}
 
@@ -288,7 +294,7 @@ public interface Throwing {
 	}
 
 	static <X> X unchecked(Throwable exception) {
-		return Throwing.<X, RuntimeException>any(exception);
+		return Throwing.<X, RuntimeException> any(exception);
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction() {
@@ -307,7 +313,7 @@ public interface Throwing {
 		return () -> throwChecked();
 	}
 
-	Error createException(String message);
+	Throwable createException(String message);
 
 	default String formatMessage(Object... args) {
 		return Arrays.asList(args).toString();
@@ -325,7 +331,7 @@ public interface Throwing {
 		return new Throwing() {
 
 			@Override
-			public Error createException(String message) {
+			public Throwable createException(String message) {
 				return Throwing.this.createException(message);
 			}
 

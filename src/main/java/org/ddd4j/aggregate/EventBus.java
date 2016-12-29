@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-import org.ddd4j.aggregate.Recorded.Committed;
+import org.ddd4j.value.versioned.Committed;
 
 public interface EventBus {
 
@@ -54,6 +54,6 @@ public interface EventBus {
 	void publish(Committed<?> committed);
 
 	default <E> void registerEventListener(Class<E> eventType, Consumer<E> listener) {
-		registerCommitListener(eventType, c -> listener.accept(c.getEvent()));
+		registerCommitListener(eventType, c -> listener.accept(c.getEntry()));
 	}
 }

@@ -1,12 +1,13 @@
 package org.ddd4j.infrastructure.scheduler;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.infrastructure.Result;
 import org.ddd4j.value.Type;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public class ScheduledPublisher<T> implements Publisher<T> {
+public class ScheduledResult<T> implements Result<T> {
 
 	private class ScheduledSubscriber implements Subscriber<T> {
 
@@ -42,7 +43,7 @@ public class ScheduledPublisher<T> implements Publisher<T> {
 	private final Scheduler scheduler;
 	private final Publisher<T> delegate;
 
-	public ScheduledPublisher(Scheduler scheduler, Publisher<T> delegate) {
+	public ScheduledResult(Scheduler scheduler, Publisher<T> delegate) {
 		this.scheduler = Require.nonNull(scheduler);
 		this.delegate = Require.nonNull(delegate);
 	}

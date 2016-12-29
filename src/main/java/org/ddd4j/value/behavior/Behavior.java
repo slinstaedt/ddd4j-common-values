@@ -9,10 +9,10 @@ import java.util.function.Predicate;
 import org.ddd4j.aggregate.Aggregates.Aggregate;
 import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.aggregate.Session;
-import org.ddd4j.aggregate.Version;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.versioned.Revision;
 
 @FunctionalInterface
 public interface Behavior<T> {
@@ -104,7 +104,7 @@ public interface Behavior<T> {
 		return s -> Reaction.accepted(s, s.aggregate(identifier), Seq.empty());
 	}
 
-	static <T> Behavior<T> trackedEventSource(Identifier identifier, Version expected, T aggregate) {
+	static <T> Behavior<T> trackedEventSource(Identifier identifier, Revision expected, T aggregate) {
 		return s -> Reaction.accepted(s.track(identifier, expected, aggregate), aggregate, Seq.empty());
 	}
 

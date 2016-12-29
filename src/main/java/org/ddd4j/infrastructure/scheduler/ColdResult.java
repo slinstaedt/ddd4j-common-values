@@ -4,11 +4,11 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.scheduler.ColdSource.Connection;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.collection.Seq;
-import org.reactivestreams.Publisher;
+import org.ddd4j.value.versioned.Revision;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public class ColdPublisher<T> extends RegisteringPublisher<T> implements Publisher<T> {
+public class ColdResult<T> extends RegisteringResult<T> {
 
 	private class ColdSubscription implements Subscription {
 
@@ -20,6 +20,13 @@ public class ColdPublisher<T> extends RegisteringPublisher<T> implements Publish
 			this.subscriber = Require.nonNull(subscriber);
 			this.connection = Require.nonNull(connection);
 			this.requesting = new Requesting();
+		}
+
+		@Override
+		public void cancel() {
+			if (unsubscribe(subscriber)) {
+				connection.close();
+			}
 		}
 
 		@Override
@@ -39,24 +46,21 @@ public class ColdPublisher<T> extends RegisteringPublisher<T> implements Publish
 				}
 			}
 		}
-
-		@Override
-		public void cancel() {
-			if (unsubscribe(subscriber)) {
-				connection.close();
-			}
-		}
 	}
 
 	private final ColdSource<T> source;
+	private final Revision startAt;
+	private final boolean completeOnEnd;
 
-	public ColdPublisher(ColdSource<T> source) {
+	public ColdResult(ColdSource<T> source, Revision startAt, boolean completeOnEnd) {
 		this.source = Require.nonNull(source);
+		this.startAt = Require.nonNull(startAt);
+		this.completeOnEnd = completeOnEnd;
 	}
 
 	private Connection<T> openConnection(Subscriber<? super T> subscriber) {
 		try {
-			return source.open();
+			return source.open(startAt, completeOnEnd);
 		} catch (Exception e) {
 			subscriber.onError(e);
 			return Throwing.unchecked(e);

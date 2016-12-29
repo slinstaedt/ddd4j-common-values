@@ -1,13 +1,16 @@
 package org.ddd4j.infrastructure.scheduler;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
+import org.ddd4j.contract.Require;
+import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Result;
 import org.ddd4j.spi.Service;
-import org.ddd4j.value.Throwing.TSupplier;
 import org.ddd4j.value.Type;
-import org.reactivestreams.Publisher;
+import org.ddd4j.value.versioned.Revision;
 
 @FunctionalInterface
 public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvider> {
@@ -20,20 +23,20 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 		return ActorInvocationHandler.create(this, type, initialState);
 	}
 
-	default <T> Publisher<T> createPublisher(ColdSource<T> source) {
-		return new ScheduledPublisher<>(this, new ColdPublisher<>(source));
+	default <T> Outcome<T> createOutcome(Callable<T> callable) {
+		return Outcome.ofEager(this, Require.nonNull(callable)::call);
 	}
 
-	default <T> CompletableResult<T> createResult(CompletionStage<T> stage) {
-		return CompletableResult.of(this, stage);
+	default <T> Outcome<T> createOutcome(CompletionStage<T> stage) {
+		return Outcome.of(this, stage);
 	}
 
-	default <T> CompletableResult<T> createResult(Future<T> future) {
-		return CompletableResult.ofWaiting(this, future);
+	default <T> Outcome<T> createOutcome(Future<T> future) {
+		return Outcome.ofBlocking(this, future);
 	}
 
-	default <T> CompletableResult<T> createResult(TSupplier<T> supplier) {
-		return CompletableResult.ofLazy(this, supplier);
+	default <T> Result<T> createResult(ColdSource<T> source, Revision startAt, boolean completeOnEnd) {
+		return new ScheduledResult<>(this, new ColdResult<>(source, startAt, completeOnEnd));
 	}
 
 	default int getBurstProcessing() {

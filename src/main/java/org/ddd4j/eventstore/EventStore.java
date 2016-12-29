@@ -6,11 +6,11 @@ import java.util.stream.Stream;
 
 import org.ddd4j.aggregate.EventBus;
 import org.ddd4j.aggregate.Identifier;
-import org.ddd4j.aggregate.Recorded.CommitResult;
-import org.ddd4j.aggregate.Recorded.Committed;
-import org.ddd4j.aggregate.Recorded.Uncommitted;
-import org.ddd4j.aggregate.Version;
 import org.ddd4j.schema.Schema;
+import org.ddd4j.value.versioned.Revision;
+import org.ddd4j.value.versioned.CommitResult;
+import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Uncommitted;
 
 public interface EventStore {
 
@@ -25,17 +25,17 @@ public interface EventStore {
 			}
 		}
 
-		Version lastCommittedVersion();
+		Revision lastCommittedVersion();
 
 		CommitResult<E> tryCommit(Uncommitted<E> attempt);
 
 		Stream<Committed<E>> commits();
 
 		default Stream<E> events() {
-			return eventsSince(Version.INITIAL);
+			return eventsSince(Revision.INITIAL);
 		}
 
-		default Stream<E> eventsSince(Version since) {
+		default Stream<E> eventsSince(Revision since) {
 			return commits().filter(c -> c.after(since)).flatMap(Committed::events);
 		}
 
@@ -55,7 +55,7 @@ public interface EventStore {
 		}
 
 		default Stream<E> events() {
-			return commits().map(Committed::getEvent);
+			return commits().map(Committed::getEntry);
 		}
 
 		Class<E> getEventType();
@@ -77,7 +77,7 @@ public interface EventStore {
 		return get(identifier).events();
 	}
 
-	default <E> Stream<E> events(Identifier identifier, Version since) {
+	default <E> Stream<E> events(Identifier identifier, Revision since) {
 		return get(identifier).eventsSince(since);
 	}
 

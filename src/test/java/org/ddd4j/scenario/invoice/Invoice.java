@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.ddd4j.aggregate.Recorded.Uncommitted;
 import org.ddd4j.contract.Require;
 import org.ddd4j.scenario.invoice.InvoiceEvent.InvoiceCreated;
 import org.ddd4j.scenario.invoice.InvoiceEvent.InvoiceItemAdded;
@@ -15,6 +14,7 @@ import org.ddd4j.value.behavior.Behavior;
 import org.ddd4j.value.behavior.HandlerChain;
 import org.ddd4j.value.behavior.HandlerChain.FactoryHandler;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.versioned.Uncommitted;
 
 import lombok.NonNull;
 import lombok.Value;

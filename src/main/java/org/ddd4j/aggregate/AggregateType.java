@@ -2,13 +2,14 @@ package org.ddd4j.aggregate;
 
 import java.util.function.Function;
 
-import org.ddd4j.aggregate.Recorded.Committed;
-import org.ddd4j.aggregate.Recorded.Uncommitted;
 import org.ddd4j.eventstore.EventStore;
 import org.ddd4j.value.behavior.Behavior;
 import org.ddd4j.value.behavior.HandlerChain;
 import org.ddd4j.value.behavior.Reaction;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Recorded;
+import org.ddd4j.value.versioned.Uncommitted;
 
 public class AggregateType<ID extends Identifier, T, C, E> {
 

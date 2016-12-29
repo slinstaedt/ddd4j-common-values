@@ -6,6 +6,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.infrastructure.Outcome;
 import org.ddd4j.value.Self;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TConsumer;
@@ -39,8 +40,8 @@ public abstract class Actor<T> {
 			return state;
 		}
 
-		public CompletableResult<T> performTransition(TFunction<? super T, ? extends T> transition) {
-			return scheduleIfNeeded(new Task<T, T>(getExecutor(), transition)).whenComplete(this::updateState);
+		public Outcome<T> performTransition(TFunction<? super T, ? extends T> transition) {
+			return scheduleIfNeeded(new Task<T, T>(getExecutor(), transition)).whenCompleteAsync(this::updateState);
 		}
 
 		private void updateState(T state, Throwable exception) {
@@ -68,7 +69,7 @@ public abstract class Actor<T> {
 		return query.apply(getState());
 	}
 
-	public <R> CompletableResult<R> execute(TFunction<? super T, ? extends R> task) {
+	public <R> Outcome<R> execute(TFunction<? super T, ? extends R> task) {
 		return scheduleIfNeeded(new Task<>(executor, task));
 	}
 
@@ -82,7 +83,7 @@ public abstract class Actor<T> {
 
 	protected abstract T getState();
 
-	public CompletableResult<T> perform(TConsumer<T> action) {
+	public Outcome<T> perform(TConsumer<T> action) {
 		return scheduleIfNeeded(new Task<>(executor, action.asFunction()));
 	}
 

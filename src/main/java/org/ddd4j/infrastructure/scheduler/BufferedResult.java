@@ -4,11 +4,12 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.infrastructure.Result;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public class BufferedPublisher<T> implements Publisher<T> {
+public class BufferedResult<T> implements Result<T> {
 
 	private class BufferedSubscriber implements Subscriber<T> {
 
@@ -23,17 +24,17 @@ public class BufferedPublisher<T> implements Publisher<T> {
 			}
 
 			@Override
+			public void cancel() {
+				delegate.cancel();
+			}
+
+			@Override
 			public void request(long n) {
 				requesting.more(n);
 				int remaining = queue.remainingCapacity();
 				if (remaining > 0) {
 					delegate.request(remaining);
 				}
-			}
-
-			@Override
-			public void cancel() {
-				delegate.cancel();
 			}
 		}
 
@@ -47,8 +48,13 @@ public class BufferedPublisher<T> implements Publisher<T> {
 		}
 
 		@Override
-		public void onSubscribe(Subscription s) {
-			delegate.onSubscribe(new BufferedSubscription(subscription = s));
+		public void onComplete() {
+			subscription = null;
+		}
+
+		@Override
+		public void onError(Throwable exception) {
+			delegate.onError(exception);
 		}
 
 		@Override
@@ -61,13 +67,8 @@ public class BufferedPublisher<T> implements Publisher<T> {
 		}
 
 		@Override
-		public void onError(Throwable exception) {
-			delegate.onError(exception);
-		}
-
-		@Override
-		public void onComplete() {
-			subscription = null;
+		public void onSubscribe(Subscription s) {
+			delegate.onSubscribe(new BufferedSubscription(subscription = s));
 		}
 	}
 

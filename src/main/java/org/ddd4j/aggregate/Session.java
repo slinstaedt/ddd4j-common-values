@@ -4,32 +4,34 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import org.ddd4j.aggregate.Aggregates.Aggregate;
-import org.ddd4j.aggregate.Recorded.Uncommitted;
 import org.ddd4j.contract.Require;
 import org.ddd4j.messaging.CorrelationIdentifier;
 import org.ddd4j.value.behavior.Effect.Dispatched;
 import org.ddd4j.value.behavior.Reaction;
 import org.ddd4j.value.collection.Map;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.versioned.Recorded;
+import org.ddd4j.value.versioned.Uncommitted;
+import org.ddd4j.value.versioned.Revision;
 
 public class Session {
 
 	private static class Tracked<T> {
 
 		private final Identifier identifier;
-		private final Version expected;
+		private final Revision expected;
 		private final T state;
 		private final Seq<?> changes;
 
-		Tracked(Identifier identifier, Version expected) {
+		Tracked(Identifier identifier, Revision expected) {
 			this(identifier, expected, null, Seq.empty());
 		}
 
-		Tracked(Identifier identifier, Version expected, T state) {
+		Tracked(Identifier identifier, Revision expected, T state) {
 			this(identifier, expected, state, Seq.empty());
 		}
 
-		private Tracked(Identifier identifier, Version expected, T state, Seq<?> changes) {
+		private Tracked(Identifier identifier, Revision expected, T state, Seq<?> changes) {
 			this.identifier = Require.nonNull(identifier);
 			this.expected = Require.nonNull(expected);
 			this.state = Require.nonNull(state);
@@ -63,13 +65,13 @@ public class Session {
 		return new Dispatched<>(result, correlation);
 	}
 
-	public Session track(Identifier identifier, Version expected, Object aggregate) {
+	public Session track(Identifier identifier, Revision expected, Object aggregate) {
 		Require.that(!tracked.containsKey(identifier));
 		return new Session(identifier, aggregates, tracked.updated(identifier, new Tracked<>(identifier, expected, aggregate)));
 	}
 
 	public <E, T> Reaction<T> record(Function<? super E, ? extends T> handler, E event) {
-		Tracked<?> originalState = tracked.get(current).orElse(new Tracked<>(current, Version.INITIAL));
+		Tracked<?> originalState = tracked.get(current).orElse(new Tracked<>(current, Revision.INITIAL));
 		Tracked<? extends T> updatedState = originalState.record(event, handler.compose(Uncommitted::getPayload));
 		Session session = new Session(current, aggregates, tracked.updated(current, updatedState));
 		return Reaction.accepted(session, updatedState.state, Seq.singleton(event));

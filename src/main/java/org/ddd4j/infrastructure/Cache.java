@@ -24,13 +24,14 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.Predicate;
+import java.util.function.ToLongFunction;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Cache.Access.Exclusive;
 import org.ddd4j.infrastructure.Cache.Access.Shared;
 import org.ddd4j.infrastructure.Cache.Decorating.Blocking;
 import org.ddd4j.infrastructure.Cache.Decorating.Evicting;
-import org.ddd4j.infrastructure.Cache.Decorating.Evicting.RemoveStrategy;
+import org.ddd4j.infrastructure.Cache.Decorating.Evicting.EvictStrategy;
 import org.ddd4j.infrastructure.Cache.Decorating.Retrying;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TSupplier;
@@ -149,7 +150,11 @@ public interface Cache<K, V> {
 		}
 
 		public Evicting<K, V> evict() {
-			return new Evicting<K, V>(this, Integer.MAX_VALUE, RemoveStrategy.OLDEST, e -> false);
+			return evict(EvictStrategy.ANY);
+		}
+
+		public Evicting<K, V> evict(EvictStrategy strategy) {
+			return new Evicting<>(this, strategy, 0, Integer.MAX_VALUE, Long.MAX_VALUE);
 		}
 
 		abstract boolean evict(K key, V value);
@@ -262,34 +267,20 @@ public interface Cache<K, V> {
 
 				private final K key;
 				private final V value;
-				private final long costs;
 				private final long created;
 				private long lastAccessed;
 				private int counter;
 
-				Entry(K key, V value, long costs) {
+				Entry(K key, V value) {
 					this.key = Require.nonNull(key);
 					this.value = Require.nonNull(value);
-					this.costs = costs;
 					this.created = System.currentTimeMillis();
 					this.lastAccessed = created;
 					this.counter = 1;
 				}
 
-				boolean accessedBefore(long reference) {
-					return System.currentTimeMillis() - lastAccessed > reference;
-				}
-
-				long costs() {
-					return costs;
-				}
-
 				long created() {
 					return created;
-				}
-
-				boolean createdBefore(long reference) {
-					return System.currentTimeMillis() - created > reference;
 				}
 
 				boolean evict() {
@@ -310,36 +301,32 @@ public interface Cache<K, V> {
 				}
 			}
 
-			@FunctionalInterface
-			interface EntryField {
-
-				long apply(Evicting<?, ?>.Entry entry);
-			}
-
-			public enum RemoveStrategy {
-				OLDEST(Evicting<?, ?>.Entry::created), //
+			public enum EvictStrategy {
+				ANY(null), //
 				LAST_ACCESSED(Evicting<?, ?>.Entry::lastAccessed), //
 				LEAST_ACCESSED(Evicting<?, ?>.Entry::leastAccessed), //
-				LEAST_EXPENSIVE(Evicting<?, ?>.Entry::costs);
+				OLDEST(Evicting<?, ?>.Entry::created);
 
-				private final Comparator<Evicting<?, ?>.Entry> comparator;
+				private final ToLongFunction<Evicting<?, ?>.Entry> property;
 
-				RemoveStrategy(EntryField field) {
-					this.comparator = (e1, e2) -> Long.compareUnsigned(field.apply(e1), field.apply(e2));
+				EvictStrategy(ToLongFunction<Evicting<?, ?>.Entry> property) {
+					this.property = property;
 				}
 			}
 
 			private final Access<K, V> delegate;
-			private final int capacity;
-			private final RemoveStrategy remove;
-			private final Predicate<Entry> condition;
+			private final EvictStrategy strategy;
+			private final int minCapacity;
+			private final int maxCapacity;
+			private final long threshold;
 			private final Map<V, Entry> entries;
 
-			Evicting(Access<K, V> delegate, int capacity, RemoveStrategy remove, Predicate<Entry> condition) {
+			Evicting(Access<K, V> delegate, EvictStrategy strategy, int minCapacity, int maxCapacity, long threshold) {
 				this.delegate = Require.nonNull(delegate);
-				this.capacity = Require.that(capacity, capacity >= 0);
-				this.remove = Require.nonNull(remove);
-				this.condition = Require.nonNull(condition);
+				this.strategy = Require.nonNull(strategy);
+				this.minCapacity = Require.that(minCapacity, minCapacity >= 0);
+				this.maxCapacity = Require.that(maxCapacity, maxCapacity >= minCapacity);
+				this.threshold = Require.that(threshold, threshold > 0);
 				this.entries = Collections.synchronizedMap(new IdentityHashMap<>());
 			}
 
@@ -354,31 +341,42 @@ public interface Cache<K, V> {
 				return delegate.evict(key, value);
 			}
 
+			private void evictMatching() {
+				ToLongFunction<Evicting<?, ?>.Entry> prop = strategy.property;
+				if (entries.size() > minCapacity && prop != null) {
+					List<Entry> copy = new ArrayList<>(entries.values());
+					long now = System.currentTimeMillis();
+					Predicate<Evicting<?, ?>.Entry> predicate = e -> now - prop.applyAsLong(e) > threshold;
+					copy.stream().limit(copy.size() - minCapacity).filter(predicate).forEach(Entry::evict);
+				}
+			}
+
+			private void evictRemaining() {
+				if (entries.size() > maxCapacity) {
+					List<Entry> copy = new ArrayList<>(entries.values());
+					ToLongFunction<Evicting<?, ?>.Entry> prop = strategy.property;
+					if (prop != null) {
+						Collections.sort(copy, (e1, e2) -> Long.compareUnsigned(prop.applyAsLong(e1), prop.applyAsLong(e2)));
+					}
+					copy.stream().limit(copy.size() - maxCapacity).forEach(Entry::evict);
+				}
+			}
+
 			@Override
 			NavigableSet<K> keys() {
 				return delegate.keys();
 			}
 
 			private V newValue(K key, TSupplier<? extends V> supplier) {
-				long started = System.currentTimeMillis();
 				V value = supplier.get();
-				long creationDuration = System.currentTimeMillis() - started;
-				entries.put(value, new Entry(key, value, creationDuration));
+				entries.put(value, new Entry(key, value));
 				return value;
-			}
-
-			private void performEviction() {
-				List<Entry> copy = new ArrayList<>(entries.values());
-				copy.stream().filter(condition).forEach(Entry::evict);
-				if (copy.size() > capacity) {
-					Collections.sort(copy, remove.comparator);
-					copy.stream().limit(copy.size() - capacity).forEach(Entry::evict);
-				}
 			}
 
 			@Override
 			void release(V value) {
-				performEviction();
+				evictMatching();
+				evictRemaining();
 				Entry entry = entries.get(value);
 				if (entry != null) {
 					entry.touch();
@@ -386,18 +384,21 @@ public interface Cache<K, V> {
 				}
 			}
 
-			public Evicting<K, V> whenAccessedBefore(long duration, TimeUnit unit) {
-				long millis = unit.toMillis(duration);
-				return new Evicting<>(delegate, capacity, remove, condition.or(e -> e.accessedBefore(millis)));
+			public Evicting<K, V> whenOlderThan(long duration, TimeUnit unit) {
+				long thresholdInMillis = unit.toMillis(duration);
+				return new Evicting<>(delegate, strategy, minCapacity, maxCapacity, thresholdInMillis);
 			}
 
-			public Evicting<K, V> whenCapacityReached(int capacity, RemoveStrategy remove) {
-				return new Evicting<>(delegate, capacity, remove, condition);
+			public Evicting<K, V> withCapacity(int min, int max) {
+				return new Evicting<>(delegate, strategy, min, max, threshold);
 			}
 
-			public Evicting<K, V> whenCreatedBefore(long duration, TimeUnit unit) {
-				long millis = unit.toMillis(duration);
-				return new Evicting<>(delegate, capacity, remove, condition.or(e -> e.createdBefore(millis)));
+			public Evicting<K, V> withMaximumCapacity(int capacity) {
+				return new Evicting<>(delegate, strategy, minCapacity, capacity, threshold);
+			}
+
+			public Evicting<K, V> withMinimumCapacity(int capacity) {
+				return new Evicting<>(delegate, strategy, capacity, maxCapacity, threshold);
 			}
 		}
 
