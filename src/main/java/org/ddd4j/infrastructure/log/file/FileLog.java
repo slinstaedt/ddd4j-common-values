@@ -49,29 +49,29 @@ public class FileLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBu
 		public void close() throws Exception {
 		}
 
-		private Committed<Seq<ReadBuffer>> readCommitted(ByteBuffer buffer) {
+		private Committed<Seq<ReadBuffer>> readCommitted(long position, ByteBuffer buffer) {
+			Revision actual = new Revision(position + buffer.position() - Integer.BYTES);
 			Identifier identifier = new Identifier(buffer.getLong(), buffer.getLong());
-			Revision actual = new Revision(buffer.getLong());
-			Revision expected = new Revision(buffer.getLong());
 			LocalDateTime timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(buffer.getLong()), ZoneOffset.UTC);
 			List<ReadBuffer> entries = new ArrayList<>();
 			int entrySize;
 			while ((entrySize = buffer.getInt()) != COMMIT_DELIM) {
 				entries.add(Bytes.wrap(buffer).buffered().limit(entrySize));
 			}
+			Revision expected = new Revision(position + buffer.position() - Integer.BYTES);
 			buffer.position(buffer.position() - Integer.BYTES);
 			return new Committed<>(identifier, entries::stream, actual, expected, timestamp);
 		}
 
 		@Override
 		public Seq<Committed<Seq<ReadBuffer>>> request(long position, int n) throws Exception {
-			ByteBuffer buffer = channel.map(MapMode.READ_ONLY, position, channel.size());
+			ByteBuffer buffer = channel.map(MapMode.READ_ONLY, position, Integer.MAX_VALUE);
 			List<Committed<Seq<ReadBuffer>>> result = new ArrayList<>(n);
 			for (int i = 0; i < n && buffer.hasRemaining(); i++) {
 				if (buffer.getInt() != COMMIT_DELIM) {
 					throw new IllegalStateException("Illegal position: " + position);
 				} else {
-					result.add(readCommitted(buffer));
+					result.add(readCommitted(position, buffer));
 				}
 			}
 			return result::stream;
