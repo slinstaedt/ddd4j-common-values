@@ -7,7 +7,7 @@ import org.ddd4j.aggregate.Identifier;
 
 public interface CommitResult<E> {
 
-	<X> X foldResult(Function<Committed<E>, X> committed, Function<Conflicted<E>, X> conflict);
+	<X> X foldResult(Function<Committed<E>, X> committed, Function<Conflicting<E>, X> conflict);
 
 	Revision getActual();
 

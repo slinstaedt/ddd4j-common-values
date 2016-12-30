@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure;
+package org.ddd4j.collection;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -26,13 +26,13 @@ import java.util.function.LongFunction;
 import java.util.function.Predicate;
 import java.util.function.ToLongFunction;
 
+import org.ddd4j.collection.Cache.Access.Exclusive;
+import org.ddd4j.collection.Cache.Access.Shared;
+import org.ddd4j.collection.Cache.Decorating.Blocking;
+import org.ddd4j.collection.Cache.Decorating.Evicting;
+import org.ddd4j.collection.Cache.Decorating.Evicting.EvictStrategy;
+import org.ddd4j.collection.Cache.Decorating.Retrying;
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Cache.Access.Exclusive;
-import org.ddd4j.infrastructure.Cache.Access.Shared;
-import org.ddd4j.infrastructure.Cache.Decorating.Blocking;
-import org.ddd4j.infrastructure.Cache.Decorating.Evicting;
-import org.ddd4j.infrastructure.Cache.Decorating.Evicting.EvictStrategy;
-import org.ddd4j.infrastructure.Cache.Decorating.Retrying;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TSupplier;
 
@@ -44,11 +44,13 @@ public interface Cache<K, V> {
 
 			private final ConcurrentNavigableMap<K, Queue<V>> pool;
 			private final Function<? super V, ? extends K> keyedBy;
+			private final Consumer<? super V> onRelease;
 			private final Queue<Queue<V>> unusedQueues;
 
-			Exclusive(Comparator<? super K> comparator, Function<? super V, ? extends K> keyedBy) {
+			Exclusive(Comparator<? super K> comparator, Function<? super V, ? extends K> keyedBy, Consumer<? super V> onRelease) {
 				this.pool = new ConcurrentSkipListMap<>(comparator);
 				this.keyedBy = Require.nonNull(keyedBy);
+				this.onRelease = Require.nonNull(onRelease);
 				this.unusedQueues = new ArrayDeque<>();
 			}
 
@@ -87,8 +89,13 @@ public interface Cache<K, V> {
 				return pool.keySet();
 			}
 
+			public Exclusive<K, V> onRelease(Consumer<? super V> onRelease) {
+				return new Exclusive<>(pool.comparator(), keyedBy, onRelease);
+			}
+
 			@Override
 			void release(V value) {
+				onRelease.accept(value);
 				pool.compute(keyedBy.apply(value), (k, q) -> enqueue(q, value));
 			}
 		}
@@ -356,7 +363,7 @@ public interface Cache<K, V> {
 					List<Entry> copy = new ArrayList<>(entries.values());
 					ToLongFunction<Evicting<?, ?>.Entry> prop = strategy.property;
 					if (prop != null) {
-						Collections.sort(copy, (e1, e2) -> Long.compareUnsigned(prop.applyAsLong(e1), prop.applyAsLong(e2)));
+						copy.sort((e1, e2) -> Long.compareUnsigned(prop.applyAsLong(e1), prop.applyAsLong(e2)));
 					}
 					copy.stream().limit(copy.size() - maxCapacity).forEach(Entry::evict);
 				}
@@ -548,11 +555,11 @@ public interface Cache<K, V> {
 	}
 
 	static <K extends Comparable<K>, V> Exclusive<K, V> exclusive(Function<? super V, ? extends K> keyedBy) {
-		return new Exclusive<>(Comparable::compareTo, keyedBy);
+		return new Exclusive<>(Comparable::compareTo, keyedBy, Object::getClass);
 	}
 
 	static <K, V> Exclusive<K, V> exclusive(Function<? super V, ? extends K> keyedBy, Comparator<K> keyComparator) {
-		return new Exclusive<>(keyComparator, keyedBy);
+		return new Exclusive<>(keyComparator, keyedBy, Object::getClass);
 	}
 
 	static <K extends Comparable<K>, V> Shared<K, V> shared() {
@@ -563,8 +570,8 @@ public interface Cache<K, V> {
 		return new Shared<>(keyComparator);
 	}
 
-	static <K, V> Shared<K, V> sharedOnEqualKey() {
-		return new Shared<>((k1, k2) -> k1.equals(k2) ? 0 : (k1.hashCode() - k2.hashCode()) | 1);
+	static <K, V> Aside<K, V> sharedOnEqualKey() {
+		return new Shared<K, V>((k1, k2) -> k1.equals(k2) ? 0 : (k1.hashCode() - k2.hashCode()) | 1).lookupValuesWithEqualKeys();
 	}
 
 	void release(V value);

@@ -14,6 +14,30 @@ import org.ddd4j.contract.Require;
 public interface Throwing {
 
 	@FunctionalInterface
+	interface TAction extends Runnable, AutoCloseable {
+
+		@Override
+		default void close() throws Exception {
+			performUnChecked();
+		}
+
+		default void perform() {
+			try {
+				performUnChecked();
+			} catch (Exception e) {
+				Throwing.unchecked(e);
+			}
+		}
+
+		void performUnChecked() throws Exception;
+
+		@Override
+		default void run() {
+			perform();
+		}
+	}
+
+	@FunctionalInterface
 	interface TBiFunction<T, U, R> extends BiFunction<T, U, R> {
 
 		@Override
@@ -49,21 +73,6 @@ public interface Throwing {
 	}
 
 	@FunctionalInterface
-	interface TCloseable extends AutoCloseable {
-
-		@Override
-		default void close() {
-			try {
-				closeChecked();
-			} catch (Exception e) {
-				Throwing.unchecked(e);
-			}
-		}
-
-		void closeChecked() throws Exception;
-	}
-
-	@FunctionalInterface
 	interface TConsumer<T> extends Consumer<T> {
 
 		@Override
@@ -77,15 +86,15 @@ public interface Throwing {
 
 		void acceptChecked(T t) throws Exception;
 
+		default TConsumer<T> andThen(TAction action) {
+			return andThen(t -> action.run());
+		}
+
 		default TConsumer<T> andThen(TConsumer<? super T> consumer) {
 			return t -> {
 				accept(t);
 				consumer.accept(t);
 			};
-		}
-
-		default TConsumer<T> andThen(TRunnable runnable) {
-			return andThen(t -> runnable.run());
 		}
 
 		default TFunction<T, T> asFunction() {
@@ -193,21 +202,6 @@ public interface Throwing {
 	}
 
 	@FunctionalInterface
-	interface TRunnable extends Runnable {
-
-		@Override
-		default void run() {
-			try {
-				runChecked();
-			} catch (Exception e) {
-				Throwing.unchecked(e);
-			}
-		}
-
-		void runChecked() throws Exception;
-	}
-
-	@FunctionalInterface
 	interface TSupplier<T> extends Supplier<T>, Callable<T> {
 
 		default Supplier<Either<T, Exception>> asEither() {
@@ -253,6 +247,10 @@ public interface Throwing {
 
 	String EXCEPTION_MESSAGE_TEMPLATE = "Could not invoke this with arguments %s";
 
+	static TAction action(TAction action) {
+		return Require.nonNull(action);
+	}
+
 	@SuppressWarnings("unchecked")
 	static <X, E extends Exception> X any(Throwable throwable) throws E {
 		Require.nonNull(throwable);
@@ -263,27 +261,23 @@ public interface Throwing {
 		return Require.nonNull(exceptionFactory)::apply;
 	}
 
-	static <T, U, R> TBiFunction<T, U, R> ofApplied(TBiFunction<T, U, R> function) {
+	static <T, U, R> TBiFunction<T, U, R> applied(TBiFunction<T, U, R> function) {
 		return Require.nonNull(function);
 	}
 
-	static <T, R> TFunction<T, R> ofApplied(TFunction<T, R> function) {
+	static <T, R> TFunction<T, R> applied(TFunction<T, R> function) {
 		return Require.nonNull(function);
 	}
 
-	static <T> TConsumer<T> ofConsumed(TConsumer<T> consumer) {
+	static <T> TConsumer<T> consumed(TConsumer<T> consumer) {
 		return Require.nonNull(consumer);
 	}
 
-	static TRunnable ofRunning(TRunnable runnable) {
-		return Require.nonNull(runnable);
-	}
-
-	static <T> TSupplier<T> ofSupplied(TSupplier<T> supplier) {
+	static <T> TSupplier<T> supplied(TSupplier<T> supplier) {
 		return Require.nonNull(supplier);
 	}
 
-	static <T> TPredicate<T> ofTested(TPredicate<T> predicate) {
+	static <T> TPredicate<T> tested(TPredicate<T> predicate) {
 		return Require.nonNull(predicate);
 	}
 

@@ -4,7 +4,6 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.scheduler.ColdSource.Connection;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.collection.Seq;
-import org.ddd4j.value.versioned.Revision;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
@@ -25,14 +24,14 @@ public class ColdResult<T> extends RegisteringResult<T> {
 		@Override
 		public void cancel() {
 			if (unsubscribe(subscriber)) {
-				connection.close();
+				connection.closeUnchecked();
 			}
 		}
 
 		@Override
 		public void request(long n) {
 			try {
-				Seq<? extends T> result = connection.request(requesting.more(n).asInt());
+				Seq<? extends T> result = connection.requestNext(requesting.more(n).asInt());
 				if (result.isEmpty()) {
 					subscriber.onComplete();
 				} else {
@@ -49,18 +48,20 @@ public class ColdResult<T> extends RegisteringResult<T> {
 	}
 
 	private final ColdSource<T> source;
-	private final Revision startAt;
+	private final long startAtOffset;
 	private final boolean completeOnEnd;
 
-	public ColdResult(ColdSource<T> source, Revision startAt, boolean completeOnEnd) {
+	public ColdResult(ColdSource<T> source, long startAtOffset, boolean completeOnEnd) {
 		this.source = Require.nonNull(source);
-		this.startAt = Require.nonNull(startAt);
+		this.startAtOffset = startAtOffset;
 		this.completeOnEnd = completeOnEnd;
 	}
 
 	private Connection<T> openConnection(Subscriber<? super T> subscriber) {
 		try {
-			return source.open(startAt, completeOnEnd);
+			Connection<T> connection = source.open(completeOnEnd);
+			connection.position(startAtOffset);
+			return connection;
 		} catch (Exception e) {
 			subscriber.onError(e);
 			return Throwing.unchecked(e);

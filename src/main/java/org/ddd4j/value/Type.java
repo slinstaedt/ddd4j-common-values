@@ -1,13 +1,12 @@
 package org.ddd4j.value;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.TypeVariable;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.ddd4j.contract.Require;
 import org.ddd4j.io.Input;
-import org.ddd4j.io.Output;
+import org.ddd4j.io.buffer.WriteBuffer;
 
 public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Type> implements Value<Type<T>>, Serializable {
 
@@ -115,6 +114,13 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		return getRawType().getClassLoader();
 	}
 
+	public final java.lang.reflect.Type getGenericType() {
+		if (actualType == null) {
+			actualType = Require.nonNull(TypeUtils.getTypeArguments(getClass(), Type.class).get(T));
+		}
+		return actualType;
+	}
+
 	public Class<?>[] getInterfaceClosure() {
 		Class<T> rawType = getRawType();
 		if (rawType.isInterface()) {
@@ -122,13 +128,6 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		} else {
 			return rawType.getInterfaces();
 		}
-	}
-
-	public final java.lang.reflect.Type getGenericType() {
-		if (actualType == null) {
-			actualType = Require.nonNull(TypeUtils.getTypeArguments(getClass(), Type.class).get(T));
-		}
-		return actualType;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -150,8 +149,8 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 	}
 
 	@Override
-	public void serialize(Output output) throws IOException {
-		output.asDataOutput().writeUTF(getRawType().getName());
+	public void serialize(WriteBuffer buffer) {
+		buffer.putUTF(getGenericType().getTypeName());
 	}
 
 	@Override

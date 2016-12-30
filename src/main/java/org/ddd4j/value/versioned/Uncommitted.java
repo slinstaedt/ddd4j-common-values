@@ -22,8 +22,8 @@ public class Uncommitted<E> implements Recorded<E> {
 		return new Committed<>(identifier, entry, expected, nextExpected, timestamp);
 	}
 
-	public Conflicted<E> conflictsWith(Revision actual) {
-		return new Conflicted<>(identifier, expected, actual);
+	public Conflicting<E> conflictsWith(Revision actual) {
+		return new Conflicting<>(identifier, expected, actual);
 	}
 
 	@Override

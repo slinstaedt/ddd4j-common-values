@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.io.Input;
-import org.ddd4j.io.Output;
+import org.ddd4j.io.buffer.WriteBuffer;
 import org.ddd4j.value.Value;
 
 public class Fingerprint extends Value.Simple<Fingerprint, byte[]> {
@@ -26,8 +26,8 @@ public class Fingerprint extends Value.Simple<Fingerprint, byte[]> {
 	}
 
 	@Override
-	public void serialize(Output output) throws IOException {
-		output.writeByteArray(value);
+	public void serialize(WriteBuffer buffer) {
+		buffer.writeByteArray(value);
 	}
 
 	@Override

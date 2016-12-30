@@ -6,18 +6,21 @@ import java.util.concurrent.Executor;
 import java.util.function.IntConsumer;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing.TCloseable;
+import org.ddd4j.value.Throwing.TAction;
 import org.ddd4j.value.Throwing.TConsumer;
-import org.ddd4j.value.Throwing.TRunnable;
 
 public interface Queue<E> {
 
-	interface Batch<E> extends TCloseable {
+	interface Batch<E> extends AutoCloseable {
 
 		void add(E value);
+
+		@Override
+		default void close() {
+		}
 	}
 
-	interface Consumer<E> extends TCloseable {
+	interface Consumer<E> extends AutoCloseable {
 
 		default int consumeAll(TConsumer<? super E> consumer) {
 			int consumed = 0;
@@ -29,7 +32,7 @@ public interface Queue<E> {
 			return consumed;
 		}
 
-		default Runnable createAsyncConsumer(TConsumer<? super E> consumer, TRunnable start, IntConsumer finish, TConsumer<Exception> failed) {
+		default Runnable createAsyncConsumer(TConsumer<? super E> consumer, TAction start, IntConsumer finish, TConsumer<Exception> failed) {
 			Require.nonNull(consumer);
 			return () -> {
 				try {
@@ -48,16 +51,16 @@ public interface Queue<E> {
 			return Optional.ofNullable(next());
 		}
 
-		default TCloseable scheduleConsumptionOnEnqueue(Executor executor) {
+		default TAction scheduleConsumptionOnEnqueue(Executor executor) {
 
 		}
 	}
 
 	@FunctionalInterface
-	interface Producer<E> extends TCloseable {
+	interface Producer<E> extends AutoCloseable {
 
 		@Override
-		default void closeChecked() throws Exception {
+		default void close() throws Exception {
 		}
 
 		default Batch<E> nextBatch() {

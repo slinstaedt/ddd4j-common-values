@@ -263,9 +263,19 @@ public interface Outcome<T> {
 		};
 	}
 
+	static <T> Outcome<T> ofCompleted(Executor executor, T value) {
+		return of(executor, CompletableFuture.completedFuture(value));
+	}
+
 	static <T> Outcome<T> ofEager(Executor executor, TSupplier<T> supplier) {
 		CompletableFuture<T> supplied = CompletableFuture.supplyAsync(supplier, executor);
 		return of(executor, supplied);
+	}
+
+	static <T> Outcome<T> ofFailed(Executor executor, Throwable exception) {
+		CompletableFuture<T> future = new CompletableFuture<>();
+		future.completeExceptionally(exception);
+		return of(executor, future);
 	}
 
 	static <T> Outcome<T> ofLazy(Executor executor, TSupplier<T> supplier) {
@@ -289,10 +299,6 @@ public interface Outcome<T> {
 				return ofStage(executor, fn.apply(executor, stage));
 			}
 		};
-	}
-
-	static <T> Outcome<T> ofValue(Executor executor, T value) {
-		return of(executor, CompletableFuture.completedFuture(value));
 	}
 
 	default Outcome<Void> acceptEither(CompletionStage<? extends T> other, Consumer<? super T> action) {

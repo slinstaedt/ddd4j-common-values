@@ -1,7 +1,7 @@
 package org.ddd4j.infrastructure.registry.local;
 
+import org.ddd4j.collection.Cache;
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Cache;
 import org.ddd4j.infrastructure.registry.Registry;
 import org.ddd4j.infrastructure.registry.RegistryKey;
 import org.ddd4j.spi.Configuration;
@@ -13,7 +13,7 @@ public class LocalRegistry implements Registry {
 
 	public LocalRegistry(Configuration configuration, ServiceLocator locator) {
 		Require.nonNullElements(configuration, locator);
-		this.cache = Cache.<RegistryKey<?>, Object>sharedOnEqualKey().lookupValuesWithEqualKeys().withFactory(k -> k.create(configuration, locator));
+		this.cache = Cache.<RegistryKey<?>, Object> sharedOnEqualKey().withFactory(k -> k.create(configuration, locator));
 	}
 
 	@Override

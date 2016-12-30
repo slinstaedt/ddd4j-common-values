@@ -1,6 +1,5 @@
 package org.ddd4j.value;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Function;
@@ -8,7 +7,7 @@ import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.Output;
+import org.ddd4j.io.buffer.WriteBuffer;
 
 public interface Value<V extends Value<V>> extends Self<V> {
 
@@ -78,8 +77,8 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		}
 
 		@Override
-		public void serialize(Output output) throws IOException {
-			output.asDataOutput().writeUTF(value);
+		public void serialize(WriteBuffer buffer) {
+			buffer.putUTF(value);
 		}
 
 		@Override
@@ -119,7 +118,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		return type.isInstance(this) ? Opt.of(type.cast(this)) : Opt.none();
 	}
 
-	default void serialize(Output output) throws IOException {
+	default void serialize(WriteBuffer buffer) {
 		throw new UnsupportedOperationException();
 	}
 }

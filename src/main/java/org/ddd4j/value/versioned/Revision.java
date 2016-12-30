@@ -1,5 +1,7 @@
 package org.ddd4j.value.versioned;
 
+import org.ddd4j.io.buffer.ReadBuffer;
+import org.ddd4j.io.buffer.WriteBuffer;
 import org.ddd4j.value.Value;
 import org.ddd4j.value.math.Ordered;
 
@@ -13,6 +15,10 @@ public class Revision extends Value.Simple<Revision, Long> implements Ordered<Re
 
 	public Revision(long value) {
 		this.value = value;
+	}
+
+	public Revision(ReadBuffer buffer) {
+		this(buffer.getLong());
 	}
 
 	public boolean after(Revision other) {
@@ -34,6 +40,15 @@ public class Revision extends Value.Simple<Revision, Long> implements Ordered<Re
 
 	public boolean isLatest() {
 		return value == -1;
+	}
+
+	public Revision next() {
+		return new Revision(value + 1);
+	}
+
+	@Override
+	public void serialize(WriteBuffer buffer) {
+		buffer.putLong(value);
 	}
 
 	@Override

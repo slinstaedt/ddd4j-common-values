@@ -1,12 +1,14 @@
 package org.ddd4j.infrastructure.log;
 
+import java.io.Closeable;
+
 import org.ddd4j.infrastructure.Result;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Committer;
 import org.ddd4j.value.versioned.Revision;
 
-public interface Log<E> extends Committer<Seq<E>> {
+public interface Log<E> extends Committer<Seq<E>>, Closeable {
 
 	Result<Committed<Seq<E>>> publisher(Revision startAt, boolean completeOnEnd);
 

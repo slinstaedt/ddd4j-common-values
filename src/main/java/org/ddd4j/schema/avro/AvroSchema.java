@@ -14,11 +14,11 @@ import org.apache.avro.io.Encoder;
 import org.ddd4j.contract.Require;
 import org.ddd4j.io.Input;
 import org.ddd4j.io.Output;
+import org.ddd4j.io.buffer.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.spi.Configuration;
-import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Value;
 
 public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schema> implements Schema<T> {
@@ -50,7 +50,7 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 
 	@Override
 	public boolean compatibleWith(Schema<?> existing) {
-		return existing.<AvroSchema>as(AvroSchema.class)
+		return existing.<AvroSchema> as(AvroSchema.class)
 				.mapNonNull(o -> SchemaCompatibility.checkReaderWriterCompatibility(writerSchema, o.writerSchema).getType())
 				.checkEqual(SchemaCompatibilityType.COMPATIBLE);
 	}
@@ -83,8 +83,7 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 
 	@Override
 	public Fingerprint getFingerprint() {
-		AvroFingerprintAlgorithm algorithm = factory.getConfiguration()
-				.getEnum(AvroFingerprintAlgorithm.class, "fingerprint")
+		AvroFingerprintAlgorithm algorithm = factory.getConfiguration().getEnum(AvroFingerprintAlgorithm.class, "fingerprint")
 				.orElse(AvroFingerprintAlgorithm.SHA_256);
 		return algorithm.parsingFingerprint(writerSchema);
 	}
@@ -100,8 +99,8 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 	}
 
 	@Override
-	public void serialize(Output output) throws IOException {
-		output.asDataOutput().writeUTF(writerSchema.toString());
+	public void serialize(WriteBuffer buffer) {
+		buffer.putUTF(writerSchema.toString());
 	}
 
 	@Override

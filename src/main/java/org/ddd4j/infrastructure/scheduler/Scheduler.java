@@ -15,6 +15,10 @@ import org.ddd4j.value.versioned.Revision;
 @FunctionalInterface
 public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvider> {
 
+	default <T> Outcome<T> completedOutcome(T value) {
+		return Outcome.ofCompleted(this, value);
+	}
+
 	default <T> Actor<T> createActor(T initialState) {
 		return Actor.create(this, initialState);
 	}
@@ -36,7 +40,11 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 	}
 
 	default <T> Result<T> createResult(ColdSource<T> source, Revision startAt, boolean completeOnEnd) {
-		return new ScheduledResult<>(this, new ColdResult<>(source, startAt, completeOnEnd));
+		return new ScheduledResult<>(this, new ColdResult<>(source, startAt.asLong(), completeOnEnd));
+	}
+
+	default <T> Outcome<T> failedOutcome(Throwable exception) {
+		return Outcome.ofFailed(this, exception);
 	}
 
 	default int getBurstProcessing() {

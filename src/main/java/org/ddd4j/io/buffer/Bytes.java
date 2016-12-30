@@ -3,6 +3,7 @@ package org.ddd4j.io.buffer;
 import java.io.UTFDataFormatException;
 import java.nio.ByteBuffer;
 
+import org.ddd4j.collection.Cache;
 import org.ddd4j.contract.Require;
 import org.ddd4j.io.buffer.ByteOrder.IndexedBytes;
 import org.ddd4j.value.Throwing;
@@ -72,6 +73,33 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	public static Bytes wrap(ByteBuffer buffer) {
 		Require.nonNull(buffer);
 		return new Bytes() {
+
+			@Override
+			public byte get(int index) {
+				return buffer.get(index);
+			}
+
+			@Override
+			public int length() {
+				return buffer.capacity();
+			}
+
+			@Override
+			public Bytes put(int index, byte b) {
+				buffer.put(index, b);
+				return this;
+			}
+		};
+	}
+
+	public static Bytes wrapReleasable(ByteBuffer buffer, Cache<?, ByteBuffer> cache) {
+		Require.nonNullElements(buffer, cache);
+		return new Bytes() {
+
+			@Override
+			public void close() {
+				cache.release(buffer);
+			}
 
 			@Override
 			public byte get(int index) {
@@ -323,5 +351,26 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 			}
 		}
 		return this;
+	}
+
+	public Bytes sliceBy(int offset) {
+		return new Bytes() {
+
+			@Override
+			public byte get(int index) {
+				return Bytes.this.get(offset + index);
+			}
+
+			@Override
+			public int length() {
+				return Bytes.this.length();
+			}
+
+			@Override
+			public Bytes put(int index, byte b) {
+				Bytes.this.put(offset + index, b);
+				return this;
+			}
+		};
 	}
 }

@@ -37,7 +37,7 @@ public class Committed<E> implements Recorded<E>, CommitResult<E> {
 	}
 
 	@Override
-	public <X> X foldResult(Function<Committed<E>, X> committed, Function<Conflicted<E>, X> conflict) {
+	public <X> X foldResult(Function<Committed<E>, X> committed, Function<Conflicting<E>, X> conflict) {
 		return committed.apply(this);
 	}
 

@@ -22,8 +22,8 @@ public class ScheduledQueue<E> implements Queue<E> {
 		}
 
 		@Override
-		public void closeChecked() throws Exception {
-			delegate.closeChecked();
+		public void close() {
+			delegate.close();
 		}
 	}
 
@@ -38,8 +38,8 @@ public class ScheduledQueue<E> implements Queue<E> {
 		}
 
 		@Override
-		public void closeChecked() throws Exception {
-			delegate.closeChecked();
+		public void close() throws Exception {
+			delegate.close();
 		}
 
 		@Override
@@ -63,8 +63,8 @@ public class ScheduledQueue<E> implements Queue<E> {
 		}
 
 		@Override
-		public void closeChecked() throws Exception {
-			delegate.closeChecked();
+		public void close() throws Exception {
+			delegate.close();
 		}
 
 		@Override

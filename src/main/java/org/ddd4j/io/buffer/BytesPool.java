@@ -1,26 +1,25 @@
 package org.ddd4j.io.buffer;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.IntFunction;
 
+import org.ddd4j.collection.Array;
+import org.ddd4j.collection.Cache;
+import org.ddd4j.collection.Cache.Pool;
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Cache;
-import org.ddd4j.infrastructure.Cache.Pool;
 
 public class BytesPool {
 
 	private class PooledBytes extends Bytes {
 
-		private final ConcurrentMap<Integer, Bytes> bytes;
+		private final Array<Bytes> bytes;
 
 		PooledBytes() {
-			this.bytes = new ConcurrentHashMap<>();
+			this.bytes = new Array<>();
 		}
 
 		@Override
 		public void close() {
-			bytes.values().forEach(pool::release);
+			bytes.forEach(pool::release);
 			bytes.clear();
 		}
 
@@ -36,7 +35,7 @@ public class BytesPool {
 
 		@Override
 		public Bytes put(int index, byte b) {
-			bytes.computeIfAbsent(index % length, i -> pool.acquire()).put(index, b);
+			bytes.getOrAdd(index % length, pool::acquire).put(index, b);
 			return this;
 		}
 	}

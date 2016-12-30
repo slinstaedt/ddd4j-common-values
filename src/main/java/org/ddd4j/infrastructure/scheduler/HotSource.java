@@ -1,6 +1,6 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import org.ddd4j.value.Throwing.TCloseable;
+import org.ddd4j.value.Throwing;
 
 @FunctionalInterface
 public interface HotSource<T> {
@@ -12,10 +12,14 @@ public interface HotSource<T> {
 	}
 
 	@FunctionalInterface
-	interface Subscription extends TCloseable {
+	interface Subscription extends AutoCloseable {
 
 		default void cancel() {
-			close();
+			try {
+				close();
+			} catch (Exception e) {
+				Throwing.unchecked(e);
+			}
 		}
 	}
 

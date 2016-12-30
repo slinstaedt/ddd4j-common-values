@@ -109,11 +109,11 @@ public interface Try<T> extends Callable<T> {
 	}
 
 	default Try<T> dispatchAsyncAndWait(Function<Try<T>, Future<T>> executor) {
-		return dispatchAsync(executor).mapSuccess(Throwing.ofApplied(f -> f.get()));
+		return dispatchAsync(executor).mapSuccess(Throwing.applied(f -> f.get()));
 	}
 
 	default Try<T> dispatchAsyncAndWait(Function<Try<T>, Future<T>> executor, long timeout, TimeUnit unit) {
-		return dispatchAsync(executor).mapSuccess(Throwing.ofApplied(f -> f.get(timeout, unit)));
+		return dispatchAsync(executor).mapSuccess(Throwing.applied(f -> f.get(timeout, unit)));
 	}
 
 	default Try<Exception> failed() {
