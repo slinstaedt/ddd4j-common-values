@@ -4,67 +4,13 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.Function;
 
-import org.ddd4j.aggregate.Recorded.Committed;
-import org.ddd4j.aggregate.Recorded.Uncommitted;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Uncommitted;
 
 public class HandlerChain<T> {
-
-	@FunctionalInterface
-	public interface FactoryHandler<T, M> extends MessageHandler<Object, M, T> {
-
-		T create(M message);
-
-		default <ID> Function<ID, T> createFactory(Function<ID, ? extends M> messageMapper) {
-			return messageMapper.andThen(this::create);
-		}
-
-		@Override
-		default T apply(Object target, M message) {
-			if (target == Nothing.INSTANCE) {
-				return create(message);
-			} else {
-				throw new IllegalStateException("Could not handle " + message + " for existing " + target);
-			}
-		}
-
-		default Behavior<T> record(M message) {
-			return record(Nothing.INSTANCE, message);
-		}
-	}
-
-	@FunctionalInterface
-	public interface MessageHandler<S, M, T> {
-
-		T apply(S target, M message);
-
-		default MessageHandler<M, S, T> swap() {
-			return (m, s) -> apply(s, m);
-		}
-
-		default T applyFromHistory(S target, Uncommitted<M> uncommitted) {
-			return apply(target, uncommitted.getPayload());
-		}
-
-		// TODO rename?
-		default Behavior<T> record(S target, M message) {
-			return Behavior.accept(m -> apply(target, m), message);
-		}
-	}
-
-	@FunctionalInterface
-	public interface ReferenceHandler<T, M> extends MessageHandler<T, M, T> {
-
-		@Override
-		default T apply(T target, M message) {
-			handleChange(target, message);
-			return target;
-		}
-
-		void handleChange(T target, M message);
-	}
 
 	private static class BehaviorHandler<B, T extends B, M> {
 
@@ -87,6 +33,10 @@ public class HandlerChain<T> {
 			}
 		}
 
+		Seq<Class<? extends M>> messageType() {
+			return Seq.singleton(messageType);
+		}
+
 		Behavior<? extends B> record(Behavior<? extends B> behavior, Uncommitted<?> uncommitted) {
 			Optional<? extends M> message = uncommitted.matchedPayload(messageType);
 			if (message.isPresent()) {
@@ -105,14 +55,64 @@ public class HandlerChain<T> {
 			}
 		}
 
-		Seq<Class<? extends M>> messageType() {
-			return Seq.singleton(messageType);
-		}
-
 		@Override
 		public String toString() {
 			return "Handler for target=" + targetType.getName() + ", message=" + messageType.getName();
 		}
+	}
+
+	@FunctionalInterface
+	public interface FactoryHandler<T, M> extends MessageHandler<Object, M, T> {
+
+		@Override
+		default T apply(Object target, M message) {
+			if (target == Nothing.INSTANCE) {
+				return create(message);
+			} else {
+				throw new IllegalStateException("Could not handle " + message + " for existing " + target);
+			}
+		}
+
+		T create(M message);
+
+		default <ID> Function<ID, T> createFactory(Function<ID, ? extends M> messageMapper) {
+			return messageMapper.andThen(this::create);
+		}
+
+		default Behavior<T> record(M message) {
+			return record(Nothing.INSTANCE, message);
+		}
+	}
+
+	@FunctionalInterface
+	public interface MessageHandler<S, M, T> {
+
+		T apply(S target, M message);
+
+		default T applyFromHistory(S target, Uncommitted<M> uncommitted) {
+			return apply(target, uncommitted.getPayload());
+		}
+
+		// TODO rename?
+		default Behavior<T> record(S target, M message) {
+			return Behavior.accept(m -> apply(target, m), message);
+		}
+
+		default MessageHandler<M, S, T> swap() {
+			return (m, s) -> apply(s, m);
+		}
+	}
+
+	@FunctionalInterface
+	public interface ReferenceHandler<T, M> extends MessageHandler<T, M, T> {
+
+		@Override
+		default T apply(T target, M message) {
+			handleChange(target, message);
+			return target;
+		}
+
+		void handleChange(T target, M message);
 	}
 
 	private static final String MESSAGE_FORMAT_TEMPLATE = "Message '%s' does not apply to %s";
@@ -145,8 +145,16 @@ public class HandlerChain<T> {
 		return result.get();
 	}
 
-	public Behavior<? extends T> record(T target, Uncommitted<?> uncommitted) {
-		return handlers.fold().<Behavior<? extends T>>eachWithIdentity(Behavior.none(target), (b, h) -> h.record(b, uncommitted));
+	public <M> HandlerChain<T> chainFactory(Class<M> messageType, FactoryHandler<? extends T, ? super M> handler) {
+		return when(messageType, handler);
+	}
+
+	public <M> HandlerChain<T> chainReference(Class<M> messageType, ReferenceHandler<T, ? super M> handler) {
+		return when(messageType, handler);
+	}
+
+	public <X extends T, M> HandlerChain<T> chainReference(Class<X> targetType, Class<M> messageType, ReferenceHandler<X, ? super M> handler) {
+		return when(targetType, messageType, handler);
 	}
 
 	public HandlerChain<T> failedOnUnhandled() {
@@ -155,51 +163,44 @@ public class HandlerChain<T> {
 
 	public <M> HandlerChain<T> failedOnUnhandled(Function<String, ? extends RuntimeException> exceptionFactory) {
 		when(Object.class, (t, m) -> null);
-		return null;// TODO Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE, args)).<T, M, T>asBiFunction()::apply;
+		return null;// TODO Throwing.of(exceptionFactory).withMessage(args -> String.format(MESSAGE_FORMAT_TEMPLATE,
+					// args)).<T, M, T>asBiFunction()::apply;
 	}
 
 	public Seq<Class<?>> handledMessageTypes() {
-		return handlers.map().<Class<?>>flat(BehaviorHandler::messageType).target().filter().distinct();
+		return handlers.map().<Class<?>> flatSeq(BehaviorHandler::messageType).target().filter().distinct();
 	}
 
-	public <X extends T, M> HandlerChain<T> when(Class<X> targetType, Class<M> messageType, MessageHandler<? super X, ? super M, ? extends T> handler) {
-		return new HandlerChain<>(baseType, handlers.append().entry(new BehaviorHandler<>(targetType, messageType, handler)));
-	}
-
-	public <M> HandlerChain<T> when(Class<M> messageType, MessageHandler<? super T, ? super M, ? extends T> handler) {
-		return when(baseType, messageType, handler);
-	}
-
-	public <M> HandlerChain<T> chainFactory(Class<M> messageType, FactoryHandler<? extends T, ? super M> handler) {
-		return when(messageType, handler);
-	}
-
-	public <X extends T, M> HandlerChain<T> chainReference(Class<X> targetType, Class<M> messageType, ReferenceHandler<X, ? super M> handler) {
-		return when(targetType, messageType, handler);
-	}
-
-	public <M> HandlerChain<T> chainReference(Class<M> messageType, ReferenceHandler<T, ? super M> handler) {
-		return when(messageType, handler);
-	}
-
-	public <X extends T, M> HandlerChain<T> swap(Class<X> targetType, Class<M> messageType, MessageHandler<? super M, ? super X, ? extends X> handler) {
-		return when(targetType, messageType, handler.swap());
+	public Behavior<? extends T> record(T target, Uncommitted<?> uncommitted) {
+		return handlers.fold().<Behavior<? extends T>> eachWithIdentity(Behavior.none(target), (b, h) -> h.record(b, uncommitted));
 	}
 
 	public <M> HandlerChain<T> swap(Class<M> messageType, MessageHandler<? super M, ? super T, ? extends T> handler) {
 		return when(messageType, handler.swap());
 	}
 
-	public <X extends T, M> HandlerChain<T> swapReference(Class<X> targetType, Class<M> messageType, ReferenceHandler<X, ? super M> handler) {
-		return when(targetType, messageType, handler);
+	public <X extends T, M> HandlerChain<T> swap(Class<X> targetType, Class<M> messageType, MessageHandler<? super M, ? super X, ? extends X> handler) {
+		return when(targetType, messageType, handler.swap());
 	}
 
 	public <M> HandlerChain<T> swapReference(Class<M> messageType, ReferenceHandler<T, ? super M> handler) {
 		return when(messageType, handler);
 	}
 
+	public <X extends T, M> HandlerChain<T> swapReference(Class<X> targetType, Class<M> messageType, ReferenceHandler<X, ? super M> handler) {
+		return when(targetType, messageType, handler);
+	}
+
 	@Override
 	public String toString() {
 		return "Handler chain:" + handlers.asString();
+	}
+
+	public <M> HandlerChain<T> when(Class<M> messageType, MessageHandler<? super T, ? super M, ? extends T> handler) {
+		return when(baseType, messageType, handler);
+	}
+
+	public <X extends T, M> HandlerChain<T> when(Class<X> targetType, Class<M> messageType, MessageHandler<? super X, ? super M, ? extends T> handler) {
+		return new HandlerChain<>(baseType, handlers.append().entry(new BehaviorHandler<>(targetType, messageType, handler)));
 	}
 }
