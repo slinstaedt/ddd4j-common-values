@@ -92,15 +92,7 @@ public interface ReadBuffer extends RelativeBuffer {
 	ReadBuffer rewind();
 
 	default ReadBuffer writeTo(WritableByteChannel channel) throws IOException {
-		ByteBuffer buf = ByteBuffer.allocate(1024);
-		while (hasRemaining()) {
-			get(buf);
-			buf.flip();
-			while (buf.hasRemaining()) {
-				channel.write(buf);
-			}
-			buf.clear();
-		}
+		advancePosition(bytes().writeTo(position(), remaining(), channel));
 		return this;
 	}
 }

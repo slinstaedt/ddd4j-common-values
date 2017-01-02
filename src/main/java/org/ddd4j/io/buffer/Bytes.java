@@ -1,7 +1,10 @@
 package org.ddd4j.io.buffer;
 
+import java.io.IOException;
 import java.io.UTFDataFormatException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 
 import org.ddd4j.collection.Cache;
 import org.ddd4j.contract.Require;
@@ -74,20 +77,62 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		Require.nonNull(buffer);
 		return new Bytes() {
 
+			private final int position = buffer.position();
+			private final int limit = buffer.limit();
+
 			@Override
 			public byte get(int index) {
-				return buffer.get(index);
+				return buffer.get(position + index);
 			}
 
 			@Override
 			public int length() {
-				return buffer.capacity();
+				return limit - position;
 			}
 
 			@Override
 			public Bytes put(int index, byte b) {
-				buffer.put(index, b);
+				buffer.put(position + index, b);
 				return this;
+			}
+
+			@Override
+			public int get(int index, int amount, ByteBuffer dst) {
+				buffer.position(position + index).limit(position + index + Math.min(dst.remaining(), Math.min(amount, length())));
+				dst.put(buffer);
+				buffer.limit(limit);
+				return buffer.position() - index;
+			}
+
+			@Override
+			public int put(int index, int amount, ByteBuffer src) {
+				buffer.position(position + index).limit(position + index + Math.min(amount, length()));
+				int oldLimit = src.limit();
+				src.limit(Math.min(src.remaining(), buffer.remaining()));
+				buffer.put(src);
+				src.limit(oldLimit);
+				buffer.limit(limit);
+				return buffer.position() - index;
+			}
+
+			@Override
+			public int readFrom(int index, int amount, ReadableByteChannel channel) throws IOException {
+				buffer.position(position + index).limit(position + index + amount);
+				try {
+					return channel.read(buffer);
+				} finally {
+					buffer.limit(limit);
+				}
+			}
+
+			@Override
+			public int writeTo(int index, int amount, WritableByteChannel channel) throws IOException {
+				buffer.position(position + index).limit(position + index + amount);
+				try {
+					return channel.write(buffer);
+				} finally {
+					buffer.limit(limit);
+				}
 			}
 		};
 	}
@@ -148,7 +193,7 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	}
 
 	public int get(int index, int amount, ByteBuffer dst) {
-		amount = Math.min(amount, length() - index);
+		amount = Math.min(amount, remaining(index));
 		amount = Math.min(amount, dst.remaining());
 		for (int i = 0; i < amount; i++) {
 			dst.put(get(index++));
@@ -277,7 +322,7 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	}
 
 	public int put(int index, int amount, ByteBuffer src) {
-		amount = Math.min(amount, length() - index);
+		amount = Math.min(amount, remaining(index));
 		amount = Math.min(amount, src.remaining());
 		for (int i = 0; i < amount; i++) {
 			put(index++, src.get());
@@ -372,5 +417,42 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 				return this;
 			}
 		};
+	}
+
+	private int remaining(int index) {
+		return length() - index;
+	}
+
+	public int writeTo(int index, int amount, WritableByteChannel channel) throws IOException {
+		int totalRead = 0;
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		while (remaining(index) > 0 && amount > 0) {
+			int read = get(index, amount, buf);
+			totalRead += read;
+			index += read;
+			amount -= read;
+			buf.flip();
+			while (buf.hasRemaining()) {
+				channel.write(buf);
+			}
+			buf.clear();
+		}
+		return totalRead;
+	}
+
+	public int readFrom(int index, int amount, ReadableByteChannel channel) throws IOException {
+		int totalWritten = 0;
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		buf.limit(Math.min(buf.capacity(), Math.min(amount, remaining(index))));
+		while (buf.hasRemaining() && channel.read(buf) >= 0) {
+			buf.flip();
+			int written = put(index, amount, buf);
+			totalWritten += written;
+			index += written;
+			amount -= written;
+			buf.position(0);
+			buf.limit(Math.min(buf.capacity(), Math.min(amount, remaining(index))));
+		}
+		return totalWritten;
 	}
 }
