@@ -27,7 +27,7 @@ public class Fingerprint extends Value.Simple<Fingerprint, byte[]> {
 
 	@Override
 	public void serialize(WriteBuffer buffer) {
-		buffer.writeByteArray(value);
+		buffer.put(value);
 	}
 
 	@Override
