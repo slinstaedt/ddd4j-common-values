@@ -1,6 +1,6 @@
 package org.ddd4j.value.versioned;
 
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.function.Function;
 
 import org.ddd4j.aggregate.Identifier;
@@ -18,7 +18,11 @@ public class Uncommitted<E> implements Recorded<E> {
 		this.expected = Require.nonNull(expected);
 	}
 
-	public Committed<E> committed(Revision nextExpected, LocalDateTime timestamp) {
+	public Committed<E> committed(long nextExpectedOffset, ZonedDateTime timestamp) {
+		return committed(expected.next(nextExpectedOffset), timestamp);
+	}
+
+	public Committed<E> committed(Revision nextExpected, ZonedDateTime timestamp) {
 		return new Committed<>(identifier, entry, expected, nextExpected, timestamp);
 	}
 

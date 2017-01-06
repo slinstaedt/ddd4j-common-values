@@ -5,6 +5,7 @@ import java.net.URL;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Properties;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing.TFunction;
@@ -149,6 +150,14 @@ public interface Configuration extends Value<Configuration> {
 
 	default <V> V get(Key<V> key) {
 		return key.valueOf(this);
+	}
+
+	default Properties getPropertiesOf(String... keys) {
+		Properties properties = new Properties();
+		for (String key : keys) {
+			getString(key).ifPresent(v -> properties.setProperty(key, v));
+		}
+		return properties;
 	}
 
 	default Optional<Boolean> getBoolean(String key) {

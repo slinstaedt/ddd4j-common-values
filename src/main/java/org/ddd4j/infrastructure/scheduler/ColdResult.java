@@ -4,6 +4,7 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.scheduler.ColdSource.Connection;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.versioned.Revisions;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
@@ -24,7 +25,7 @@ public class ColdResult<T> extends RegisteringResult<T> {
 		@Override
 		public void cancel() {
 			if (unsubscribe(subscriber)) {
-				connection.closeUnchecked();
+				connection.close();
 			}
 		}
 
@@ -48,19 +49,19 @@ public class ColdResult<T> extends RegisteringResult<T> {
 	}
 
 	private final ColdSource<T> source;
-	private final long startAtOffset;
+	private final Revisions startAt;
 	private final boolean completeOnEnd;
 
-	public ColdResult(ColdSource<T> source, long startAtOffset, boolean completeOnEnd) {
+	public ColdResult(ColdSource<T> source, Revisions startAt, boolean completeOnEnd) {
 		this.source = Require.nonNull(source);
-		this.startAtOffset = startAtOffset;
+		this.startAt = Require.nonNull(startAt);
 		this.completeOnEnd = completeOnEnd;
 	}
 
 	private Connection<T> openConnection(Subscriber<? super T> subscriber) {
 		try {
 			Connection<T> connection = source.open(completeOnEnd);
-			connection.position(startAtOffset);
+			connection.position(startAt);
 			return connection;
 		} catch (Exception e) {
 			subscriber.onError(e);

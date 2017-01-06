@@ -1,21 +1,22 @@
 package org.ddd4j.value.versioned;
 
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.Optional;
 import java.util.function.Function;
 
 import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.math.Ordered;
 
-public class Committed<E> implements Recorded<E>, CommitResult<E> {
+public class Committed<E> implements Recorded<E>, CommitResult<E>, Ordered<Committed<E>> {
 
 	private final Identifier identifier;
 	private final E entry;
 	private final Revision actual;
 	private final Revision expected;
-	private final LocalDateTime timestamp;
+	private final ZonedDateTime timestamp;
 
-	public Committed(Identifier identifier, E entry, Revision actual, Revision expected, LocalDateTime timestamp) {
+	public Committed(Identifier identifier, E entry, Revision actual, Revision expected, ZonedDateTime timestamp) {
 		this.identifier = Require.nonNull(identifier);
 		this.entry = Require.nonNull(entry);
 		this.actual = Require.nonNull(actual);
@@ -28,6 +29,15 @@ public class Committed<E> implements Recorded<E>, CommitResult<E> {
 			return Optional.of(new Committed<>(identifier, type.cast(entry), actual, expected, timestamp));
 		} else {
 			return Optional.empty();
+		}
+	}
+
+	@Override
+	public int compareTo(Committed<E> other) {
+		if (this.actual.equals(other.actual)) {
+			return Long.compareUnsigned(this.actual.getOffset(), other.actual.getOffset());
+		} else {
+			return this.timestamp.compareTo(other.timestamp);
 		}
 	}
 
@@ -61,7 +71,7 @@ public class Committed<E> implements Recorded<E>, CommitResult<E> {
 		return identifier;
 	}
 
-	public LocalDateTime getTimestamp() {
+	public ZonedDateTime getTimestamp() {
 		return timestamp;
 	}
 }

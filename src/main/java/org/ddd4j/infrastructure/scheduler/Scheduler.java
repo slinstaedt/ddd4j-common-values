@@ -7,10 +7,11 @@ import java.util.concurrent.Future;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Outcome.CompletableOutcome;
 import org.ddd4j.infrastructure.Result;
 import org.ddd4j.spi.Service;
 import org.ddd4j.value.Type;
-import org.ddd4j.value.versioned.Revision;
+import org.ddd4j.value.versioned.Revisions;
 
 @FunctionalInterface
 public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvider> {
@@ -39,7 +40,11 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 		return Outcome.ofBlocking(this, future);
 	}
 
-	default <T> Result<T> createResult(ColdSource<T> source, Revision startAt, boolean completeOnEnd) {
+	default <T> CompletableOutcome<T> createCompletableOutcome() {
+		return Outcome.ofCompletable(this);
+	}
+
+	default <T> Result<T> createResult(ColdSource<T> source, Revisions startAt, boolean completeOnEnd) {
 		return new ScheduledResult<>(this, new ColdResult<>(source, startAt.asLong(), completeOnEnd));
 	}
 

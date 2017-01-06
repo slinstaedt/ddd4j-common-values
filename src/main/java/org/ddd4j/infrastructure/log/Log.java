@@ -1,22 +1,23 @@
 package org.ddd4j.infrastructure.log;
 
-import java.io.Closeable;
-
 import org.ddd4j.infrastructure.Result;
+import org.ddd4j.value.Throwing.TClosable;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Committer;
-import org.ddd4j.value.versioned.Revision;
+import org.ddd4j.value.versioned.Revisions;
 
-public interface Log<E> extends Committer<Seq<E>>, Closeable {
+public interface Log<E> extends Committer<Seq<E>>, TClosable {
 
-	Result<Committed<Seq<E>>> publisher(Revision startAt, boolean completeOnEnd);
+	Revisions currentRevisions() throws Exception;
 
-	default Result<Committed<Seq<E>>> readFrom(Revision startAt) {
+	Result<Committed<Seq<E>>> publisher(Revisions startAt, boolean completeOnEnd);
+
+	default Result<Committed<Seq<E>>> readFrom(Revisions startAt) {
 		return publisher(startAt, true);
 	}
 
-	default Result<Committed<Seq<E>>> registerListener(Revision startAt) {
+	default Result<Committed<Seq<E>>> registerListener(Revisions startAt) {
 		return publisher(startAt, false);
 	}
 }

@@ -20,6 +20,38 @@ import org.ddd4j.value.Throwing.TSupplier;
 @FunctionalInterface
 public interface Outcome<T> {
 
+	class CompletableOutcome<T> implements Stage<T> {
+
+		private final Executor executor;
+		private final CompletableFuture<T> future;
+
+		public CompletableOutcome(Executor executor) {
+			this.executor = Require.nonNull(executor);
+			this.future = new CompletableFuture<>();
+		}
+
+		@Override
+		public <X> Stage<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
+			return ofStage(executor, fn.apply(executor, future));
+		}
+
+		public void complete(T value, Throwable exception) {
+			if (value != null) {
+				completeSuccessfully(value);
+			} else if (exception != null) {
+				completeExceptionally(exception);
+			}
+		}
+
+		public void completeExceptionally(Throwable exception) {
+			future.completeExceptionally(exception);
+		}
+
+		public void completeSuccessfully(T value) {
+			future.complete(value);
+		}
+	}
+
 	@FunctionalInterface
 	interface Stage<T> extends Outcome<T>, CompletionStage<T> {
 
@@ -265,6 +297,10 @@ public interface Outcome<T> {
 
 	static <T> Outcome<T> ofCompleted(Executor executor, T value) {
 		return of(executor, CompletableFuture.completedFuture(value));
+	}
+
+	static <T> CompletableOutcome<T> ofCompletable(Executor executor) {
+		return new CompletableOutcome<>(executor);
 	}
 
 	static <T> Outcome<T> ofEager(Executor executor, TSupplier<T> supplier) {

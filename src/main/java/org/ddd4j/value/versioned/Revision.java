@@ -1,58 +1,73 @@
 package org.ddd4j.value.versioned;
 
+import org.ddd4j.contract.Require;
 import org.ddd4j.io.buffer.ReadBuffer;
 import org.ddd4j.io.buffer.WriteBuffer;
 import org.ddd4j.value.Value;
-import org.ddd4j.value.math.Ordered;
 
-public class Revision extends Value.Simple<Revision, Long> implements Ordered<Revision> {
+public class Revision implements Value<Revision> {
 
-	public static final Revision INITIAL = new Revision(0);
+	private final int partition;
+	private final long offset;
 
-	public static final Revision LATEST = new Revision(-1);
-
-	private final long value;
-
-	public Revision(long value) {
-		this.value = value;
+	public Revision(int partition, long offset) {
+		this.partition = partition;
+		this.offset = offset;
 	}
 
 	public Revision(ReadBuffer buffer) {
-		this(buffer.getLong());
+		this(buffer.getInt(), buffer.getLong());
 	}
 
-	public boolean after(Revision other) {
-		return largerThan(other);
+	public int getPartition() {
+		return partition;
 	}
 
-	public long asLong() {
-		return value;
+	public long getOffset() {
+		return offset;
 	}
 
-	public boolean before(Revision other) {
-		return smallerThan(other);
+	public Revision increment(long increment) {
+		return next(offset + increment);
 	}
 
-	@Override
-	public int compareTo(Revision other) {
-		return Long.compareUnsigned(this.value, other.value);
-	}
-
-	public boolean isLatest() {
-		return value == -1;
-	}
-
-	public Revision next() {
-		return new Revision(value + 1);
+	public Revision next(long nextOffset) {
+		Require.that(nextOffset > offset);
+		return new Revision(partition, nextOffset);
 	}
 
 	@Override
 	public void serialize(WriteBuffer buffer) {
-		buffer.putLong(value);
+		buffer.putInt(partition).putLong(offset);
 	}
 
 	@Override
-	protected Long value() {
-		return value;
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + (int) (offset ^ (offset >>> 32));
+		result = prime * result + partition;
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null) {
+			return false;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
+		Revision other = (Revision) obj;
+		if (offset != other.offset) {
+			return false;
+		}
+		if (partition != other.partition) {
+			return false;
+		}
+		return true;
 	}
 }

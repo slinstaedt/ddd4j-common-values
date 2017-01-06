@@ -22,13 +22,13 @@ public interface Value<V extends Value<V>> extends Self<V> {
 
 		protected Simple(Function<? super V, String> prefix, Function<? super V, String> postfix) {
 			hasher = () -> {
-				Object value = value();
-				int hashCode = value instanceof Object[] ? Arrays.deepHashCode((Object[]) value) : Objects.hashCode(value);
+				T value = value();
+				int hashCode = calculateHash(value);
 				hasher = () -> hashCode;
 				return hashCode;
 			};
 			stringer = () -> {
-				Object value = value();
+				T value = value();
 				String toString = prefix.apply(self()) + deepToString(value) + postfix.apply(self());
 				stringer = () -> toString;
 				return toString;
@@ -59,6 +59,10 @@ public interface Value<V extends Value<V>> extends Self<V> {
 			return Objects.deepEquals(o1, o2);
 		}
 
+		protected int calculateHash(T value) {
+			return deepHashCode(value);
+		}
+
 		@Override
 		public String toString() {
 			return stringer.get();
@@ -87,28 +91,49 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		}
 	}
 
+	static int deepHashCode(Object o) {
+		if (o instanceof boolean[]) {
+			return Arrays.hashCode((boolean[]) o);
+		} else if (o instanceof byte[]) {
+			return Arrays.hashCode((byte[]) o);
+		} else if (o instanceof char[]) {
+			return Arrays.hashCode((char[]) o);
+		} else if (o instanceof double[]) {
+			return Arrays.hashCode((double[]) o);
+		} else if (o instanceof float[]) {
+			return Arrays.hashCode((float[]) o);
+		} else if (o instanceof int[]) {
+			return Arrays.hashCode((int[]) o);
+		} else if (o instanceof long[]) {
+			return Arrays.hashCode((long[]) o);
+		} else if (o instanceof short[]) {
+			return Arrays.hashCode((short[]) o);
+		} else if (o instanceof Object[]) {
+			return Arrays.deepHashCode((Object[]) o);
+		} else {
+			return Objects.hashCode(o);
+		}
+	}
+
 	static String deepToString(Object o) {
-		if (o != null && o.getClass().isArray()) {
-			Class<?> componentType = o.getClass().getComponentType();
-			if (componentType == boolean.class) {
-				return Arrays.toString((boolean[]) o);
-			} else if (componentType == byte.class) {
-				return Arrays.toString((byte[]) o);
-			} else if (componentType == char.class) {
-				return Arrays.toString((char[]) o);
-			} else if (componentType == double.class) {
-				return Arrays.toString((double[]) o);
-			} else if (componentType == float.class) {
-				return Arrays.toString((float[]) o);
-			} else if (componentType == int.class) {
-				return Arrays.toString((int[]) o);
-			} else if (componentType == long.class) {
-				return Arrays.toString((long[]) o);
-			} else if (componentType == short.class) {
-				return Arrays.toString((short[]) o);
-			} else {
-				return Arrays.toString((Object[]) o);
-			}
+		if (o instanceof boolean[]) {
+			return Arrays.toString((boolean[]) o);
+		} else if (o instanceof byte[]) {
+			return Arrays.toString((byte[]) o);
+		} else if (o instanceof char[]) {
+			return Arrays.toString((char[]) o);
+		} else if (o instanceof double[]) {
+			return Arrays.toString((double[]) o);
+		} else if (o instanceof float[]) {
+			return Arrays.toString((float[]) o);
+		} else if (o instanceof int[]) {
+			return Arrays.toString((int[]) o);
+		} else if (o instanceof long[]) {
+			return Arrays.toString((long[]) o);
+		} else if (o instanceof short[]) {
+			return Arrays.toString((short[]) o);
+		} else if (o instanceof Object[]) {
+			return Arrays.toString((Object[]) o);
 		} else {
 			return String.valueOf(o);
 		}

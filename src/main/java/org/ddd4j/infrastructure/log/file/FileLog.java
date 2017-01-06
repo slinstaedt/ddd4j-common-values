@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
-import java.nio.channels.FileLock;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -18,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.collection.Cache.Pool;
@@ -33,11 +33,12 @@ import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
+import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Uncommitted;
 
 public class FileLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBuffer>>> {
 
-	private class FileConnection implements StatelessConnection<Committed<Seq<ReadBuffer>>> {
+	private class FileConnection implements Connection<Committed<Seq<ReadBuffer>>> {
 
 		private final boolean completeOnEnd;
 
@@ -46,11 +47,11 @@ public class FileLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBu
 		}
 
 		@Override
-		public void close() throws Exception {
+		public void closeChecked() throws Exception {
 		}
 
 		private Committed<Seq<ReadBuffer>> readCommitted(long position, ByteBuffer buffer) {
-			Revision actual = new Revision(position + buffer.position() - Integer.BYTES);
+			Revisions actual = new Revisions(position + buffer.position() - Integer.BYTES, partition);
 			Identifier identifier = new Identifier(buffer.getLong(), buffer.getLong());
 			LocalDateTime timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(buffer.getLong()), ZoneOffset.UTC);
 			List<ReadBuffer> entries = new ArrayList<>();
@@ -58,14 +59,14 @@ public class FileLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBu
 			while ((entrySize = buffer.getInt()) != COMMIT_DELIM) {
 				entries.add(Bytes.wrap(buffer).buffered().limit(entrySize));
 			}
-			Revision expected = new Revision(position + buffer.position() - Integer.BYTES);
+			Revisions expected = new Revisions(position + buffer.position() - Integer.BYTES, partition);
 			buffer.position(buffer.position() - Integer.BYTES);
 			return new Committed<>(identifier, entries::stream, actual, expected, timestamp);
 		}
 
 		@Override
-		public Seq<Committed<Seq<ReadBuffer>>> request(long position, int n) throws Exception {
-			ByteBuffer buffer = channel.map(MapMode.READ_ONLY, position, Integer.MAX_VALUE);
+		public Seq<Committed<Seq<ReadBuffer>>> request(Revision position, int n) throws Exception {
+			ByteBuffer buffer = channel.map(MapMode.READ_ONLY, position.getOffset(), Integer.MAX_VALUE);
 			List<Committed<Seq<ReadBuffer>>> result = new ArrayList<>(n);
 			for (int i = 0; i < n && buffer.hasRemaining(); i++) {
 				if (buffer.getInt() != COMMIT_DELIM) {
@@ -84,6 +85,8 @@ public class FileLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBu
 	private final Scheduler scheduler;
 	private final Pool<ByteBuffer> bufferPool;
 	private final FileChannel channel;
+	private int partition;
+	private AtomicLong currentOffset;
 
 	public FileLog(Scheduler scheduler, Pool<ByteBuffer> bufferPool, Path file) throws IOException {
 		this.scheduler = Require.nonNull(scheduler);
@@ -92,34 +95,34 @@ public class FileLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBu
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void closeChecked() throws Exception {
 		channel.close();
 	}
 
 	@Override
-	public Connection<Committed<Seq<ReadBuffer>>> open(boolean completeOnEnd) throws Exception {
-		return new FileConnection(completeOnEnd).toStatefulConnection();
+	public Revisions currentRevisions() throws Exception {
+		return Revisions.initial(1).next(0, currentOffset.get());
 	}
 
 	@Override
-	public Result<Committed<Seq<ReadBuffer>>> publisher(Revision startAt, boolean completeOnEnd) {
+	public Cursor<Committed<Seq<ReadBuffer>>> open(boolean completeOnEnd) throws Exception {
+		return new FileConnection(completeOnEnd).toCursor();
+	}
+
+	@Override
+	public Result<Committed<Seq<ReadBuffer>>> publisher(Revisions startAt, boolean completeOnEnd) {
 		return scheduler.createResult(this, startAt, completeOnEnd);
 	}
 
 	@Override
 	public Outcome<CommitResult<Seq<ReadBuffer>>> tryCommit(Uncommitted<Seq<ReadBuffer>> attempt) {
 		try {
-			Revision actual = new Revision(channel.size());
+			Revisions actual = new Revisions(channel.size(), partition);
 			if (!attempt.getExpected().equal(actual)) {
 				return scheduler.completedOutcome(attempt.conflictsWith(actual));
 			}
-			try (FileLock lock = channel.tryLock()) {
-				if (lock == null) {
-					return scheduler.completedOutcome(attempt.conflictsWith(new Revision(channel.size())));
-				}
-				channel.position(actual.asLong());
-				attempt.getEntry().forEachThrowing(b -> b.writeTo(channel));
-			}
+			channel.position(actual.asLong());
+			attempt.getEntry().forEachThrowing(b -> b.writeTo(channel));
 		} catch (IOException e) {
 			return scheduler.failedOutcome(e);
 		}

@@ -1,13 +1,10 @@
 package org.ddd4j.infrastructure.context;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.registry.RegistryKey;
-import org.ddd4j.spi.Configuration;
-import org.ddd4j.spi.ServiceLocator;
 import org.ddd4j.value.Type;
 import org.ddd4j.value.Value;
 
-public class ContextualIdentifier<T> implements Value<ContextualIdentifier<T>>, RegistryKey<T> {
+public class ContextualIdentifier<T> implements Value<ContextualIdentifier<T>> {
 
 	private final Type<T> type;
 	private final String name;
@@ -15,11 +12,6 @@ public class ContextualIdentifier<T> implements Value<ContextualIdentifier<T>>, 
 	public ContextualIdentifier(Type<T> type, String name) {
 		this.type = Require.nonNull(type);
 		this.name = Require.nonEmpty(name);
-	}
-
-	@Override
-	public T create(Configuration configuration, ServiceLocator locator) {
-		return locator.locate(Context.class).lookup(this);
 	}
 
 	@Override

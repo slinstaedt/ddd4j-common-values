@@ -14,27 +14,37 @@ import org.ddd4j.contract.Require;
 public interface Throwing {
 
 	@FunctionalInterface
-	interface TAction extends Runnable, AutoCloseable {
-
-		@Override
-		default void close() throws Exception {
-			performUnChecked();
-		}
+	interface TAction extends Runnable {
 
 		default void perform() {
 			try {
-				performUnChecked();
+				performChecked();
 			} catch (Exception e) {
 				Throwing.unchecked(e);
 			}
 		}
 
-		void performUnChecked() throws Exception;
+		void performChecked() throws Exception;
 
 		@Override
 		default void run() {
 			perform();
 		}
+	}
+
+	@FunctionalInterface
+	interface TClosable extends AutoCloseable {
+
+		@Override
+		default void close() {
+			try {
+				closeChecked();
+			} catch (Exception e) {
+				Throwing.unchecked(e);
+			}
+		};
+
+		void closeChecked() throws Exception;
 	}
 
 	@FunctionalInterface
@@ -288,7 +298,7 @@ public interface Throwing {
 	}
 
 	static <X> X unchecked(Throwable exception) {
-		return Throwing.<X, RuntimeException> any(exception);
+		return Throwing.<X, RuntimeException>any(exception);
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction() {

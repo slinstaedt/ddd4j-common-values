@@ -1,62 +1,55 @@
 package org.ddd4j.infrastructure.scheduler;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing;
+import org.ddd4j.value.Throwing.TClosable;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.versioned.Revision;
 
 public interface ColdSource<T> {
 
-	interface Connection<T> extends AutoCloseable {
+	interface Cursor<T> extends TClosable {
 
-		default void closeUnchecked() {
-			try {
-				close();
-			} catch (Exception e) {
-				Throwing.unchecked(e);
-			}
-		}
-
-		void position(long position) throws Exception;
+		void position(Revision position) throws Exception;
 
 		Seq<? extends T> requestNext(int n) throws Exception;
 	}
 
-	interface StatelessConnection<T> extends AutoCloseable {
+	interface Connection<T> extends TClosable {
 
-		Seq<T> request(long position, int n) throws Exception;
+		Seq<T> request(Revision position, int n) throws Exception;
 
-		default Connection<T> toStatefulConnection() {
+		default Cursor<T> toCursor() {
 			return new StatelessConnectionWrapper<>(this);
 		}
 	}
 
-	class StatelessConnectionWrapper<T> implements Connection<T> {
+	class StatelessConnectionWrapper<T> implements Cursor<T> {
 
-		private final StatelessConnection<T> delegate;
-		private long position;
+		private final Connection<T> delegate;
+		private Revision position;
 
-		public StatelessConnectionWrapper(StatelessConnection<T> delegate) {
+		public StatelessConnectionWrapper(Connection<T> delegate) {
 			this.delegate = Require.nonNull(delegate);
 			this.position = 0;
 		}
 
 		@Override
-		public void close() throws Exception {
+		public void closeChecked() throws Exception {
 			delegate.close();
 		}
 
 		@Override
-		public void position(long position) throws Exception {
-			this.position = position;
+		public void position(Revision position) throws Exception {
+			this.position = Require.nonNull(position);
 		}
 
 		@Override
 		public Seq<T> requestNext(int n) throws Exception {
 			Seq<T> result = delegate.request(position, n);
-			position += result.checkFinite().sizeIfKnown();
+			position = position.increment(result.checkFinite().sizeIfKnown());
 			return result;
 		}
 	}
 
-	Connection<T> open(boolean completeOnEnd) throws Exception;
+	Cursor<T> open(boolean completeOnEnd) throws Exception;
 }
