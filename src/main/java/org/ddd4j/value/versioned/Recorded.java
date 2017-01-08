@@ -2,19 +2,17 @@ package org.ddd4j.value.versioned;
 
 import java.util.function.Function;
 
-import org.ddd4j.aggregate.Identifier;
+public interface Recorded<K, V> {
 
-public interface Recorded<E> {
-
-	static <E> Uncommitted<E> uncommitted(Identifier source, E entry, Revision expected) {
-		return new Uncommitted<>(source, entry, expected);
+	static <K, V> Uncommitted<K, V> uncommitted(K key, V value, Revision expected) {
+		return new Uncommitted<>(key, value, expected);
 	}
 
-	<X> X foldRecorded(Function<Uncommitted<E>, X> uncommitted, Function<Committed<E>, X> committed);
-
-	E getEntry();
+	<X> X foldRecorded(Function<Uncommitted<K, V>, X> uncommitted, Function<Committed<K, V>, X> committed);
 
 	Revision getExpected();
 
-	Identifier getIdentifier();
+	K getKey();
+
+	V getValue();
 }

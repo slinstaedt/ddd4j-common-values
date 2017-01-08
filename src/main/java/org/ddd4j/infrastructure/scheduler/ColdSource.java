@@ -7,13 +7,6 @@ import org.ddd4j.value.versioned.Revision;
 
 public interface ColdSource<T> {
 
-	interface Cursor<T> extends TClosable {
-
-		void position(Revision position) throws Exception;
-
-		Seq<? extends T> requestNext(int n) throws Exception;
-	}
-
 	interface Connection<T> extends TClosable {
 
 		Seq<T> request(Revision position, int n) throws Exception;
@@ -21,6 +14,13 @@ public interface ColdSource<T> {
 		default Cursor<T> toCursor() {
 			return new StatelessConnectionWrapper<>(this);
 		}
+	}
+
+	interface Cursor<T> extends TClosable {
+
+		void position(Revision position) throws Exception;
+
+		Seq<? extends T> requestNext(int n) throws Exception;
 	}
 
 	class StatelessConnectionWrapper<T> implements Cursor<T> {
@@ -51,5 +51,5 @@ public interface ColdSource<T> {
 		}
 	}
 
-	Cursor<T> open(boolean completeOnEnd) throws Exception;
+	Cursor<T> open() throws Exception;
 }

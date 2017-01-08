@@ -5,25 +5,22 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Properties;
 
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.Callback;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Outcome;
 import org.ddd4j.infrastructure.Outcome.CompletableOutcome;
-import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.Result;
 import org.ddd4j.infrastructure.log.Log;
 import org.ddd4j.infrastructure.scheduler.ColdSource;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.ReadBuffer;
-import org.ddd4j.spi.Configuration;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
@@ -31,14 +28,32 @@ import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Uncommitted;
 
-public class KafkaLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBuffer>>>, ConsumerRebalanceListener {
+public class KafkaLog implements Log<ReadBuffer, ReadBuffer>, ColdSource<Committed<ReadBuffer, Seq<ReadBuffer>>>, ConsumerRebalanceListener {
+
+	private class ConsumerCursor implements Cursor<Committed<ReadBuffer, Seq<ReadBuffer>>> {
+
+		@Override
+		public void closeChecked() throws Exception {
+		}
+
+		@Override
+		public void position(Revision position) throws Exception {
+			consumer.position(new TopicPartition(topic, position.getPartition()));
+		}
+
+		@Override
+		public Seq<? extends Committed<ReadBuffer, Seq<ReadBuffer>>> requestNext(int n) throws Exception {
+			// TODO Auto-generated method stub
+			return null;
+		}
+	}
 
 	private static class OutcomeCallback implements Callback {
 
-		private final CompletableOutcome<CommitResult<Seq<ReadBuffer>>> outcome;
-		private final Uncommitted<Seq<ReadBuffer>> attempt;
+		private final CompletableOutcome<CommitResult<ReadBuffer, Seq<ReadBuffer>>> outcome;
+		private final Uncommitted<ReadBuffer, Seq<ReadBuffer>> attempt;
 
-		OutcomeCallback(CompletableOutcome<CommitResult<Seq<ReadBuffer>>> outcome, Uncommitted<Seq<ReadBuffer>> attempt) {
+		OutcomeCallback(CompletableOutcome<CommitResult<ReadBuffer, Seq<ReadBuffer>>> outcome, Uncommitted<ReadBuffer, Seq<ReadBuffer>> attempt) {
 			this.outcome = Require.nonNull(outcome);
 			this.attempt = Require.nonNull(attempt);
 		}
@@ -48,7 +63,7 @@ public class KafkaLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadB
 			if (metadata != null) {
 				ZonedDateTime timestamp = Instant.ofEpochMilli(metadata.timestamp()).atZone(ZoneId.systemDefault());
 				// XXX offset correct?
-				Committed<Seq<ReadBuffer>> committed = attempt.committed(metadata.offset() + 1, timestamp);
+				Committed<ReadBuffer, Seq<ReadBuffer>> committed = attempt.committed(metadata.offset() + 1, timestamp);
 				outcome.completeSuccessfully(committed);
 			} else {
 				outcome.completeExceptionally(exception);
@@ -56,43 +71,22 @@ public class KafkaLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadB
 		}
 	}
 
-	private class ConsumerCursor implements Cursor<Committed<Seq<ReadBuffer>>> {
-
-		@Override
-		public void closeChecked() throws Exception {
-		}
-
-		@Override
-		public void position(Revision position) throws Exception {
-			consumer.position(new TopicPartition(topic, position.getPartition()))
-		}
-
-		@Override
-		public Seq<? extends Committed<Seq<ReadBuffer>>> requestNext(int n) throws Exception {
-			// TODO Auto-generated method stub
-			return null;
-		}
-	}
-
 	private final Scheduler scheduler;
 	private final String topic;
-	private final KafkaConsumer<byte[], byte[]> consumer;
-	private final KafkaProducer<byte[], byte[]> producer;
+	private final Consumer<byte[], byte[]> consumer;
+	private final Producer<byte[], byte[]> producer;
 	private Revisions revisions;
 
-	public KafkaLog(Scheduler scheduler, ResourceDescriptor topic, Configuration configuration) {
+	public KafkaLog(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Producer<byte[], byte[]> producer, String topic) {
 		this.scheduler = Require.nonNull(scheduler);
-		this.topic = topic.value();
-		Properties properties = configuration.getPropertiesOf("bootstrap.servers", "group.id", "enable.auto.commit", "auto.commit.interval.ms",
-				"session.timeout.ms");
-		this.consumer = new KafkaConsumer<>(properties);
-		this.producer = new KafkaProducer<>(properties);
+		this.consumer = Require.nonNull(consumer);
+		this.producer = Require.nonNull(producer);
+		this.topic = Require.nonEmpty(topic);
 	}
 
 	@Override
 	public void closeChecked() throws Exception {
-		consumer.close();
-		producer.close();
+		// TODO Auto-generated method stub
 	}
 
 	void connect() {
@@ -119,24 +113,24 @@ public class KafkaLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadB
 	}
 
 	@Override
-	public Result<Committed<Seq<ReadBuffer>>> publisher(Revisions startAt, boolean completeOnEnd) {
+	public Cursor<Committed<ReadBuffer, Seq<ReadBuffer>>> open() throws Exception {
+		// TODO Auto-generated method stub
+		return new ConsumerCursor();
+	}
+
+	@Override
+	public Result<Committed<ReadBuffer, Seq<ReadBuffer>>> publisher(Revisions startAt, boolean completeOnEnd) {
 		return scheduler.createResult(this, startAt, completeOnEnd);
 	}
 
 	@Override
-	public Outcome<CommitResult<Seq<ReadBuffer>>> tryCommit(Uncommitted<Seq<ReadBuffer>> attempt) {
+	public Outcome<CommitResult<ReadBuffer, Seq<ReadBuffer>>> tryCommit(Uncommitted<ReadBuffer, Seq<ReadBuffer>> attempt) {
 		int partition = revisions.partition(attempt.getIdentifier());
 		byte[] key = null;
 		byte[] value = null;
 		ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topic, partition, System.currentTimeMillis(), key, value);
-		CompletableOutcome<CommitResult<Seq<ReadBuffer>>> outcome = scheduler.createCompletableOutcome();
+		CompletableOutcome<CommitResult<ReadBuffer, Seq<ReadBuffer>>> outcome = scheduler.createCompletableOutcome();
 		producer.send(record, new OutcomeCallback(outcome, attempt));
 		return outcome;
-	}
-
-	@Override
-	public Cursor<Committed<Seq<ReadBuffer>>> open(boolean completeOnEnd) throws Exception {
-		// TODO Auto-generated method stub
-		return new ConsumerCursor();
 	}
 }

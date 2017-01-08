@@ -3,41 +3,35 @@ package org.ddd4j.value.versioned;
 import java.time.ZonedDateTime;
 import java.util.function.Function;
 
-import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.contract.Require;
 
-public class Uncommitted<E> implements Recorded<E> {
+public class Uncommitted<K, V> implements Recorded<K, V> {
 
-	private final Identifier identifier;
-	private final E entry;
+	private final K key;
+	private final V value;
 	private final Revision expected;
 
-	public Uncommitted(Identifier identifier, E entry, Revision expected) {
-		this.identifier = Require.nonNull(identifier);
-		this.entry = Require.nonNull(entry);
+	public Uncommitted(K key, V value, Revision expected) {
+		this.key = Require.nonNull(key);
+		this.value = Require.nonNull(value);
 		this.expected = Require.nonNull(expected);
 	}
 
-	public Committed<E> committed(long nextExpectedOffset, ZonedDateTime timestamp) {
+	public Committed<K, V> committed(long nextExpectedOffset, ZonedDateTime timestamp) {
 		return committed(expected.next(nextExpectedOffset), timestamp);
 	}
 
-	public Committed<E> committed(Revision nextExpected, ZonedDateTime timestamp) {
-		return new Committed<>(identifier, entry, expected, nextExpected, timestamp);
+	public Committed<K, V> committed(Revision nextExpected, ZonedDateTime timestamp) {
+		return new Committed<>(key, value, expected, nextExpected, timestamp);
 	}
 
-	public Conflicting<E> conflictsWith(Revision actual) {
-		return new Conflicting<>(identifier, expected, actual);
+	public Conflicting<K, V> conflictsWith(Revision actual) {
+		return new Conflicting<>(key, expected, actual);
 	}
 
 	@Override
-	public <X> X foldRecorded(Function<Uncommitted<E>, X> uncommitted, Function<Committed<E>, X> committed) {
+	public <X> X foldRecorded(Function<Uncommitted<K, V>, X> uncommitted, Function<Committed<K, V>, X> committed) {
 		return uncommitted.apply(this);
-	}
-
-	@Override
-	public E getEntry() {
-		return entry;
 	}
 
 	@Override
@@ -46,7 +40,12 @@ public class Uncommitted<E> implements Recorded<E> {
 	}
 
 	@Override
-	public Identifier getIdentifier() {
-		return identifier;
+	public K getKey() {
+		return key;
+	}
+
+	@Override
+	public V getValue() {
+		return value;
 	}
 }

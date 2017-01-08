@@ -1,7 +1,7 @@
 package org.ddd4j.value.versioned;
 
 @FunctionalInterface
-public interface EventProcessor<E, T> {
+public interface EventProcessor<K, V, T> {
 
-	T applyEvent(Committed<E> event);
+	T applyEvent(Committed<K, V> event);
 }

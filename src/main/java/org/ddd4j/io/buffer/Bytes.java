@@ -86,6 +86,14 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 			}
 
 			@Override
+			public int get(int index, int amount, ByteBuffer dst) {
+				buffer.position(position + index).limit(position + index + Math.min(dst.remaining(), Math.min(amount, length())));
+				dst.put(buffer);
+				buffer.limit(limit);
+				return buffer.position() - index;
+			}
+
+			@Override
 			public int length() {
 				return limit - position;
 			}
@@ -94,14 +102,6 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 			public Bytes put(int index, byte b) {
 				buffer.put(position + index, b);
 				return this;
-			}
-
-			@Override
-			public int get(int index, int amount, ByteBuffer dst) {
-				buffer.position(position + index).limit(position + index + Math.min(dst.remaining(), Math.min(amount, length())));
-				dst.put(buffer);
-				buffer.limit(limit);
-				return buffer.position() - index;
 			}
 
 			@Override
@@ -176,6 +176,26 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 
 	@Override
 	public void close() {
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		} else if (!Bytes.class.isInstance(o)) {
+			return false;
+		}
+		Bytes other = (Bytes) o;
+		if (this.length() != other.length()) {
+			return false;
+		}
+		int length = length();
+		for (int i = 0; i < length; i++) {
+			if (this.get(i) != other.get(i)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	@Override
@@ -296,6 +316,16 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		return builder;
 	}
 
+	@Override
+	public int hashCode() {
+		int hash = 1;
+		int length = length();
+		for (int i = 0; i < length; i++) {
+			hash = 31 * hash + get(i);
+		}
+		return hash;
+	}
+
 	public abstract int length();
 
 	public ByteOrder order() {
@@ -398,6 +428,26 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		return this;
 	}
 
+	public int readFrom(int index, int amount, ReadableByteChannel channel) throws IOException {
+		int totalWritten = 0;
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		buf.limit(Math.min(buf.capacity(), Math.min(amount, remaining(index))));
+		while (buf.hasRemaining() && channel.read(buf) >= 0) {
+			buf.flip();
+			int written = put(index, amount, buf);
+			totalWritten += written;
+			index += written;
+			amount -= written;
+			buf.position(0);
+			buf.limit(Math.min(buf.capacity(), Math.min(amount, remaining(index))));
+		}
+		return totalWritten;
+	}
+
+	private int remaining(int index) {
+		return length() - index;
+	}
+
 	public Bytes sliceBy(int offset) {
 		return new Bytes() {
 
@@ -419,10 +469,6 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		};
 	}
 
-	private int remaining(int index) {
-		return length() - index;
-	}
-
 	public int writeTo(int index, int amount, WritableByteChannel channel) throws IOException {
 		int totalRead = 0;
 		ByteBuffer buf = ByteBuffer.allocate(1024);
@@ -438,21 +484,5 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 			buf.clear();
 		}
 		return totalRead;
-	}
-
-	public int readFrom(int index, int amount, ReadableByteChannel channel) throws IOException {
-		int totalWritten = 0;
-		ByteBuffer buf = ByteBuffer.allocate(1024);
-		buf.limit(Math.min(buf.capacity(), Math.min(amount, remaining(index))));
-		while (buf.hasRemaining() && channel.read(buf) >= 0) {
-			buf.flip();
-			int written = put(index, amount, buf);
-			totalWritten += written;
-			index += written;
-			amount -= written;
-			buf.position(0);
-			buf.limit(Math.min(buf.capacity(), Math.min(amount, remaining(index))));
-		}
-		return totalWritten;
 	}
 }

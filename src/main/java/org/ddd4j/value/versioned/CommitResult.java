@@ -3,17 +3,15 @@ package org.ddd4j.value.versioned;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import org.ddd4j.aggregate.Identifier;
+public interface CommitResult<K, V> {
 
-public interface CommitResult<E> {
-
-	<X> X foldResult(Function<Committed<E>, X> committed, Function<Conflicting<E>, X> conflict);
+	<X> X foldResult(Function<Committed<K, V>, X> committed, Function<Conflicting<K, V>, X> conflict);
 
 	Revision getActual();
 
-	Identifier getIdentifier();
+	K getKey();
 
-	default CommitResult<E> visitCommitted(Consumer<Committed<E>> committed) {
+	default CommitResult<K, V> visitCommitted(Consumer<Committed<K, V>> committed) {
 		return foldResult(c -> {
 			committed.accept(c);
 			return this;
@@ -22,7 +20,7 @@ public interface CommitResult<E> {
 		});
 	}
 
-	default CommitResult<E> visitCommitted(Runnable committed) {
+	default CommitResult<K, V> visitCommitted(Runnable committed) {
 		return visitCommitted(c -> {
 			committed.run();
 		});

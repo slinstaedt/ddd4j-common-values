@@ -2,23 +2,22 @@ package org.ddd4j.value.versioned;
 
 import java.util.function.Function;
 
-import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.contract.Require;
 
-public class Conflicting<E> implements CommitResult<E> {
+public class Conflicting<K, V> implements CommitResult<K, V> {
 
-	private final Identifier identifier;
+	private final K key;
 	private final Revision expected;
 	private final Revision actual;
 
-	public Conflicting(Identifier identifier, Revision expected, Revision actual) {
-		this.identifier = Require.nonNull(identifier);
+	public Conflicting(K key, Revision expected, Revision actual) {
+		this.key = Require.nonNull(key);
 		this.expected = Require.nonNull(expected);
 		this.actual = Require.nonNull(actual);
 	}
 
 	@Override
-	public <X> X foldResult(Function<Committed<E>, X> committed, Function<Conflicting<E>, X> conflict) {
+	public <X> X foldResult(Function<Committed<K, V>, X> committed, Function<Conflicting<K, V>, X> conflict) {
 		return conflict.apply(this);
 	}
 
@@ -32,7 +31,7 @@ public class Conflicting<E> implements CommitResult<E> {
 	}
 
 	@Override
-	public Identifier getIdentifier() {
-		return identifier;
+	public K getKey() {
+		return key;
 	}
 }

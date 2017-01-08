@@ -36,21 +36,15 @@ import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Uncommitted;
 
-public class FileLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBuffer>>> {
+public class FileLog implements Log<ReadBuffer, ReadBuffer>, ColdSource<Committed<ReadBuffer, Seq<ReadBuffer>>> {
 
-	private class FileConnection implements Connection<Committed<Seq<ReadBuffer>>> {
-
-		private final boolean completeOnEnd;
-
-		FileConnection(boolean completeOnEnd) {
-			this.completeOnEnd = completeOnEnd;
-		}
+	private class FileConnection implements Connection<Committed<ReadBuffer, Seq<ReadBuffer>>> {
 
 		@Override
 		public void closeChecked() throws Exception {
 		}
 
-		private Committed<Seq<ReadBuffer>> readCommitted(long position, ByteBuffer buffer) {
+		private Committed<ReadBuffer, Seq<ReadBuffer>> readCommitted(long position, ByteBuffer buffer) {
 			Revisions actual = new Revisions(position + buffer.position() - Integer.BYTES, partition);
 			Identifier identifier = new Identifier(buffer.getLong(), buffer.getLong());
 			LocalDateTime timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(buffer.getLong()), ZoneOffset.UTC);
@@ -65,9 +59,9 @@ public class FileLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBu
 		}
 
 		@Override
-		public Seq<Committed<Seq<ReadBuffer>>> request(Revision position, int n) throws Exception {
+		public Seq<Committed<ReadBuffer, Seq<ReadBuffer>>> request(Revision position, int n) throws Exception {
 			ByteBuffer buffer = channel.map(MapMode.READ_ONLY, position.getOffset(), Integer.MAX_VALUE);
-			List<Committed<Seq<ReadBuffer>>> result = new ArrayList<>(n);
+			List<Committed<ReadBuffer, Seq<ReadBuffer>>> result = new ArrayList<>(n);
 			for (int i = 0; i < n && buffer.hasRemaining(); i++) {
 				if (buffer.getInt() != COMMIT_DELIM) {
 					throw new IllegalStateException("Illegal position: " + position);
@@ -105,17 +99,17 @@ public class FileLog implements Log<ReadBuffer>, ColdSource<Committed<Seq<ReadBu
 	}
 
 	@Override
-	public Cursor<Committed<Seq<ReadBuffer>>> open(boolean completeOnEnd) throws Exception {
-		return new FileConnection(completeOnEnd).toCursor();
+	public Cursor<Committed<ReadBuffer, Seq<ReadBuffer>>> open() throws Exception {
+		return new FileConnection().toCursor();
 	}
 
 	@Override
-	public Result<Committed<Seq<ReadBuffer>>> publisher(Revisions startAt, boolean completeOnEnd) {
+	public Result<Committed<ReadBuffer, Seq<ReadBuffer>>> publisher(Revisions startAt, boolean completeOnEnd) {
 		return scheduler.createResult(this, startAt, completeOnEnd);
 	}
 
 	@Override
-	public Outcome<CommitResult<Seq<ReadBuffer>>> tryCommit(Uncommitted<Seq<ReadBuffer>> attempt) {
+	public Outcome<CommitResult<ReadBuffer, Seq<ReadBuffer>>> tryCommit(Uncommitted<ReadBuffer, Seq<ReadBuffer>> attempt) {
 		try {
 			Revisions actual = new Revisions(channel.size(), partition);
 			if (!attempt.getExpected().equal(actual)) {
