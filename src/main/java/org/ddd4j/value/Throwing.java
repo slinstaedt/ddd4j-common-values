@@ -10,6 +10,7 @@ import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
 
+//TODO remove "T" prefix from all inner types?
 @FunctionalInterface
 public interface Throwing {
 
@@ -33,7 +34,7 @@ public interface Throwing {
 	}
 
 	@FunctionalInterface
-	interface TClosable extends AutoCloseable {
+	interface Closeable extends AutoCloseable {
 
 		@Override
 		default void close() {

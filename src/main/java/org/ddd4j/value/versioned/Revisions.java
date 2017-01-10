@@ -1,47 +1,25 @@
 package org.ddd4j.value.versioned;
 
 import java.util.Arrays;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
-import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.buffer.ReadBuffer;
-import org.ddd4j.io.buffer.WriteBuffer;
-import org.ddd4j.value.Value;
+import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.math.Ordered;
 
-public class Revisions extends Value.Simple<Revisions, long[]> implements Ordered<Revisions> {
-
-	public static final Revisions INITIAL = new Revisions(0);
-
-	public static Revisions initial(int partitionSize) {
-		return new Revisions(partitionSize);
-	}
+//TODO move to infrastructure?
+public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 
 	private final long[] offsets;
 
-	private Revisions(int partitionSize) {
+	public Revisions(int partitionSize) {
 		this.offsets = new long[partitionSize];
+		Arrays.fill(offsets, Revision.UNKNOWN_OFFSET);
 	}
 
-	public Revisions(ReadBuffer buffer) {
-		this.offsets = new long[buffer.getInt()];
-		for (int i = 0; i < offsets.length; i++) {
-			offsets[i] = buffer.getLong();
-		}
-	}
-
-	private Revisions(Revisions copy, int partition, long offset) {
-		Require.that(offset > copy.offsets[partition]);
-		this.offsets = Arrays.copyOf(copy.offsets, copy.offsets.length);
-		this.offsets[partition] = offset;
-	}
-
-	public boolean after(Revisions other) {
-		return largerThan(other);
-	}
-
-	public boolean before(Revisions other) {
-		return smallerThan(other);
+	public Revisions(long[] offsets) {
+		this.offsets = Arrays.copyOf(offsets, offsets.length);
 	}
 
 	@Override
@@ -54,35 +32,43 @@ public class Revisions extends Value.Simple<Revisions, long[]> implements Ordere
 		return Integer.signum(result);
 	}
 
-	public Revisions next(Identifier identifier, long nextOffset) {
-		return next(partition(identifier), nextOffset);
+	public long offset(int partition) {
+		long offset = offsets[partition];
+		Require.that(offset != Revision.UNKNOWN_OFFSET);
+		return offset;
 	}
 
-	public Revisions next(Revision revision) {
-		return next(revision.getPartition(), revision.getOffset());
+	public void update(Object key, long nextOffset) {
+		update(partition(key), nextOffset);
 	}
 
-	public Revisions next(int partition, long nextOffset) {
-		return new Revisions(this, partition, nextOffset);
+	public void update(Revision revision) {
+		update(revision.getPartition(), revision.getOffset());
 	}
 
-	public int partition(Identifier identifier) {
-		return identifier.hashCode() % offsets.length;
+	public void update(int partition, long nextOffset) {
+		Require.that(Long.compareUnsigned(nextOffset, offset(partition)) > 0);
+		this.offsets[partition] = nextOffset;
 	}
 
-	public Revision revision(Identifier identifier) {
-		int partition = partition(identifier);
-		return new Revision(partition, offsets[partition]);
+	public int partition(Object key) {
+		return key.hashCode() % offsets.length;
+	}
+
+	public Revision revision(int partition) {
+		return new Revision(partition, offset(partition));
+	}
+
+	public Revision revision(Object key) {
+		return revision(partition(key));
+	}
+
+	public Stream<Revision> revisions(Stream<Integer> partitions) {
+		return partitions.mapToInt(Integer::intValue).mapToObj(this::revision);
 	}
 
 	@Override
-	public void serialize(WriteBuffer buffer) {
-		buffer.putInt(offsets.length);
-		Arrays.stream(offsets).forEachOrdered(buffer::putLong);
-	}
-
-	@Override
-	protected long[] value() {
-		return offsets;
+	public Stream<Revision> stream() {
+		return IntStream.range(0, offsets.length).filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET).mapToObj(p -> new Revision(p, offsets[p]));
 	}
 }

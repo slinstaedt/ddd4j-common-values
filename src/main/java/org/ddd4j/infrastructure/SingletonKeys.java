@@ -9,8 +9,8 @@ import org.ddd4j.infrastructure.registry.RegistryKey;;
 public interface SingletonKeys {
 
 	RegistryKey<Cache<Integer, ByteBuffer>> DIRECT_BYTE_BUFFER_POOL = (c, s) -> Cache.exclusive(ByteBuffer::capacity) //
-			.onRelease(ByteBuffer::clear) //
+			.on().released(ByteBuffer::clear) //
 			.evict().withMaximumCapacity(c.getInteger("pool.bytebuffer.size").orElse(100)) //
 			.lookupValues(KeyLookupStrategy.CEILING) //
 			.withFactory(ByteBuffer::allocateDirect);
-}
+} 

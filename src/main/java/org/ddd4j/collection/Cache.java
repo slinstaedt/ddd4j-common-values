@@ -18,12 +18,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.function.ToLongFunction;
 
 import org.ddd4j.collection.Cache.Access.Exclusive;
@@ -31,6 +33,7 @@ import org.ddd4j.collection.Cache.Access.Shared;
 import org.ddd4j.collection.Cache.Decorating.Blocking;
 import org.ddd4j.collection.Cache.Decorating.Evicting;
 import org.ddd4j.collection.Cache.Decorating.Evicting.EvictStrategy;
+import org.ddd4j.collection.Cache.Decorating.Listening;
 import org.ddd4j.collection.Cache.Decorating.Retrying;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
@@ -44,13 +47,11 @@ public interface Cache<K, V> {
 
 			private final ConcurrentNavigableMap<K, Queue<V>> pool;
 			private final Function<? super V, ? extends K> keyedBy;
-			private final Consumer<? super V> onRelease;
 			private final Queue<Queue<V>> unusedQueues;
 
-			Exclusive(Comparator<? super K> comparator, Function<? super V, ? extends K> keyedBy, Consumer<? super V> onRelease) {
+			Exclusive(Comparator<? super K> comparator, Function<? super V, ? extends K> keyedBy) {
 				this.pool = new ConcurrentSkipListMap<>(comparator);
 				this.keyedBy = Require.nonNull(keyedBy);
-				this.onRelease = Require.nonNull(onRelease);
 				this.unusedQueues = new ArrayDeque<>();
 			}
 
@@ -81,7 +82,7 @@ public interface Cache<K, V> {
 			@Override
 			boolean evict(K key, V value) {
 				Queue<V> queue = pool.get(key);
-				return queue != null ? queue.remove(value) : false;
+				return queue != null && queue.remove(value);
 			}
 
 			@Override
@@ -89,13 +90,8 @@ public interface Cache<K, V> {
 				return pool.keySet();
 			}
 
-			public Exclusive<K, V> onRelease(Consumer<? super V> onRelease) {
-				return new Exclusive<>(pool.comparator(), keyedBy, onRelease);
-			}
-
 			@Override
 			void release(V value) {
-				onRelease.accept(value);
 				pool.compute(keyedBy.apply(value), (k, q) -> enqueue(q, value));
 			}
 		}
@@ -168,12 +164,21 @@ public interface Cache<K, V> {
 
 		abstract NavigableSet<K> keys();
 
+		public Pool<V> lookupRandomValues(Supplier<? extends V> factory) {
+			Require.nonNull(factory);
+			return new Aside<>(this, KeyLookupStrategy.RANDOM).withFactory(nil -> factory.get()).pooledBy(null);
+		}
+
 		public Aside<K, V> lookupValues(KeyLookupStrategy keyLookup) {
 			return new Aside<>(this, keyLookup);
 		}
 
 		public Aside<K, V> lookupValuesWithEqualKeys() {
 			return new Aside<>(this, KeyLookupStrategy.EQUALS);
+		}
+
+		public Listening<K, V> on() {
+			return new Listening<>(this);
 		}
 
 		abstract void release(V value);
@@ -275,15 +280,25 @@ public interface Cache<K, V> {
 				private final K key;
 				private final V value;
 				private final long created;
-				private long lastAccessed;
+				private long lastAcquired;
+				private long lastReleased;
 				private int counter;
+				private boolean evictable;
 
 				Entry(K key, V value) {
 					this.key = Require.nonNull(key);
 					this.value = Require.nonNull(value);
 					this.created = System.currentTimeMillis();
-					this.lastAccessed = created;
+					this.lastAcquired = created;
+					this.lastReleased = created;
 					this.counter = 1;
+					this.evictable = true;
+				}
+
+				V acquire() {
+					evictable = false;
+					lastAcquired = System.currentTimeMillis();
+					return value;
 				}
 
 				long created() {
@@ -294,23 +309,34 @@ public interface Cache<K, V> {
 					return Evicting.this.evict(key, value);
 				}
 
-				long lastAccessed() {
-					return lastAccessed;
+				boolean isEvictable() {
+					return evictable;
+				}
+
+				long lastAcquired() {
+					return lastAcquired;
+				}
+
+				long lastReleased() {
+					return lastReleased;
 				}
 
 				long leastAccessed() {
 					return created * counter;
 				}
 
-				void touch() {
+				void release() {
+					evictable = true;
+					lastReleased = System.currentTimeMillis();
 					counter++;
-					lastAccessed = System.currentTimeMillis();
+					delegate.release(value);
 				}
 			}
 
 			public enum EvictStrategy {
 				ANY(null), //
-				LAST_ACCESSED(Evicting<?, ?>.Entry::lastAccessed), //
+				LAST_ACQUIRED(Evicting<?, ?>.Entry::lastAcquired), //
+				LAST_RELEASED(Evicting<?, ?>.Entry::lastReleased), //
 				LEAST_ACCESSED(Evicting<?, ?>.Entry::leastAccessed), //
 				OLDEST(Evicting<?, ?>.Entry::created);
 
@@ -339,7 +365,7 @@ public interface Cache<K, V> {
 
 			@Override
 			V acquire(K key, TSupplier<? extends V> supplier, long timeoutInMillis) {
-				return delegate.acquire(key, () -> newValue(key, supplier), timeoutInMillis);
+				return entries.get(delegate.acquire(key, () -> newValue(key, supplier), timeoutInMillis)).acquire();
 			}
 
 			@Override
@@ -348,24 +374,26 @@ public interface Cache<K, V> {
 				return delegate.evict(key, value);
 			}
 
-			private void evictMatching() {
-				ToLongFunction<Evicting<?, ?>.Entry> prop = strategy.property;
-				if (entries.size() > minCapacity && prop != null) {
-					List<Entry> copy = new ArrayList<>(entries.values());
-					long now = System.currentTimeMillis();
-					Predicate<Evicting<?, ?>.Entry> predicate = e -> now - prop.applyAsLong(e) > threshold;
-					copy.stream().limit(copy.size() - minCapacity).filter(predicate).forEach(Entry::evict);
-				}
-			}
-
-			private void evictRemaining() {
+			private void evictOverCapacity() {
 				if (entries.size() > maxCapacity) {
 					List<Entry> copy = new ArrayList<>(entries.values());
 					ToLongFunction<Evicting<?, ?>.Entry> prop = strategy.property;
 					if (prop != null) {
 						copy.sort((e1, e2) -> Long.compareUnsigned(prop.applyAsLong(e1), prop.applyAsLong(e2)));
 					}
-					copy.stream().limit(copy.size() - maxCapacity).forEach(Entry::evict);
+					Predicate<Entry> predicate = Entry::isEvictable;
+					copy.stream().filter(predicate).limit(copy.size() - maxCapacity).forEach(Entry::evict);
+				}
+			}
+
+			private void evictOverThreshold() {
+				ToLongFunction<Evicting<?, ?>.Entry> prop = strategy.property;
+				if (entries.size() > minCapacity && prop != null) {
+					List<Entry> copy = new ArrayList<>(entries.values());
+					long now = System.currentTimeMillis();
+					Predicate<Entry> predicate = Entry::isEvictable;
+					predicate = predicate.and(e -> now - prop.applyAsLong(e) > threshold);
+					copy.stream().filter(predicate).limit(copy.size() - minCapacity).forEach(Entry::evict);
 				}
 			}
 
@@ -382,16 +410,16 @@ public interface Cache<K, V> {
 
 			@Override
 			void release(V value) {
-				evictMatching();
-				evictRemaining();
 				Entry entry = entries.get(value);
 				if (entry != null) {
-					entry.touch();
-					delegate.release(value);
+					entry.release();
 				}
+				evictOverThreshold();
+				evictOverCapacity();
 			}
 
-			public Evicting<K, V> whenOlderThan(long duration, TimeUnit unit) {
+			public Evicting<K, V> whenThresholdReached(long duration, TimeUnit unit) {
+				Require.that(strategy != EvictStrategy.ANY);
 				long thresholdInMillis = unit.toMillis(duration);
 				return new Evicting<>(delegate, strategy, minCapacity, maxCapacity, thresholdInMillis);
 			}
@@ -406,6 +434,89 @@ public interface Cache<K, V> {
 
 			public Evicting<K, V> withMinimumCapacity(int capacity) {
 				return new Evicting<>(delegate, strategy, capacity, maxCapacity, threshold);
+			}
+		}
+
+		public static class Listening<K, V> extends Decorating<K, V> {
+
+			private final Access<K, V> delegate;
+			private final List<Listener<? super V>> listeners;
+
+			Listening(Access<K, V> delegate) {
+				this.delegate = Require.nonNull(delegate);
+				this.listeners = Collections.emptyList();
+			}
+
+			private Listening(Listening<K, V> copy, Listener<? super V> listener) {
+				this.delegate = copy.delegate;
+				this.listeners = new ArrayList<>(copy.listeners.size() + 1);
+				this.listeners.addAll(copy.listeners);
+				this.listeners.add(Require.nonNull(listener));
+			}
+
+			@Override
+			V acquire(K key, TSupplier<? extends V> supplier, long timeoutInMillis) {
+				V value = delegate.acquire(key, supplier, timeoutInMillis);
+				listeners.forEach(l -> l.onAcquired(value));
+				return value;
+			}
+
+			public Listening<K, V> acquired(Consumer<? super V> listener) {
+				Require.nonNull(listener);
+				return lifecycle(new Listener<V>() {
+
+					@Override
+					public void onAcquired(V value) {
+						listener.accept(value);
+					}
+				});
+			}
+
+			@Override
+			boolean evict(K key, V value) {
+				if (delegate.evict(key, value)) {
+					listeners.forEach(l -> l.onEvicted(value));
+					return true;
+				} else {
+					return false;
+				}
+			}
+
+			public Listening<K, V> evicted(Consumer<? super V> listener) {
+				Require.nonNull(listener);
+				return lifecycle(new Listener<V>() {
+
+					@Override
+					public void onEvicted(V value) {
+						listener.accept(value);
+					}
+				});
+			}
+
+			@Override
+			NavigableSet<K> keys() {
+				return delegate.keys();
+			}
+
+			public Listening<K, V> lifecycle(Listener<? super V> listener) {
+				return new Listening<>(this, listener);
+			}
+
+			@Override
+			void release(V value) {
+				listeners.forEach(l -> l.onReleased(value));
+				delegate.release(value);
+			}
+
+			public Listening<K, V> released(Consumer<? super V> listener) {
+				Require.nonNull(listener);
+				return lifecycle(new Listener<V>() {
+
+					@Override
+					public void onReleased(V value) {
+						listener.accept(value);
+					}
+				});
 			}
 		}
 
@@ -480,6 +591,7 @@ public interface Cache<K, V> {
 		KeyLookupStrategy HIGHER = NavigableSet::higher;
 		KeyLookupStrategy FLOOR = NavigableSet::floor;
 		KeyLookupStrategy LOWER = NavigableSet::lower;
+		KeyLookupStrategy RANDOM = KeyLookupStrategy::random;
 
 		static <K> K equals(NavigableSet<K> keys, K key) {
 			return keys.contains(key) ? key : null;
@@ -493,11 +605,27 @@ public interface Cache<K, V> {
 			return keys.isEmpty() ? null : keys.last();
 		}
 
+		static <K> K random(NavigableSet<K> keys, K key) {
+			return keys.isEmpty() ? null : new ArrayList<>(keys).get(ThreadLocalRandom.current().nextInt(keys.size()));
+		}
+
 		<K> K apply(NavigableSet<K> keys, K key);
 
 		default <K> K find(NavigableSet<K> keys, K key) {
 			K found = apply(keys, key);
 			return found != null ? found : key;
+		}
+	}
+
+	interface Listener<V> {
+
+		default void onAcquired(V value) {
+		}
+
+		default void onEvicted(V value) {
+		}
+
+		default void onReleased(V value) {
 		}
 	}
 
@@ -507,7 +635,7 @@ public interface Cache<K, V> {
 		private final Consumer<V> releaser;
 
 		<K> Pool(ReadThrough<K, V> delegate, K key) {
-			Require.nonNullElements(delegate, key);
+			Require.nonNull(delegate);
 			this.acquirer = timeout -> delegate.acquire(key, timeout);
 			this.releaser = delegate::release;
 		}
@@ -555,11 +683,15 @@ public interface Cache<K, V> {
 	}
 
 	static <K extends Comparable<K>, V> Exclusive<K, V> exclusive(Function<? super V, ? extends K> keyedBy) {
-		return new Exclusive<>(Comparable::compareTo, keyedBy, Object::getClass);
+		return new Exclusive<>(Comparable::compareTo, keyedBy);
 	}
 
 	static <K, V> Exclusive<K, V> exclusive(Function<? super V, ? extends K> keyedBy, Comparator<K> keyComparator) {
-		return new Exclusive<>(keyComparator, keyedBy, Object::getClass);
+		return new Exclusive<>(keyComparator, keyedBy);
+	}
+
+	static <V> Exclusive<Integer, V> exclusiveOnIdentity() {
+		return new Exclusive<>(Comparable::compareTo, Object::hashCode);
 	}
 
 	static <K extends Comparable<K>, V> Shared<K, V> shared() {

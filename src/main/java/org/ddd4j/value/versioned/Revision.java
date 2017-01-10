@@ -7,12 +7,14 @@ import org.ddd4j.value.Value;
 
 public class Revision implements Value<Revision> {
 
+	public static final long UNKNOWN_OFFSET = -1;
+
 	private final int partition;
 	private final long offset;
 
 	public Revision(int partition, long offset) {
-		this.partition = partition;
-		this.offset = offset;
+		this.partition = Require.that(partition, partition >= 0);
+		this.offset = Require.that(offset, offset != UNKNOWN_OFFSET);
 	}
 
 	public Revision(ReadBuffer buffer) {
@@ -27,7 +29,7 @@ public class Revision implements Value<Revision> {
 		return offset;
 	}
 
-	public Revision increment(long increment) {
+	public Revision increment(int increment) {
 		return next(offset + increment);
 	}
 
