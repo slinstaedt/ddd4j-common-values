@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.source.kafka;
+package org.ddd4j.infrastructure.pipe.kafka;
 
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
@@ -21,10 +21,10 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.pipe.HotSource;
+import org.ddd4j.infrastructure.pipe.Subscriber;
 import org.ddd4j.infrastructure.scheduler.LoopedTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
-import org.ddd4j.infrastructure.source.HotSource;
-import org.ddd4j.infrastructure.source.Subscriber;
 import org.ddd4j.value.versioned.Revisions;
 
 public class KafkaHotSource implements HotSource, LoopedTask, ConsumerRebalanceListener {

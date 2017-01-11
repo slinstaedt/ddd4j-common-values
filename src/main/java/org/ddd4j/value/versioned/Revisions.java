@@ -52,7 +52,7 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 	}
 
 	public int partition(Object key) {
-		return key.hashCode() % offsets.length;
+		return Math.abs(key.hashCode()) % offsets.length;
 	}
 
 	public Revision revision(int partition) {

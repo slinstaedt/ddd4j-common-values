@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.source;
+package org.ddd4j.infrastructure.pipe;
 
 import org.ddd4j.io.buffer.Bytes;
 import org.ddd4j.value.versioned.Committed;

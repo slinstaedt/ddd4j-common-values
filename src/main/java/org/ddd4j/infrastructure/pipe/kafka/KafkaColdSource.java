@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.source.kafka;
+package org.ddd4j.infrastructure.pipe.kafka;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -20,10 +20,10 @@ import org.ddd4j.collection.Cache;
 import org.ddd4j.collection.Cache.Decorating.Evicting.EvictStrategy;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.pipe.ColdSource;
+import org.ddd4j.infrastructure.pipe.Subscriber;
 import org.ddd4j.infrastructure.scheduler.LoopedTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
-import org.ddd4j.infrastructure.source.ColdSource;
-import org.ddd4j.infrastructure.source.Subscriber;
 import org.ddd4j.io.buffer.Bytes;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
@@ -31,12 +31,12 @@ import org.ddd4j.value.versioned.Revisions;
 
 public class KafkaColdSource implements ColdSource {
 
-	public static Committed<Bytes, Bytes> convert(ConsumerRecord<byte[], byte[]> r) {
-		Bytes key = Bytes.wrap(r.key());
-		Bytes value = Bytes.wrap(r.value());
-		Revision actual = new Revision(r.partition(), r.offset());
+	public static Committed<Bytes, Bytes> convert(ConsumerRecord<byte[], byte[]> record) {
+		Bytes key = Bytes.wrap(record.key());
+		Bytes value = Bytes.wrap(record.value());
+		Revision actual = new Revision(record.partition(), record.offset());
 		Revision expected = actual.increment(1);
-		ZonedDateTime timestamp = Instant.ofEpochMilli(r.timestamp()).atZone(ZoneOffset.UTC);
+		ZonedDateTime timestamp = Instant.ofEpochMilli(record.timestamp()).atZone(ZoneOffset.UTC);
 		return new Committed<>(key, value, actual, expected, timestamp);
 	}
 

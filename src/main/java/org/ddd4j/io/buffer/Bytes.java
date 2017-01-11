@@ -13,6 +13,8 @@ import org.ddd4j.value.Throwing;
 
 public abstract class Bytes implements IndexedBytes, AutoCloseable {
 
+	private static final int HASH_SEED = 0x9747b28c;
+
 	public static final Bytes NULL = new Bytes() {
 
 		@Override
@@ -318,12 +320,41 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 
 	@Override
 	public int hashCode() {
-		int hash = 1;
 		int length = length();
-		for (int i = 0; i < length; i++) {
-			hash = 31 * hash + get(i);
+		// 'm' and 'r' are mixing constants generated offline.
+		// They're not really 'magic', they just happen to work well.
+		final int m = 0x5bd1e995;
+		final int r = 24;
+
+		// Initialize the hash to a random value
+		int h = HASH_SEED ^ length;
+		int length4 = length / 4;
+
+		for (int i = 0; i < length4; i++) {
+			int k = getInt(i * 4);
+			k *= m;
+			k ^= k >>> r;
+			k *= m;
+			h *= m;
+			h ^= k;
 		}
-		return hash;
+
+		// Handle the last few bytes of the input array
+		switch (length % 4) {
+		case 3:
+			h ^= (get((length & ~3) + 2) & 0xff) << 16;
+		case 2:
+			h ^= (get((length & ~3) + 1) & 0xff) << 8;
+		case 1:
+			h ^= get(length & ~3) & 0xff;
+			h *= m;
+		}
+
+		h ^= h >>> 13;
+		h *= m;
+		h ^= h >>> 15;
+
+		return h;
 	}
 
 	public abstract int length();
