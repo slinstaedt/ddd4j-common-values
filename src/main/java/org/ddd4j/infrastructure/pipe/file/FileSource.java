@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.log.file;
+package org.ddd4j.infrastructure.pipe.file;
 
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
@@ -12,6 +12,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -23,9 +24,10 @@ import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.collection.Cache.Pool;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.Result;
-import org.ddd4j.infrastructure.log.Log;
-import org.ddd4j.infrastructure.scheduler.ColdSource;
+import org.ddd4j.infrastructure.pipe.ColdSource;
+import org.ddd4j.infrastructure.pipe.Subscriber;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.Bytes;
 import org.ddd4j.io.buffer.ReadBuffer;
@@ -36,7 +38,7 @@ import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Uncommitted;
 
-public class FileLog implements Log<ReadBuffer, ReadBuffer>, ColdSource<Committed<ReadBuffer, Seq<ReadBuffer>>> {
+public class FileSource implements ColdSource {
 
 	private class FileConnection implements Connection<Committed<ReadBuffer, Seq<ReadBuffer>>> {
 
@@ -82,33 +84,28 @@ public class FileLog implements Log<ReadBuffer, ReadBuffer>, ColdSource<Committe
 	private int partition;
 	private AtomicLong currentOffset;
 
-	public FileLog(Scheduler scheduler, Pool<ByteBuffer> bufferPool, Path file) throws IOException {
+	public FileSource(Scheduler scheduler, Pool<ByteBuffer> bufferPool, Path file) throws IOException {
 		this.scheduler = Require.nonNull(scheduler);
 		this.bufferPool = Require.nonNull(bufferPool);
 		this.channel = FileChannel.open(file, OPEN_OPTIONS);
 	}
 
-	@Override
 	public void closeChecked() throws Exception {
 		channel.close();
 	}
 
-	@Override
 	public Revisions currentRevisions() throws Exception {
 		return Revisions.initial(1).next(0, currentOffset.get());
 	}
 
-	@Override
 	public Cursor<Committed<ReadBuffer, Seq<ReadBuffer>>> open() throws Exception {
 		return new FileConnection().toCursor();
 	}
 
-	@Override
 	public Result<Committed<ReadBuffer, Seq<ReadBuffer>>> publisher(Revisions startAt, boolean completeOnEnd) {
 		return scheduler.createResult(this, startAt, completeOnEnd);
 	}
 
-	@Override
 	public Outcome<CommitResult<ReadBuffer, Seq<ReadBuffer>>> tryCommit(Uncommitted<ReadBuffer, Seq<ReadBuffer>> attempt) {
 		try {
 			Revisions actual = new Revisions(channel.size(), partition);
@@ -120,5 +117,11 @@ public class FileLog implements Log<ReadBuffer, ReadBuffer>, ColdSource<Committe
 		} catch (IOException e) {
 			return scheduler.failedOutcome(e);
 		}
+	}
+
+	@Override
+	public void load(ResourceDescriptor descriptor, Subscriber subscriber) throws Exception {
+		// TODO Auto-generated method stub
+
 	}
 }

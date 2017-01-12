@@ -22,6 +22,11 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		this.offsets = Arrays.copyOf(offsets, offsets.length);
 	}
 
+	public Revisions(Seq<Revision> revisions) {
+		this(revisions.stream().mapToInt(Revision::getPartition).max().orElse(0));
+		revisions.forEach(r -> offsets[r.getPartition()] = r.getOffset());
+	}
+
 	@Override
 	public int compareTo(Revisions other) {
 		Require.that(this.offsets.length == other.offsets.length);

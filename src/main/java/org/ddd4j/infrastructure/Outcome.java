@@ -14,8 +14,8 @@ import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
+import org.ddd4j.value.Throwing.Supplier;
 import org.ddd4j.value.Throwing.TFunction;
-import org.ddd4j.value.Throwing.TSupplier;
 
 @FunctionalInterface
 public interface Outcome<T> {
@@ -32,7 +32,7 @@ public interface Outcome<T> {
 
 		@Override
 		public <X> Stage<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
-			return ofStage(executor, fn.apply(executor, future));
+			return staged(executor, fn.apply(executor, future));
 		}
 
 		public void complete(T value, Throwable exception) {
@@ -303,7 +303,7 @@ public interface Outcome<T> {
 		return new CompletableOutcome<>(executor);
 	}
 
-	static <T> Outcome<T> ofEager(Executor executor, TSupplier<T> supplier) {
+	static <T> Outcome<T> ofEager(Executor executor, Supplier<T> supplier) {
 		CompletableFuture<T> supplied = CompletableFuture.supplyAsync(supplier, executor);
 		return of(executor, supplied);
 	}
@@ -314,7 +314,7 @@ public interface Outcome<T> {
 		return of(executor, future);
 	}
 
-	static <T> Outcome<T> ofLazy(Executor executor, TSupplier<T> supplier) {
+	static <T> Outcome<T> ofLazy(Executor executor, Supplier<T> supplier) {
 		Require.nonNullElements(executor, supplier);
 		return new Outcome<T>() {
 
@@ -326,13 +326,13 @@ public interface Outcome<T> {
 		};
 	}
 
-	static <T> Stage<T> ofStage(Executor executor, CompletionStage<T> stage) {
+	static <T> Stage<T> staged(Executor executor, CompletionStage<T> stage) {
 		Require.nonNullElements(executor, stage);
 		return new Stage<T>() {
 
 			@Override
 			public <X> Stage<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
-				return ofStage(executor, fn.apply(executor, stage));
+				return staged(executor, fn.apply(executor, stage));
 			}
 		};
 	}

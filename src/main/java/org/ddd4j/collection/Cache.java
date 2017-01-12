@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Queue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
@@ -23,10 +24,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.function.ToLongFunction;
+import java.util.function.UnaryOperator;
 
 import org.ddd4j.collection.Cache.Access.Exclusive;
 import org.ddd4j.collection.Cache.Access.Shared;
@@ -35,9 +35,11 @@ import org.ddd4j.collection.Cache.Decorating.Evicting;
 import org.ddd4j.collection.Cache.Decorating.Evicting.EvictStrategy;
 import org.ddd4j.collection.Cache.Decorating.Listening;
 import org.ddd4j.collection.Cache.Decorating.Retrying;
+import org.ddd4j.collection.Cache.Decorating.Wrapped;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
-import org.ddd4j.value.Throwing.TSupplier;
+import org.ddd4j.value.Throwing.Supplier;
+import org.ddd4j.value.collection.Tpl;
 
 public interface Cache<K, V> {
 
@@ -56,7 +58,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, TSupplier<? extends V> supplier, long timeoutInMillis) {
+			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
 				V value = null;
 				Queue<V> queue = pool.get(key);
 				if (queue != null) {
@@ -65,7 +67,7 @@ public interface Cache<K, V> {
 						unusedQueues.offer(queue);
 					}
 				}
-				return value != null ? value : supplier.get();
+				return value != null ? value : factory.get().getRight();
 			}
 
 			private Queue<V> enqueue(Queue<V> queue, V value) {
@@ -98,8 +100,8 @@ public interface Cache<K, V> {
 
 		public static class Shared<K, V> extends Access<K, V> {
 
-			private final ConcurrentNavigableMap<K, Future<V>> singletons;
-			private final ConcurrentMap<V, Future<V>> futures;
+			private final ConcurrentNavigableMap<K, Future<? extends V>> singletons;
+			private final ConcurrentMap<V, Future<? extends V>> futures;
 
 			Shared(Comparator<? super K> comparator) {
 				this.singletons = new ConcurrentSkipListMap<>(comparator);
@@ -107,10 +109,10 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, TSupplier<? extends V> supplier, long timeoutInMillis) {
-				Future<V> f = singletons.get(key);
+			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
+				Future<? extends V> f = singletons.get(key);
 				if (f == null) {
-					FutureTask<V> task = new FutureTask<>(supplier::getChecked);
+					FutureTask<? extends V> task = new FutureTask<>(factory.map(Tpl::getRight));
 					f = singletons.putIfAbsent(key, task);
 					if (f == null) {
 						f = task;
@@ -132,7 +134,7 @@ public interface Cache<K, V> {
 
 			@Override
 			boolean evict(K key, V value) {
-				Future<V> future = futures.remove(value);
+				Future<? extends V> future = futures.remove(value);
 				return future != null ? singletons.remove(key, future) : false;
 			}
 
@@ -146,7 +148,7 @@ public interface Cache<K, V> {
 			}
 		}
 
-		abstract V acquire(K key, TSupplier<? extends V> supplier, long timeoutInMillis);
+		abstract V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis);
 
 		public Access<K, V> blockOn(int capacity, boolean fair) {
 			return new Blocking<>(this, capacity, fair);
@@ -166,15 +168,19 @@ public interface Cache<K, V> {
 
 		public Pool<V> lookupRandomValues(Supplier<? extends V> factory) {
 			Require.nonNull(factory);
-			return new Aside<>(this, KeyLookupStrategy.RANDOM).withFactory(nil -> factory.get()).pooledBy(null);
+			return lookupValues(KeyLookup.RANDOM).withFactory(nil -> factory.get()).pooledBy(null);
 		}
 
-		public Aside<K, V> lookupValues(KeyLookupStrategy keyLookup) {
-			return new Aside<>(this, keyLookup);
+		public Aside<K, V> lookupValues(KeyLookup keyLookup) {
+			return lookupValues(keyLookup, UnaryOperator.identity());
+		}
+
+		public Aside<K, V> lookupValues(KeyLookup keyLookup, UnaryOperator<K> keyAdapter) {
+			return new Aside<>(this, keyLookup, keyAdapter);
 		}
 
 		public Aside<K, V> lookupValuesWithEqualKeys() {
-			return new Aside<>(this, KeyLookupStrategy.EQUALS);
+			return lookupValues(KeyLookup.EQUALS);
 		}
 
 		public Listening<K, V> on() {
@@ -186,34 +192,45 @@ public interface Cache<K, V> {
 		public Retrying<K, V> retry() {
 			return new Retrying<>(this, 0, Long.MAX_VALUE);
 		}
+
+		<T> Access<K, T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
+			return new Wrapped<>(this, wrapper, unwrapper);
+		}
 	}
 
 	class Aside<K, V> implements Cache<K, V> {
 
-		private final Access<K, V> access;
-		private final KeyLookupStrategy keyLookup;
+		private final Access<K, V> delegate;
+		private final KeyLookup keyLookup;
+		private final UnaryOperator<K> keyAdapter;
 
-		Aside(Access<K, V> access, KeyLookupStrategy keyLookup) {
-			this.access = Require.nonNull(access);
+		Aside(Access<K, V> delegate, KeyLookup keyLookup, UnaryOperator<K> keyAdapter) {
+			this.delegate = Require.nonNull(delegate);
 			this.keyLookup = Require.nonNull(keyLookup);
+			this.keyAdapter = Require.nonNull(keyAdapter);
 		}
 
-		public V acquire(K key, TSupplier<? extends V> supplier) {
-			return acquire(key, supplier, Long.MAX_VALUE);
+		public V acquire(K key, Factory<? super K, ? extends V> factory) {
+			return acquire(key, factory, Long.MAX_VALUE);
 		}
 
-		public V acquire(K key, TSupplier<? extends V> supplier, long timeoutInMillis) {
-			K effectiveKey = keyLookup.find(access.keys(), key);
-			return access.acquire(effectiveKey, supplier, timeoutInMillis);
+		public V acquire(K key, Factory<? super K, ? extends V> factory, long timeoutInMillis) {
+			K effectiveKey = keyLookup.findOrDefault(delegate.keys(), key);
+			return delegate.acquire(effectiveKey, () -> Tpl.of(key, factory.newInstance(key)), timeoutInMillis);
 		}
 
 		@Override
 		public void release(V value) {
-			access.release(value);
+			delegate.release(value);
 		}
 
 		public ReadThrough<K, V> withFactory(Factory<? super K, ? extends V> factory) {
 			return new ReadThrough<>(this, factory);
+		}
+
+		@Override
+		public <T> Aside<K, T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
+			return new Aside<>(delegate.wrapEntries(wrapper, unwrapper), keyLookup, keyAdapter);
 		}
 	}
 
@@ -230,7 +247,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, TSupplier<? extends V> supplier, long timeoutInMillis) {
+			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
 				final long started = System.currentTimeMillis();
 				V value = null;
 				long waitInMillis;
@@ -239,7 +256,7 @@ public interface Cache<K, V> {
 					try {
 						if (semaphore.tryAcquire(waitInMillis, TimeUnit.MILLISECONDS)) {
 							waitInMillis = timeoutInMillis + started - System.currentTimeMillis();
-							value = delegate.acquire(key, supplier, waitInMillis);
+							value = delegate.acquire(key, factory, waitInMillis);
 							if (value == null) {
 								semaphore.release();
 							}
@@ -364,8 +381,8 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, TSupplier<? extends V> supplier, long timeoutInMillis) {
-				return entries.get(delegate.acquire(key, () -> newValue(key, supplier), timeoutInMillis)).acquire();
+			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
+				return entries.get(delegate.acquire(key, () -> registerEntry(factory), timeoutInMillis)).acquire();
 			}
 
 			@Override
@@ -402,10 +419,10 @@ public interface Cache<K, V> {
 				return delegate.keys();
 			}
 
-			private V newValue(K key, TSupplier<? extends V> supplier) {
-				V value = supplier.get();
-				entries.put(value, new Entry(key, value));
-				return value;
+			private Tpl<K, V> registerEntry(Supplier<Tpl<K, V>> factory) {
+				Tpl<K, V> tpl = factory.get();
+				entries.put(tpl.getRight(), new Entry(tpl.getLeft(), tpl.getRight()));
+				return tpl;
 			}
 
 			@Override
@@ -455,8 +472,8 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, TSupplier<? extends V> supplier, long timeoutInMillis) {
-				V value = delegate.acquire(key, supplier, timeoutInMillis);
+			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
+				V value = delegate.acquire(key, factory, timeoutInMillis);
 				listeners.forEach(l -> l.onAcquired(value));
 				return value;
 			}
@@ -533,7 +550,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, TSupplier<? extends V> supplier, long ignoredTimeout) {
+			V acquire(K key, Supplier<Tpl<K, V>> factory, long ignoredTimeout) {
 				final long started = System.currentTimeMillis();
 				V value = null;
 				int tryCount = 0;
@@ -541,7 +558,7 @@ public interface Cache<K, V> {
 				do {
 					tryCount++;
 					waitInMillis = timeoutInMillis + started - System.currentTimeMillis();
-					value = delegate.acquire(key, supplier, waitInMillis);
+					value = delegate.acquire(key, factory, waitInMillis);
 				} while (value == null && tryCount <= maxRetries && waitInMillis > 0);
 				return value;
 			}
@@ -569,29 +586,65 @@ public interface Cache<K, V> {
 				return new Retrying<>(delegate, maxRetries, unit.toMillis(duration));
 			}
 		}
+
+		public static class Wrapped<K, V, T> extends Decorating<K, T> {
+
+			private final Access<K, V> delegate;
+			private final Function<? super V, ? extends T> wrapper;
+			private final Function<? super T, ? extends V> unwrapper;
+
+			Wrapped(Access<K, V> delegate, Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
+				this.delegate = Require.nonNull(delegate);
+				this.wrapper = Require.nonNull(wrapper);
+				this.unwrapper = Require.nonNull(unwrapper);
+			}
+
+			@Override
+			T acquire(K key, Supplier<Tpl<K, T>> factory, long timeoutInMillis) {
+				return wrapper.apply(delegate.acquire(key, factory.map(tpl -> tpl.mapRight(unwrapper)), timeoutInMillis));
+			}
+
+			@Override
+			boolean evict(K key, T value) {
+				return delegate.evict(key, unwrapper.apply(value));
+			}
+
+			@Override
+			NavigableSet<K> keys() {
+				return delegate.keys();
+			}
+
+			@Override
+			void release(T value) {
+				delegate.release(unwrapper.apply(value));
+			}
+		}
 	}
 
 	@FunctionalInterface
 	interface Factory<K, V> {
 
-		V newInstance(K key) throws Exception;
+		default <T> Factory<K, T> andThen(Function<? super V, ? extends T> mapper) {
+			return k -> mapper.apply(newInstance(k));
+		}
 
-		default TSupplier<V> supplierFor(K key) {
+		default Callable<V> callableFor(K key) {
 			return () -> newInstance(key);
 		}
+
+		V newInstance(K key) throws Exception;
 	}
 
-	@FunctionalInterface
-	interface KeyLookupStrategy {
+	interface KeyLookup {
 
-		KeyLookupStrategy EQUALS = KeyLookupStrategy::equals;
-		KeyLookupStrategy FIRST = KeyLookupStrategy::first;
-		KeyLookupStrategy LAST = KeyLookupStrategy::last;
-		KeyLookupStrategy CEILING = NavigableSet::ceiling;
-		KeyLookupStrategy HIGHER = NavigableSet::higher;
-		KeyLookupStrategy FLOOR = NavigableSet::floor;
-		KeyLookupStrategy LOWER = NavigableSet::lower;
-		KeyLookupStrategy RANDOM = KeyLookupStrategy::random;
+		KeyLookup EQUALS = KeyLookup::equals;
+		KeyLookup FIRST = KeyLookup::first;
+		KeyLookup LAST = KeyLookup::last;
+		KeyLookup CEILING = NavigableSet::ceiling;
+		KeyLookup HIGHER = NavigableSet::higher;
+		KeyLookup FLOOR = NavigableSet::floor;
+		KeyLookup LOWER = NavigableSet::lower;
+		KeyLookup RANDOM = KeyLookup::random;
 
 		static <K> K equals(NavigableSet<K> keys, K key) {
 			return keys.contains(key) ? key : null;
@@ -611,7 +664,7 @@ public interface Cache<K, V> {
 
 		<K> K apply(NavigableSet<K> keys, K key);
 
-		default <K> K find(NavigableSet<K> keys, K key) {
+		default <K> K findOrDefault(NavigableSet<K> keys, K key) {
 			K found = apply(keys, key);
 			return found != null ? found : key;
 		}
@@ -631,26 +684,31 @@ public interface Cache<K, V> {
 
 	class Pool<V> implements Cache<Void, V> {
 
-		private final LongFunction<V> acquirer;
-		private final Consumer<V> releaser;
+		private final ReadThrough<Object, V> delegate;
+		private final Object key;
 
+		@SuppressWarnings("unchecked")
 		<K> Pool(ReadThrough<K, V> delegate, K key) {
-			Require.nonNull(delegate);
-			this.acquirer = timeout -> delegate.acquire(key, timeout);
-			this.releaser = delegate::release;
+			this.delegate = (ReadThrough<Object, V>) Require.nonNull(delegate);
+			this.key = key;
 		}
 
 		public V acquire() {
-			return acquirer.apply(Long.MAX_VALUE);
+			return delegate.acquire(key);
 		}
 
 		public V acquire(long timeoutInMillis) {
-			return acquirer.apply(timeoutInMillis);
+			return delegate.acquire(key, timeoutInMillis);
 		}
 
 		@Override
 		public void release(V value) {
-			releaser.accept(value);
+			delegate.release(value);
+		}
+
+		@Override
+		public <T> Pool<T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
+			return new Pool<>(delegate.wrapEntries(wrapper, unwrapper), key);
 		}
 	}
 
@@ -665,11 +723,11 @@ public interface Cache<K, V> {
 		}
 
 		public V acquire(K key) {
-			return delegate.acquire(key, factory.supplierFor(key), Long.MAX_VALUE);
+			return delegate.acquire(key, factory, Long.MAX_VALUE);
 		}
 
 		public V acquire(K key, long timeoutInMillis) {
-			return delegate.acquire(key, factory.supplierFor(key), timeoutInMillis);
+			return delegate.acquire(key, factory, timeoutInMillis);
 		}
 
 		public Pool<V> pooledBy(K key) {
@@ -679,6 +737,11 @@ public interface Cache<K, V> {
 		@Override
 		public void release(V value) {
 			delegate.release(value);
+		}
+
+		@Override
+		public <T> ReadThrough<K, T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
+			return new ReadThrough<>(delegate.wrapEntries(wrapper, unwrapper), factory.andThen(wrapper));
 		}
 	}
 
@@ -705,6 +768,8 @@ public interface Cache<K, V> {
 	static <K, V> Aside<K, V> sharedOnEqualKey() {
 		return new Shared<K, V>((k1, k2) -> k1.equals(k2) ? 0 : (k1.hashCode() - k2.hashCode()) | 1).lookupValuesWithEqualKeys();
 	}
+
+	<T> Cache<K, T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper);
 
 	void release(V value);
 }

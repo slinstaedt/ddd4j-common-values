@@ -6,7 +6,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
 
@@ -213,7 +212,7 @@ public interface Throwing {
 	}
 
 	@FunctionalInterface
-	interface TSupplier<T> extends Supplier<T>, Callable<T> {
+	interface Supplier<T> extends java.util.function.Supplier<T>, Callable<T> {
 
 		default Supplier<Either<T, Exception>> asEither() {
 			return () -> {
@@ -251,8 +250,8 @@ public interface Throwing {
 
 		T getChecked() throws Exception;
 
-		default <X> TSupplier<X> map(TFunction<? super T, X> mapper) {
-			return () -> mapper.applyChecked(getChecked());
+		default <X> Supplier<X> map(Function<? super T, ? extends X> mapper) {
+			return () -> mapper.apply(getChecked());
 		}
 	}
 
@@ -284,7 +283,7 @@ public interface Throwing {
 		return Require.nonNull(consumer);
 	}
 
-	static <T> TSupplier<T> supplied(TSupplier<T> supplier) {
+	static <T> Supplier<T> supplied(Supplier<T> supplier) {
 		return Require.nonNull(supplier);
 	}
 
@@ -314,7 +313,7 @@ public interface Throwing {
 		return (t) -> throwChecked(t);
 	}
 
-	default <T> TSupplier<T> asSupplier() {
+	default <T> Supplier<T> asSupplier() {
 		return () -> throwChecked();
 	}
 

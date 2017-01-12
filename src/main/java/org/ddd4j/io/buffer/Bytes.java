@@ -500,6 +500,12 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		};
 	}
 
+	public byte[] toByteArray() {
+		byte[] result = new byte[length()];
+		get(0, result);
+		return result;
+	}
+
 	public int writeTo(int index, int amount, WritableByteChannel channel) throws IOException {
 		int totalRead = 0;
 		ByteBuffer buf = ByteBuffer.allocate(1024);

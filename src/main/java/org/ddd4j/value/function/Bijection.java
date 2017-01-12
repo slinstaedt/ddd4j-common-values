@@ -5,15 +5,17 @@ import java.util.function.Function;
 import org.ddd4j.value.collection.Tpl;
 
 @FunctionalInterface
-public interface Bijection<T, R> {
+public interface Bijection<L, R> extends Tpl<Function<? super L, ? extends R>, Function<? super R, ? extends L>> {
 
-	default R apply1(T t) {
-		return projections().foldLeft(f -> f.apply(t));
+	static <L, R> Bijection<L, R> of(Function<? super L, ? extends R> left2right, Function<? super R, ? extends L> right2left) {
+		return Tpl.of(left2right, right2left)::fold;
 	}
 
-	default T apply2(R r) {
-		return projections().foldRight(f -> f.apply(r));
+	default R applyToLeft(L left) {
+		return foldLeft(f -> f.apply(left));
 	}
 
-	Tpl<Function<T, R>, Function<R, T>> projections();
+	default L applyToRigth(R right) {
+		return foldRight(f -> f.apply(right));
+	}
 }

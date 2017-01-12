@@ -1,13 +1,13 @@
 package org.ddd4j.infrastructure.scheduler;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing.TClosable;
+import org.ddd4j.value.Throwing.Closeable;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Revision;
 
 public interface ColdSource<T> {
 
-	interface Connection<T> extends TClosable {
+	interface Connection<T> extends Closeable {
 
 		Seq<T> request(Revision position, int n) throws Exception;
 
@@ -16,7 +16,7 @@ public interface ColdSource<T> {
 		}
 	}
 
-	interface Cursor<T> extends TClosable {
+	interface Cursor<T> extends Closeable {
 
 		void position(Revision position) throws Exception;
 

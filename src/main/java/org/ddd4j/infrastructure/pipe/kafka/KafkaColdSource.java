@@ -63,7 +63,7 @@ public class KafkaColdSource implements ColdSource {
 
 		@Override
 		public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
-			Revisions revisions = subscriber.loadRevisions();
+			Revisions revisions = new Revisions(subscriber.loadRevisions());
 			partitions.forEach(p -> client.seek(p, revisions.offset(p.partition())));
 		}
 

@@ -73,7 +73,7 @@ public class KafkaHotSource implements HotSource, LoopedTask, ConsumerRebalanceL
 	public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
 		for (TopicPartition tp : partitions) {
 			for (Entry<Subscriber, Revisions> entry : subscriptions.getOrDefault(tp.topic(), Collections.emptyMap()).entrySet()) {
-				entry.setValue(entry.getKey().loadRevisions());
+				entry.setValue(new Revisions(entry.getKey().loadRevisions()));
 			}
 		}
 	}

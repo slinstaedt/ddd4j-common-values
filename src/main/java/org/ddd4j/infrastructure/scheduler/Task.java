@@ -27,7 +27,7 @@ public class Task<T, R> implements Future<R>, Outcome.Stage<R> {
 
 	@Override
 	public <X> Outcome.Stage<X> apply(BiFunction<Executor, CompletionStage<R>, CompletionStage<X>> fn) {
-		return Outcome.ofStage(executor, fn.apply(executor, future));
+		return Outcome.staged(executor, fn.apply(executor, future));
 	}
 
 	@Override
