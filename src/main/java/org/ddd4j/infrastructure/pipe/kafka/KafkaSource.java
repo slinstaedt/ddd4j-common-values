@@ -64,6 +64,7 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 
 		void onError(Throwable throwable) {
 			subscriber.onError(throwable);
+			unsubscribe(topic, subscriber);
 		}
 
 		void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
@@ -161,14 +162,18 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 	}
 
 	@Override
-	public void read(ResourceDescriptor descriptor, Subscriber subscriber) throws Exception {
-		// TODO
+	public void read(ResourceDescriptor descriptor, Subscriber subscriber) {
+		register(descriptor, subscriber, true);
+	}
+
+	private void register(ResourceDescriptor descriptor, Subscriber subscriber, boolean checkEndOfStream) {
+		String topic = descriptor.value();
+		subscriptions.computeIfAbsent(topic, this::subscribeTo).computeIfAbsent(subscriber, s -> new KafkaSubscription(topic, s, checkEndOfStream));
 	}
 
 	@Override
 	public void subscribe(ResourceDescriptor descriptor, Subscriber subscriber) {
-		String topic = descriptor.value();
-		subscriptions.computeIfAbsent(topic, this::subscribeTo).computeIfAbsent(subscriber, s -> new KafkaSubscription(topic, s, false));
+		register(descriptor, subscriber, false);
 	}
 
 	private Map<Subscriber, KafkaSubscription> subscribeTo(String topic) {

@@ -7,14 +7,14 @@ import org.ddd4j.io.buffer.Bytes;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Uncommitted;
 
-public interface Sink {
+public interface ColdSink {
 
 	interface Committer {
 
 		Outcome<CommitResult<Bytes, Bytes>> tryCommit(Uncommitted<Bytes, Bytes> attempt);
 	}
 
-	default Committer createCommitter(ResourceDescriptor descriptor) {
+	default Committer committer(ResourceDescriptor descriptor) {
 		Require.nonNull(descriptor);
 		return attempt -> tryCommit(descriptor, attempt);
 	}

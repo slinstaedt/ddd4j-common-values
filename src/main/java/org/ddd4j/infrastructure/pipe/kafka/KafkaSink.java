@@ -13,13 +13,16 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Outcome;
 import org.ddd4j.infrastructure.Outcome.CompletableOutcome;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.pipe.Sink;
+import org.ddd4j.infrastructure.pipe.ColdSink;
+import org.ddd4j.infrastructure.pipe.HotSink;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.Bytes;
+import org.ddd4j.io.buffer.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;
+import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Uncommitted;
 
-public class KafkaSink implements Sink {
+public class KafkaSink implements ColdSink, HotSink {
 
 	public static ProducerRecord<byte[], byte[]> convert(String topic, Uncommitted<Bytes, Bytes> record) {
 		int partition = record.getExpected().getPartition();
@@ -55,5 +58,11 @@ public class KafkaSink implements Sink {
 			}
 		});
 		return outcome;
+	}
+
+	@Override
+	public void publish(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+		ProducerRecord<byte[], byte[]> record = convert(topic.value(), committed);
+		client.send(record);
 	}
 }
