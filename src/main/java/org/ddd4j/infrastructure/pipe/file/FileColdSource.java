@@ -38,7 +38,7 @@ import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Uncommitted;
 
-public class FileSource implements ColdSource {
+public class FileColdSource implements ColdSource {
 
 	private class FileConnection implements Connection<Committed<ReadBuffer, Seq<ReadBuffer>>> {
 
@@ -84,7 +84,7 @@ public class FileSource implements ColdSource {
 	private int partition;
 	private AtomicLong currentOffset;
 
-	public FileSource(Scheduler scheduler, Pool<ByteBuffer> bufferPool, Path file) throws IOException {
+	public FileColdSource(Scheduler scheduler, Pool<ByteBuffer> bufferPool, Path file) throws IOException {
 		this.scheduler = Require.nonNull(scheduler);
 		this.bufferPool = Require.nonNull(bufferPool);
 		this.channel = FileChannel.open(file, OPEN_OPTIONS);

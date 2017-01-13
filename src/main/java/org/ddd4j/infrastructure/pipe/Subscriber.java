@@ -1,15 +1,13 @@
 package org.ddd4j.infrastructure.pipe;
 
-import org.ddd4j.io.buffer.Bytes;
+import org.ddd4j.io.buffer.ReadBuffer;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
-public interface Subscriber {
+public interface Subscriber extends org.reactivestreams.Subscriber<Committed<ReadBuffer, ReadBuffer>> {
 
-	Seq<Revision> loadRevisions();
-
-	void onCommitted(Committed<Bytes, Bytes> committed);
+	Seq<Revision> loadRevisions(int[] partitions);
 
 	void saveRevisions(Seq<Revision> revisions);
 }

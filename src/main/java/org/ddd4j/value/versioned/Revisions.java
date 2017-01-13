@@ -43,21 +43,16 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return offset;
 	}
 
-	public void update(Object key, long nextOffset) {
-		update(partition(key), nextOffset);
-	}
-
-	public void update(Revision revision) {
-		update(revision.getPartition(), revision.getOffset());
-	}
-
-	public void update(int partition, long nextOffset) {
-		Require.that(Long.compareUnsigned(nextOffset, offset(partition)) > 0);
-		this.offsets[partition] = nextOffset;
-	}
-
 	public int partition(Object key) {
 		return Math.abs(key.hashCode()) % offsets.length;
+	}
+
+	public boolean reachedBy(Revision revision) {
+		return offset(revision.getPartition()) >= revision.getOffset();
+	}
+
+	public boolean reachedBy(Revisions revisions) {
+		return revisions.stream().allMatch(this::reachedBy);
 	}
 
 	public Revision revision(int partition) {
@@ -75,5 +70,18 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 	@Override
 	public Stream<Revision> stream() {
 		return IntStream.range(0, offsets.length).filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET).mapToObj(p -> new Revision(p, offsets[p]));
+	}
+
+	public void update(int partition, long nextOffset) {
+		Require.that(Long.compareUnsigned(nextOffset, offset(partition)) > 0);
+		this.offsets[partition] = nextOffset;
+	}
+
+	public void update(Object key, long nextOffset) {
+		update(partition(key), nextOffset);
+	}
+
+	public void update(Revision revision) {
+		update(revision.getPartition(), revision.getOffset());
 	}
 }

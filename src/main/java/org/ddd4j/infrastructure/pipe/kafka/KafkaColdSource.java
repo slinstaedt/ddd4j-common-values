@@ -1,8 +1,5 @@
 package org.ddd4j.infrastructure.pipe.kafka;
 
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -26,19 +23,9 @@ import org.ddd4j.infrastructure.scheduler.LoopedTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.Bytes;
 import org.ddd4j.value.versioned.Committed;
-import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
 
 public class KafkaColdSource implements ColdSource {
-
-	public static Committed<Bytes, Bytes> convert(ConsumerRecord<byte[], byte[]> record) {
-		Bytes key = Bytes.wrap(record.key());
-		Bytes value = Bytes.wrap(record.value());
-		Revision actual = new Revision(record.partition(), record.offset());
-		Revision expected = actual.increment(1);
-		ZonedDateTime timestamp = Instant.ofEpochMilli(record.timestamp()).atZone(ZoneOffset.UTC);
-		return new Committed<>(key, value, actual, expected, timestamp);
-	}
 
 	private class Reader implements LoopedTask, ConsumerRebalanceListener, AutoCloseable {
 

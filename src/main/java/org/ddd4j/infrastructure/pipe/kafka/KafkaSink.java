@@ -46,9 +46,9 @@ public class KafkaSink implements Sink {
 			@Override
 			public void onCompletion(RecordMetadata metadata, Exception exception) {
 				if (metadata != null) {
-					long offset = metadata.offset();
+					long nextExpected = metadata.offset() + 1;
 					ZonedDateTime timestamp = Instant.ofEpochMilli(metadata.timestamp()).atZone(ZoneOffset.UTC);
-					outcome.completeSuccessfully(attempt.committed(offset, timestamp));
+					outcome.completeSuccessfully(attempt.committed(nextExpected, timestamp));
 				} else {
 					outcome.completeExceptionally(exception);
 				}
