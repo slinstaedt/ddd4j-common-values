@@ -74,6 +74,10 @@ public interface ReadBuffer extends RelativeBuffer {
 		return builder;
 	}
 
+	default int hash() {
+		return bytes().hash(position(), remaining());
+	}
+
 	@Override
 	ReadBuffer limit(int newLimit);
 
@@ -90,6 +94,12 @@ public interface ReadBuffer extends RelativeBuffer {
 	ReadBuffer reset();
 
 	ReadBuffer rewind();
+
+	default byte[] toByteArray() {
+		byte[] b = new byte[remaining()];
+		bytes().get(position(), b);
+		return b;
+	}
 
 	default ReadBuffer writeTo(WritableByteChannel channel) throws IOException {
 		advancePosition(bytes().writeTo(position(), remaining(), channel));

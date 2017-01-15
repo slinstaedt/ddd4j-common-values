@@ -16,15 +16,15 @@ import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.pipe.ColdSink;
 import org.ddd4j.infrastructure.pipe.HotSink;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
-import org.ddd4j.io.buffer.Bytes;
 import org.ddd4j.io.buffer.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Uncommitted;
 
 public class KafkaSink implements ColdSink, HotSink {
 
-	public static ProducerRecord<byte[], byte[]> convert(String topic, Uncommitted<Bytes, Bytes> record) {
+	public static ProducerRecord<byte[], byte[]> convert(String topic, Recorded<ReadBuffer, ReadBuffer> record) {
 		int partition = record.getExpected().getPartition();
 		long timestamp = Clock.systemUTC().millis();
 		byte[] key = record.getKey().toByteArray();
@@ -41,8 +41,14 @@ public class KafkaSink implements ColdSink, HotSink {
 	}
 
 	@Override
-	public Outcome<CommitResult<Bytes, Bytes>> tryCommit(ResourceDescriptor topic, Uncommitted<Bytes, Bytes> attempt) {
-		CompletableOutcome<CommitResult<Bytes, Bytes>> outcome = scheduler.createCompletableOutcome();
+	public void publish(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+		ProducerRecord<byte[], byte[]> record = convert(topic.value(), committed);
+		client.send(record);
+	}
+
+	@Override
+	public Outcome<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
+		CompletableOutcome<CommitResult<ReadBuffer, ReadBuffer>> outcome = scheduler.createCompletableOutcome();
 		ProducerRecord<byte[], byte[]> record = convert(topic.value(), attempt);
 		client.send(record, new Callback() {
 
@@ -58,11 +64,5 @@ public class KafkaSink implements ColdSink, HotSink {
 			}
 		});
 		return outcome;
-	}
-
-	@Override
-	public void publish(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
-		ProducerRecord<byte[], byte[]> record = convert(topic.value(), committed);
-		client.send(record);
 	}
 }

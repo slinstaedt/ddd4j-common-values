@@ -181,26 +181,6 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	}
 
 	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		} else if (!Bytes.class.isInstance(o)) {
-			return false;
-		}
-		Bytes other = (Bytes) o;
-		if (this.length() != other.length()) {
-			return false;
-		}
-		int length = length();
-		for (int i = 0; i < length; i++) {
-			if (this.get(i) != other.get(i)) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	@Override
 	public abstract byte get(int index);
 
 	public Bytes get(int index, byte[] dst) {
@@ -318,9 +298,7 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		return builder;
 	}
 
-	@Override
-	public int hashCode() {
-		int length = length();
+	public int hash(int index, int length) {
 		// 'm' and 'r' are mixing constants generated offline.
 		// They're not really 'magic', they just happen to work well.
 		final int m = 0x5bd1e995;
@@ -328,10 +306,9 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 
 		// Initialize the hash to a random value
 		int h = HASH_SEED ^ length;
-		int length4 = length / 4;
 
-		for (int i = 0; i < length4; i++) {
-			int k = getInt(i * 4);
+		for (int i = index; i < length - 3; i += Integer.BYTES) {
+			int k = getInt(i);
 			k *= m;
 			k ^= k >>> r;
 			k *= m;

@@ -3,7 +3,6 @@ package org.ddd4j.io.buffer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 
 import org.ddd4j.contract.Require;
 
@@ -94,38 +93,8 @@ public class Buffer implements ReadBuffer, WriteBuffer {
 	}
 
 	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		} else if (!(o instanceof ByteBuffer)) {
-			return false;
-		}
-		Buffer other = (Buffer) o;
-		if (this.remaining() != other.remaining()) {
-			return false;
-		}
-		int p = this.position();
-		for (int i = this.limit() - 1; i >= p; i--) {
-			if (this.bytes.get(i) != other.bytes.get(i)) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	@Override
 	public Buffer flip() {
 		return limitTo(position);
-	}
-
-	@Override
-	public int hashCode() {
-		int h = 1;
-		int p = position();
-		for (int i = limit() - 1; i >= p; i--) {
-			h = 31 * h + bytes.get(i);
-		}
-		return h;
 	}
 
 	@Override
