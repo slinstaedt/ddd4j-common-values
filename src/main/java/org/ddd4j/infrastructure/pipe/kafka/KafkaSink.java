@@ -24,12 +24,12 @@ import org.ddd4j.value.versioned.Uncommitted;
 
 public class KafkaSink implements ColdSink, HotSink {
 
-	public static ProducerRecord<byte[], byte[]> convert(String topic, Recorded<ReadBuffer, ReadBuffer> record) {
+	public static ProducerRecord<byte[], byte[]> convert(ResourceDescriptor topic, Recorded<ReadBuffer, ReadBuffer> record) {
 		int partition = record.getExpected().getPartition();
 		long timestamp = Clock.systemUTC().millis();
 		byte[] key = record.getKey().toByteArray();
 		byte[] value = record.getValue().toByteArray();
-		return new ProducerRecord<>(topic, partition, timestamp, key, value);
+		return new ProducerRecord<>(topic.value(), partition, timestamp, key, value);
 	}
 
 	private final Scheduler scheduler;
@@ -42,15 +42,13 @@ public class KafkaSink implements ColdSink, HotSink {
 
 	@Override
 	public void publish(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
-		ProducerRecord<byte[], byte[]> record = convert(topic.value(), committed);
-		client.send(record);
+		client.send(convert(topic, committed));
 	}
 
 	@Override
 	public Outcome<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
 		CompletableOutcome<CommitResult<ReadBuffer, ReadBuffer>> outcome = scheduler.createCompletableOutcome();
-		ProducerRecord<byte[], byte[]> record = convert(topic.value(), attempt);
-		client.send(record, new Callback() {
+		client.send(convert(topic, attempt), new Callback() {
 
 			@Override
 			public void onCompletion(RecordMetadata metadata, Exception exception) {

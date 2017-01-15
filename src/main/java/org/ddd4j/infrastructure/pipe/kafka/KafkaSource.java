@@ -26,6 +26,7 @@ import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.pipe.ColdSource;
 import org.ddd4j.infrastructure.pipe.HotSource;
 import org.ddd4j.infrastructure.pipe.Subscriber;
+import org.ddd4j.infrastructure.scheduler.Actor;
 import org.ddd4j.infrastructure.scheduler.LoopedTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.Bytes;
@@ -38,7 +39,7 @@ import org.reactivestreams.Subscription;
 
 public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerRebalanceListener {
 
-	private class KafkaSubscription implements Subscription {
+	private static class KafkaSubscription implements Subscription {
 
 		private final String topic;
 		private final Subscriber subscriber;
@@ -90,6 +91,47 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 		}
 	}
 
+	private static class TopicSubscribers {
+
+		private final String topic;
+		private final Map<Subscriber, KafkaSubscription> subscribers;
+		private int partitionSize;
+
+		TopicSubscribers(String topic) {
+			this.topic = Require.nonEmpty(topic);
+			this.subscribers = new ConcurrentHashMap<>();
+		}
+
+		void loadRevisions(int[] partitions) {
+			subscribers.values().forEach(s -> s.loadRevisions(partitions));
+		}
+
+		void onError(Throwable throwable) {
+			subscribers.values().forEach(c -> c.onError(throwable));
+		}
+
+		void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
+			subscribers.values().forEach(c -> c.onNext(committed));
+		}
+
+		void read(String topic, Subscriber subscriber) {
+			subscribers.computeIfAbsent(subscriber, s -> new KafkaSubscription(topic, s, true));
+		}
+
+		void saveRevisions() {
+			subscribers.values().forEach(s -> s.saveRevisions());
+		}
+
+		void subscribe(String topic, Subscriber subscriber) {
+			subscribers.computeIfAbsent(subscriber, s -> new KafkaSubscription(topic, s, false));
+		}
+
+		boolean unsubscribe(Subscriber subscriber) {
+			subscribers.remove(subscriber);
+			return subscribers.isEmpty();
+		}
+	}
+
 	private static final ByteArrayDeserializer DESERIALIZER = new ByteArrayDeserializer();
 
 	static Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
@@ -112,11 +154,13 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 	}
 
 	private final Scheduler scheduler;
-	private final Consumer<byte[], byte[]> client;
-	private final Map<String, Map<Subscriber, KafkaSubscription>> subscriptions;
+	private final Actor<Consumer<byte[], byte[]>> actor;
+	private final KafkaConsumer<byte[], byte[]> client;
+	private final Map<String, TopicSubscribers> subscriptions;
 
 	public KafkaSource(Scheduler scheduler, Properties properties) {
 		this.scheduler = Require.nonNull(scheduler);
+		actor = scheduler.createActor(new KafkaConsumer<>(properties, DESERIALIZER, DESERIALIZER));
 		this.client = new KafkaConsumer<>(properties, DESERIALIZER, DESERIALIZER);
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
@@ -132,13 +176,15 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 	@Override
 	public void loop(long duration, TimeUnit unit) throws Exception {
 		try {
-			ConsumerRecords<byte[], byte[]> records = client.poll(unit.toMillis(duration));
-			for (ConsumerRecord<byte[], byte[]> record : records) {
-				Committed<ReadBuffer, ReadBuffer> committed = convert(record);
-				subscriptions.get(record.topic()).values().forEach(s -> s.onNext(committed));
+			if (!client.subscription().isEmpty()) {
+				ConsumerRecords<byte[], byte[]> records = client.poll(unit.toMillis(duration));
+				for (ConsumerRecord<byte[], byte[]> record : records) {
+					Committed<ReadBuffer, ReadBuffer> committed = convert(record);
+					subscriptions.get(record.topic()).onNext(committed);
+				}
 			}
 		} catch (Throwable e) {
-			subscriptions.values().stream().flatMap(m -> m.values().stream()).forEach(s -> s.onError(e));
+			subscriptions.values().forEach(s -> s.onError(e));
 		}
 	}
 
@@ -146,14 +192,14 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 	public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
 		partitions.stream().map(TopicPartition::topic).distinct().forEach(topic -> {
 			int[] p = partitions.stream().filter(tp -> tp.topic().equals(topic)).mapToInt(TopicPartition::partition).toArray();
-			subscriptions.get(topic).values().forEach(s -> s.loadRevisions(p));
+			subscriptions.get(topic).loadRevisions(p);
 		});
 	}
 
 	@Override
 	public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
 		partitions.stream().map(TopicPartition::topic).distinct().forEach(topic -> {
-			subscriptions.get(topic).values().forEach(KafkaSubscription::saveRevisions);
+			subscriptions.get(topic).saveRevisions();
 		});
 	}
 
@@ -163,34 +209,30 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 
 	@Override
 	public void read(ResourceDescriptor descriptor, Subscriber subscriber) {
-		register(descriptor, subscriber, true);
-	}
-
-	private void register(ResourceDescriptor descriptor, Subscriber subscriber, boolean checkEndOfStream) {
 		String topic = descriptor.value();
-		subscriptions.computeIfAbsent(topic, this::subscribeTo).computeIfAbsent(subscriber, s -> new KafkaSubscription(topic, s, checkEndOfStream));
+		subscriptions.computeIfAbsent(topic, this::subscribeTo).read(topic, subscriber);
 	}
 
 	@Override
 	public void subscribe(ResourceDescriptor descriptor, Subscriber subscriber) {
-		register(descriptor, subscriber, false);
+		String topic = descriptor.value();
+		subscriptions.computeIfAbsent(topic, this::subscribeTo).subscribe(topic, subscriber);
 	}
 
-	private Map<Subscriber, KafkaSubscription> subscribeTo(String topic) {
+	private TopicSubscribers subscribeTo(String topic) {
 		Set<String> topics = new HashSet<>(subscriptions.keySet());
 		topics.add(topic);
-		client.subscribe(topics, this);
-		return new ConcurrentHashMap<>();
+		actor.perform(c -> c.subscribe(topics, this));
+		return new TopicSubscribers(topic);
 	}
 
 	private void unsubscribe(String topic, Subscriber subscriber) {
-		subscriptions.computeIfPresent(topic, (t, m) -> {
-			m.remove(subscriber);
-			if (m.isEmpty()) {
-				client.subscribe(subscriptions.keySet(), this);
+		subscriptions.computeIfPresent(topic, (t, s) -> {
+			if (s.unsubscribe(subscriber)) {
+				actor.perform(c -> c.subscribe(subscriptions.keySet(), this));
 				return null;
 			} else {
-				return m;
+				return s;
 			}
 		});
 	}
