@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.pipe.file;
+package org.ddd4j.infrastructure.channel.file;
 
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
@@ -26,8 +26,8 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Outcome;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.Result;
-import org.ddd4j.infrastructure.pipe.ColdSource;
-import org.ddd4j.infrastructure.pipe.Subscriber;
+import org.ddd4j.infrastructure.channel.ColdSource;
+import org.ddd4j.infrastructure.channel.Subscriber;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.Bytes;
 import org.ddd4j.io.buffer.ReadBuffer;

@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.pipe.kafka;
+package org.ddd4j.infrastructure.channel.kafka;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -11,10 +11,10 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Outcome;
-import org.ddd4j.infrastructure.Outcome.CompletableOutcome;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.pipe.ColdSink;
-import org.ddd4j.infrastructure.pipe.HotSink;
+import org.ddd4j.infrastructure.channel.ColdSink;
+import org.ddd4j.infrastructure.channel.HotSink;
+import org.ddd4j.infrastructure.scheduler.CompletableOutcome;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;

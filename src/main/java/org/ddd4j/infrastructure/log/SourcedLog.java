@@ -1,10 +1,10 @@
 package org.ddd4j.infrastructure.log;
 
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.pipe.ColdSource;
-import org.ddd4j.infrastructure.pipe.HotSource;
-import org.ddd4j.infrastructure.pipe.HotSource.Subscription;
-import org.ddd4j.infrastructure.pipe.Subscriber;
+import org.ddd4j.infrastructure.channel.ColdSource;
+import org.ddd4j.infrastructure.channel.HotSource;
+import org.ddd4j.infrastructure.channel.Subscriber;
+import org.ddd4j.infrastructure.channel.HotSource.Subscription;
 import org.ddd4j.value.Throwing.Closeable;
 
 public class SourcedLog implements Closeable {

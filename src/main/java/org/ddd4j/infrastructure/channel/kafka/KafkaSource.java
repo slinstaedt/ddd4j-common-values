@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.pipe.kafka;
+package org.ddd4j.infrastructure.channel.kafka;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -22,12 +22,14 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.ddd4j.contract.Require;
+import org.ddd4j.infrastructure.Outcome;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.pipe.ColdSource;
-import org.ddd4j.infrastructure.pipe.HotSource;
-import org.ddd4j.infrastructure.pipe.Subscriber;
-import org.ddd4j.infrastructure.scheduler.Actor;
+import org.ddd4j.infrastructure.channel.ColdSource;
+import org.ddd4j.infrastructure.channel.HotSource;
+import org.ddd4j.infrastructure.channel.Subscriber;
+import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.LoopedTask;
+import org.ddd4j.infrastructure.scheduler.Requesting;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.Bytes;
 import org.ddd4j.io.buffer.ReadBuffer;
@@ -39,62 +41,63 @@ import org.reactivestreams.Subscription;
 
 public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerRebalanceListener {
 
-	private static class KafkaSubscription implements Subscription {
+	private class TopicSubscribers {
+
+		private class TopicSubscription implements Subscription {
+
+			private final Subscriber subscriber;
+			private final Revisions expected;
+			private final boolean checkEndOfStream;
+			private final Requesting requesting;
+
+			TopicSubscription(Subscriber subscriber, int partitionSize, boolean checkEndOfStream) {
+				this.subscriber = Require.nonNull(subscriber);
+				this.expected = new Revisions(partitionSize);
+				this.checkEndOfStream = checkEndOfStream;
+				this.requesting = new Requesting();
+				subscriber.onSubscribe(this);
+			}
+
+			@Override
+			public void cancel() {
+				KafkaSource.this.unsubscribe(topic, subscriber);
+			}
+
+			void loadRevisions(int[] partitions) {
+				subscriber.loadRevisions(partitions).forEach(expected::update);
+			}
+
+			void onError(Throwable throwable) {
+				subscriber.onError(throwable);
+				KafkaSource.this.unsubscribe(topic, subscriber);
+			}
+
+			void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
+				if (!checkEndOfStream && !requesting.hasRemaining()) {
+					subscriber.onComplete();
+				} else if (!expected.reachedBy(committed.getActual())) {
+					subscriber.onNext(committed);
+					expected.update(committed.getExpected());
+					endOffsets(topic).handleSuccess(r -> r.reachedBy(expected));
+					if (checkEndOfStream && endOffsets(topic).reachedBy(expected)) {
+						cancel();
+						subscriber.onComplete();
+					}
+				}
+			}
+
+			@Override
+			public void request(long n) {
+				requesting.more(n);
+			}
+
+			void saveRevisions() {
+				subscriber.saveRevisions(expected);
+			}
+		}
 
 		private final String topic;
-		private final Subscriber subscriber;
-		private final boolean checkEndOfStream;
-		private final Revisions expected;
-
-		KafkaSubscription(String topic, Subscriber subscriber, boolean checkEndOfStream) {
-			this.topic = Require.nonEmpty(topic);
-			this.subscriber = Require.nonNull(subscriber);
-			this.checkEndOfStream = checkEndOfStream;
-			this.expected = new Revisions(partitionSize(topic));
-			subscriber.onSubscribe(this);
-		}
-
-		@Override
-		public void cancel() {
-			unsubscribe(topic, subscriber);
-		}
-
-		void loadRevisions(int[] partitions) {
-			subscriber.loadRevisions(partitions).forEach(expected::update);
-		}
-
-		void onError(Throwable throwable) {
-			subscriber.onError(throwable);
-			unsubscribe(topic, subscriber);
-		}
-
-		void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
-			if (expected.reachedBy(committed.getActual())) {
-				return;
-			}
-			subscriber.onNext(committed);
-			expected.update(committed.getExpected());
-			if (checkEndOfStream && endOffsets(topic).reachedBy(expected)) {
-				cancel();
-				subscriber.onComplete();
-			}
-		}
-
-		@Override
-		public void request(long n) {
-			// TODO ignore?
-			throw new UnsupportedOperationException();
-		}
-
-		void saveRevisions() {
-			subscriber.saveRevisions(expected);
-		}
-	}
-
-	private static class TopicSubscribers {
-
-		private final String topic;
-		private final Map<Subscriber, KafkaSubscription> subscribers;
+		private final Map<Subscriber, TopicSubscription> subscribers;
 		private int partitionSize;
 
 		TopicSubscribers(String topic) {
@@ -114,16 +117,16 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 			subscribers.values().forEach(c -> c.onNext(committed));
 		}
 
-		void read(String topic, Subscriber subscriber) {
-			subscribers.computeIfAbsent(subscriber, s -> new KafkaSubscription(topic, s, true));
+		void read(Subscriber subscriber) {
+			subscribers.computeIfAbsent(subscriber, s -> new TopicSubscription(s, partitionSize, true));
 		}
 
 		void saveRevisions() {
 			subscribers.values().forEach(s -> s.saveRevisions());
 		}
 
-		void subscribe(String topic, Subscriber subscriber) {
-			subscribers.computeIfAbsent(subscriber, s -> new KafkaSubscription(topic, s, false));
+		void subscribe(Subscriber subscriber) {
+			subscribers.computeIfAbsent(subscriber, s -> new TopicSubscription(s, partitionSize, false));
 		}
 
 		boolean unsubscribe(Subscriber subscriber) {
@@ -153,39 +156,39 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 		return props;
 	}
 
-	private final Scheduler scheduler;
-	private final Actor<Consumer<byte[], byte[]>> actor;
-	private final KafkaConsumer<byte[], byte[]> client;
+	private final Agent<Consumer<byte[], byte[]>> client;
 	private final Map<String, TopicSubscribers> subscriptions;
 
 	public KafkaSource(Scheduler scheduler, Properties properties) {
-		this.scheduler = Require.nonNull(scheduler);
-		actor = scheduler.createActor(new KafkaConsumer<>(properties, DESERIALIZER, DESERIALIZER));
-		this.client = new KafkaConsumer<>(properties, DESERIALIZER, DESERIALIZER);
+		this.client = scheduler.createAgent(new KafkaConsumer<>(properties, DESERIALIZER, DESERIALIZER));
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
-	private Revisions endOffsets(String topic) {
-		int partitionSize = partitionSize(topic);
-		Revisions revisions = new Revisions(partitionSize);
-		List<TopicPartition> partitions = IntStream.range(0, partitionSize).mapToObj(p -> new TopicPartition(topic, p)).collect(Collectors.toList());
-		client.endOffsets(partitions).entrySet().forEach(e -> revisions.update(e.getKey().partition(), e.getValue().longValue()));
-		return revisions;
+	@Override
+	public void close() {
+		client.perform(Consumer::close).sync().whenComplete((c, e) -> subscriptions.clear());
+	}
+
+	private Outcome<Revisions> endOffsets(String topic) {
+		return partitionSize(topic).handleSuccess(partitionSize -> {
+			Revisions revisions = new Revisions(partitionSize);
+			List<TopicPartition> partitions = IntStream.range(0, partitionSize).mapToObj(p -> new TopicPartition(topic, p)).collect(Collectors.toList());
+			client.perform(c -> c.endOffsets(partitions).entrySet().forEach(e -> revisions.updateWithPartition(e.getKey().partition(), e.getValue())));
+			return revisions;
+		});
+	}
+
+	@Override
+	public boolean keepRunning() {
+		return !subscriptions.isEmpty();
 	}
 
 	@Override
 	public void loop(long duration, TimeUnit unit) throws Exception {
-		try {
-			if (!client.subscription().isEmpty()) {
-				ConsumerRecords<byte[], byte[]> records = client.poll(unit.toMillis(duration));
-				for (ConsumerRecord<byte[], byte[]> record : records) {
-					Committed<ReadBuffer, ReadBuffer> committed = convert(record);
-					subscriptions.get(record.topic()).onNext(committed);
-				}
-			}
-		} catch (Throwable e) {
-			subscriptions.values().forEach(s -> s.onError(e));
-		}
+		client.execute(c -> subscriptions.isEmpty() ? ConsumerRecords.<byte[], byte[]>empty() : c.poll(unit.toMillis(duration)))
+				.sync()
+				.whenCompleteSuccess(records -> records.forEach(r -> subscriptions.get(r.topic()).onNext(convert(r))))
+				.whenCompleteException(ex -> subscriptions.values().forEach(s -> s.onError(ex)));
 	}
 
 	@Override
@@ -203,33 +206,31 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 		});
 	}
 
-	private int partitionSize(String topic) {
-		return client.partitionsFor(topic).size();
+	private Outcome<Integer> partitionSize(String topic) {
+		return client.execute(c -> c.partitionsFor(topic).size());
 	}
 
 	@Override
-	public void read(ResourceDescriptor descriptor, Subscriber subscriber) {
-		String topic = descriptor.value();
-		subscriptions.computeIfAbsent(topic, this::subscribeTo).read(topic, subscriber);
+	public void read(ResourceDescriptor topic, Subscriber subscriber) {
+		subscriptions.computeIfAbsent(topic.value(), this::subscribeTo).read(subscriber);
 	}
 
 	@Override
-	public void subscribe(ResourceDescriptor descriptor, Subscriber subscriber) {
-		String topic = descriptor.value();
-		subscriptions.computeIfAbsent(topic, this::subscribeTo).subscribe(topic, subscriber);
+	public void subscribe(ResourceDescriptor topic, Subscriber subscriber) {
+		subscriptions.computeIfAbsent(topic.value(), this::subscribeTo).subscribe(subscriber);
 	}
 
 	private TopicSubscribers subscribeTo(String topic) {
 		Set<String> topics = new HashSet<>(subscriptions.keySet());
-		topics.add(topic);
-		actor.perform(c -> c.subscribe(topics, this));
+		topics.add(Require.nonEmpty(topic));
+		client.perform(c -> c.subscribe(topics, this));
 		return new TopicSubscribers(topic);
 	}
 
 	private void unsubscribe(String topic, Subscriber subscriber) {
 		subscriptions.computeIfPresent(topic, (t, s) -> {
 			if (s.unsubscribe(subscriber)) {
-				actor.perform(c -> c.subscribe(subscriptions.keySet(), this));
+				client.perform(c -> c.subscribe(subscriptions.keySet(), this));
 				return null;
 			} else {
 				return s;

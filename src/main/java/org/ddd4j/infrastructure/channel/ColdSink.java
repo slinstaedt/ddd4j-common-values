@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.pipe;
+package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Outcome;

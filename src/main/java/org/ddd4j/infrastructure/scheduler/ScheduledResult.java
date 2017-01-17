@@ -11,10 +11,10 @@ public class ScheduledResult<T> implements Result<T> {
 
 	private class ScheduledSubscriber implements Subscriber<T> {
 
-		private final Actor<Subscriber<? super T>> delegate;
+		private final Agent<Subscriber<? super T>> delegate;
 
 		public ScheduledSubscriber(Subscriber<? super T> delegate) {
-			this.delegate = scheduler.createActor(delegate);
+			this.delegate = scheduler.createAgent(delegate);
 		}
 
 		@Override
@@ -34,7 +34,7 @@ public class ScheduledResult<T> implements Result<T> {
 
 		@Override
 		public void onSubscribe(Subscription subscription) {
-			delegate.perform(s -> scheduler.createActorDecorator(SUBSCRIPTION_TYPE, subscription));
+			delegate.perform(s -> scheduler.createAgentDecorator(SUBSCRIPTION_TYPE, subscription));
 		}
 	}
 

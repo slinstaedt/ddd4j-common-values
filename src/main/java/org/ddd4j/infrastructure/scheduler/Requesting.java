@@ -16,6 +16,18 @@ public class Requesting {
 		value = 0;
 	}
 
+	public int asInt() {
+		return (int) Long.min(asLong(), Integer.MAX_VALUE);
+	}
+
+	public long asLong() {
+		return value >= 0 ? Long.min(value, burst) : burst;
+	}
+
+	public boolean hasRemaining() {
+		return value != 0;
+	}
+
 	public Requesting more(long n) {
 		Require.that(n > 0);
 		if (value < 0 || n == Long.MAX_VALUE) {
@@ -26,11 +38,13 @@ public class Requesting {
 		return this;
 	}
 
-	public long asLong() {
-		return value >= 0 ? Long.min(value, burst) : burst;
+	public Requesting processed() {
+		return processed(1);
 	}
 
-	public int asInt() {
-		return (int) Long.min(asLong(), Integer.MAX_VALUE);
+	public Requesting processed(int n) {
+		Require.that(n >= value);
+		value -= n;
+		return this;
 	}
 }

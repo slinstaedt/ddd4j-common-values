@@ -12,9 +12,9 @@ import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.Throwing.TFunction;
 
-public abstract class Actor<T> {
+public abstract class Agent<T> {
 
-	public static class Inherited<T extends Inherited<T>> extends Actor<T> implements Self<T> {
+	public static class Inherited<T extends Inherited<T>> extends Agent<T> implements Self<T> {
 
 		public Inherited(Executor executor, int burst) {
 			super(executor, burst);
@@ -26,7 +26,7 @@ public abstract class Actor<T> {
 		}
 	}
 
-	public static final class Transitioning<T> extends Actor<T> {
+	public static final class Transitioning<T> extends Agent<T> {
 
 		private T state;
 
@@ -41,7 +41,7 @@ public abstract class Actor<T> {
 		}
 
 		public Outcome<T> performTransition(TFunction<? super T, ? extends T> transition) {
-			return scheduleIfNeeded(new Task<T, T>(getExecutor(), transition)).whenCompleteAsync(this::updateState);
+			return scheduleIfNeeded(new Task<T, T>(getExecutor(), transition)).sync().whenComplete(this::updateState);
 		}
 
 		private void updateState(T state, Throwable exception) {
@@ -58,7 +58,7 @@ public abstract class Actor<T> {
 	private final Queue<Task<T, ?>> tasks;
 	private final AtomicBoolean scheduled;
 
-	protected Actor(Executor executor, int burst) {
+	protected Agent(Executor executor, int burst) {
 		this.executor = Require.nonNull(executor);
 		this.burst = Require.that(burst, burst > 0);
 		this.tasks = new ConcurrentLinkedQueue<>();

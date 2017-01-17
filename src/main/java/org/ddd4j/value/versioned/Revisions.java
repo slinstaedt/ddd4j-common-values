@@ -43,8 +43,8 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return offset;
 	}
 
-	public int partition(Object key) {
-		return Math.abs(key.hashCode()) % offsets.length;
+	public int partition(int hash) {
+		return Math.abs(hash) % offsets.length;
 	}
 
 	public boolean reachedBy(Revision revision) {
@@ -55,16 +55,12 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return revisions.stream().allMatch(this::reachedBy);
 	}
 
-	public Revision revision(int partition) {
+	public Revision revisionOfPartition(int partition) {
 		return new Revision(partition, offset(partition));
 	}
 
-	public Revision revision(Object key) {
-		return revision(partition(key));
-	}
-
-	public Stream<Revision> revisions(Stream<Integer> partitions) {
-		return partitions.mapToInt(Integer::intValue).mapToObj(this::revision);
+	public Revision revisionOfHash(int hash) {
+		return revisionOfPartition(partition(hash));
 	}
 
 	@Override
@@ -72,16 +68,16 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return IntStream.range(0, offsets.length).filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET).mapToObj(p -> new Revision(p, offsets[p]));
 	}
 
-	public void update(int partition, long nextOffset) {
+	public void updateWithPartition(int partition, long nextOffset) {
 		Require.that(Long.compareUnsigned(nextOffset, offset(partition)) > 0);
 		this.offsets[partition] = nextOffset;
 	}
 
-	public void update(Object key, long nextOffset) {
-		update(partition(key), nextOffset);
+	public void updateWithHash(int hash, long nextOffset) {
+		updateWithPartition(partition(hash), nextOffset);
 	}
 
 	public void update(Revision revision) {
-		update(revision.getPartition(), revision.getOffset());
+		updateWithPartition(revision.getPartition(), revision.getOffset());
 	}
 }

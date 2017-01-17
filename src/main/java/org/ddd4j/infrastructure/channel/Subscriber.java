@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.pipe;
+package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.io.buffer.ReadBuffer;
 import org.ddd4j.value.collection.Seq;

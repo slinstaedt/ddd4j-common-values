@@ -1,9 +1,9 @@
-package org.ddd4j.infrastructure.pipe;
+package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 
-public interface ColdSource {
+public interface ColdSource extends AutoCloseable {
 
 	interface Reader {
 
