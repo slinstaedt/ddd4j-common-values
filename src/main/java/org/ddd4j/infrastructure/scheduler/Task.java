@@ -10,10 +10,10 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.value.Throwing.TFunction;
 
-public class Task<T, R> implements Future<R>, Outcome<R> {
+public class Task<T, R> implements Future<R>, Promise<R> {
 
 	private final Executor executor;
 	private final TFunction<? super T, ? extends R> action;
@@ -26,8 +26,8 @@ public class Task<T, R> implements Future<R>, Outcome<R> {
 	}
 
 	@Override
-	public <X> Outcome<X> apply(BiFunction<Executor, CompletionStage<R>, CompletionStage<X>> fn) {
-		return Outcome.of(executor, fn.apply(executor, future));
+	public <X> Promise<X> apply(BiFunction<Executor, CompletionStage<R>, CompletionStage<X>> fn) {
+		return Promise.of(executor, fn.apply(executor, future));
 	}
 
 	@Override
@@ -73,7 +73,7 @@ public class Task<T, R> implements Future<R>, Outcome<R> {
 	}
 
 	@Override
-	public Outcome<R> withExecutor(Executor executor) {
-		return Outcome.of(executor, future);
+	public Promise<R> withExecutor(Executor executor) {
+		return Promise.of(executor, future);
 	}
 }

@@ -33,7 +33,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		@Override
 		public Reader<T> createReader(Input input) {
 			ObjectInput in = Throwing.applied(Input::asObjectInput).apply(input);
-			return Throwing.supplied(in::readObject).map(baseType::cast)::get;
+			return Throwing.task(in::readObject).map(baseType::cast)::get;
 		}
 
 		@Override

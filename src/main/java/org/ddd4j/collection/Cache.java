@@ -38,7 +38,7 @@ import org.ddd4j.collection.Cache.Decorating.Retrying;
 import org.ddd4j.collection.Cache.Decorating.Wrapped;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
-import org.ddd4j.value.Throwing.Supplier;
+import org.ddd4j.value.Throwing.Producer;
 import org.ddd4j.value.collection.Tpl;
 
 public interface Cache<K, V> {
@@ -58,7 +58,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
 				V value = null;
 				Queue<V> queue = pool.get(key);
 				if (queue != null) {
@@ -109,7 +109,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
 				Future<? extends V> f = singletons.get(key);
 				if (f == null) {
 					FutureTask<? extends V> task = new FutureTask<>(factory.map(Tpl::getRight));
@@ -148,7 +148,7 @@ public interface Cache<K, V> {
 			}
 		}
 
-		abstract V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis);
+		abstract V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis);
 
 		public Access<K, V> blockOn(int capacity, boolean fair) {
 			return new Blocking<>(this, capacity, fair);
@@ -166,7 +166,7 @@ public interface Cache<K, V> {
 
 		abstract NavigableSet<K> keys();
 
-		public Pool<V> lookupRandomValues(Supplier<? extends V> factory) {
+		public Pool<V> lookupRandomValues(Producer<? extends V> factory) {
 			Require.nonNull(factory);
 			return lookupValues(KeyLookup.RANDOM).withFactory(nil -> factory.get()).pooledBy(null);
 		}
@@ -247,7 +247,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
 				final long started = System.currentTimeMillis();
 				V value = null;
 				long waitInMillis;
@@ -381,7 +381,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
 				return entries.get(delegate.acquire(key, () -> registerEntry(factory), timeoutInMillis)).acquire();
 			}
 
@@ -419,7 +419,7 @@ public interface Cache<K, V> {
 				return delegate.keys();
 			}
 
-			private Tpl<K, V> registerEntry(Supplier<Tpl<K, V>> factory) {
+			private Tpl<K, V> registerEntry(Producer<Tpl<K, V>> factory) {
 				Tpl<K, V> tpl = factory.get();
 				entries.put(tpl.getRight(), new Entry(tpl.getLeft(), tpl.getRight()));
 				return tpl;
@@ -472,7 +472,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Supplier<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
 				V value = delegate.acquire(key, factory, timeoutInMillis);
 				listeners.forEach(l -> l.onAcquired(value));
 				return value;
@@ -550,7 +550,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Supplier<Tpl<K, V>> factory, long ignoredTimeout) {
+			V acquire(K key, Producer<Tpl<K, V>> factory, long ignoredTimeout) {
 				final long started = System.currentTimeMillis();
 				V value = null;
 				int tryCount = 0;
@@ -600,7 +600,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			T acquire(K key, Supplier<Tpl<K, T>> factory, long timeoutInMillis) {
+			T acquire(K key, Producer<Tpl<K, T>> factory, long timeoutInMillis) {
 				return wrapper.apply(delegate.acquire(key, factory.map(tpl -> tpl.mapRight(unwrapper)), timeoutInMillis));
 			}
 

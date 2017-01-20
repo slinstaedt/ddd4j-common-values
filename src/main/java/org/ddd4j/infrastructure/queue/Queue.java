@@ -6,7 +6,7 @@ import java.util.concurrent.Executor;
 import java.util.function.IntConsumer;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing.TAction;
+import org.ddd4j.value.Throwing.Task;
 import org.ddd4j.value.Throwing.TConsumer;
 
 public interface Queue<E> {
@@ -32,7 +32,7 @@ public interface Queue<E> {
 			return consumed;
 		}
 
-		default Runnable createAsyncConsumer(TConsumer<? super E> consumer, TAction start, IntConsumer finish, TConsumer<Exception> failed) {
+		default Runnable createAsyncConsumer(TConsumer<? super E> consumer, Task start, IntConsumer finish, TConsumer<Exception> failed) {
 			Require.nonNull(consumer);
 			return () -> {
 				try {
@@ -51,7 +51,7 @@ public interface Queue<E> {
 			return Optional.ofNullable(next());
 		}
 
-		default TAction scheduleConsumptionOnEnqueue(Executor executor) {
+		default Task scheduleConsumptionOnEnqueue(Executor executor) {
 
 		}
 	}

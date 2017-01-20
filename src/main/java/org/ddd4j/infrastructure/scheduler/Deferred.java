@@ -6,21 +6,25 @@ import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Promise;
 
-public class CompletableOutcome<T> implements Outcome<T> {
+public class Deferred<T> implements Promise<T> {
 
 	private final Executor executor;
 	private final CompletableFuture<T> future;
 
-	CompletableOutcome(Executor executor) {
+	Deferred(Executor executor) {
 		this.executor = Require.nonNull(executor);
 		this.future = new CompletableFuture<>();
 	}
 
 	@Override
-	public <X> Outcome<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
-		return Outcome.of(executor, fn.apply(executor, future));
+	public <X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
+		return Promise.of(executor, fn.apply(executor, future));
+	}
+
+	public boolean cancel(boolean mayInterruptIfRunning) {
+		return future.cancel(mayInterruptIfRunning);
 	}
 
 	public void complete(T value, Throwable exception) {
@@ -42,7 +46,7 @@ public class CompletableOutcome<T> implements Outcome<T> {
 	}
 
 	@Override
-	public Outcome<T> withExecutor(Executor executor) {
-		return Outcome.of(executor, future);
+	public Promise<T> withExecutor(Executor executor) {
+		return Promise.of(executor, future);
 	}
 }

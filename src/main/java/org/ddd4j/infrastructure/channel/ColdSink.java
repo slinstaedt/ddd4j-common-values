@@ -1,7 +1,7 @@
 package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.buffer.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;
@@ -11,7 +11,7 @@ public interface ColdSink {
 
 	interface Committer {
 
-		Outcome<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(Uncommitted<ReadBuffer, ReadBuffer> attempt);
+		Promise<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(Uncommitted<ReadBuffer, ReadBuffer> attempt);
 	}
 
 	default Committer committer(ResourceDescriptor descriptor) {
@@ -19,5 +19,5 @@ public interface ColdSink {
 		return attempt -> tryCommit(descriptor, attempt);
 	}
 
-	Outcome<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor descriptor, Uncommitted<ReadBuffer, ReadBuffer> attempt);
+	Promise<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor descriptor, Uncommitted<ReadBuffer, ReadBuffer> attempt);
 }

@@ -14,25 +14,6 @@ import org.ddd4j.contract.Require;
 public interface Throwing {
 
 	@FunctionalInterface
-	interface TAction extends Runnable {
-
-		default void perform() {
-			try {
-				performChecked();
-			} catch (Exception e) {
-				Throwing.unchecked(e);
-			}
-		}
-
-		void performChecked() throws Exception;
-
-		@Override
-		default void run() {
-			perform();
-		}
-	}
-
-	@FunctionalInterface
 	interface Closeable extends AutoCloseable {
 
 		@Override
@@ -45,6 +26,79 @@ public interface Throwing {
 		};
 
 		void closeChecked() throws Exception;
+	}
+
+	@FunctionalInterface
+	interface Producer<T> extends java.util.function.Supplier<T>, Callable<T> {
+
+		default Producer<Either<T, Exception>> asEither() {
+			return () -> {
+				try {
+					return Either.left(produce());
+				} catch (Exception e) {
+					return Either.right(e);
+				}
+			};
+		}
+
+		default Producer<Opt<T>> asOptional() {
+			return () -> {
+				try {
+					return Opt.of(produce());
+				} catch (Exception e) {
+					return Opt.none();
+				}
+			};
+		}
+
+		@Override
+		default T call() throws Exception {
+			return produce();
+		}
+
+		@Override
+		default T get() {
+			try {
+				return produce();
+			} catch (Exception e) {
+				return Throwing.unchecked(e);
+			}
+		}
+
+		default <X> Producer<X> map(Function<? super T, ? extends X> mapper) {
+			return () -> mapper.apply(produce());
+		}
+
+		T produce() throws Exception;
+	}
+
+	@FunctionalInterface
+	interface Task extends Runnable {
+
+		default <T> Producer<T> andThen(Producer<T> producer) {
+			return () -> {
+				perform();
+				return producer.produce();
+			};
+		}
+
+		default Task andThen(Task task) {
+			return () -> {
+				this.perform();
+				task.perform();
+			};
+		}
+
+		void perform() throws Exception;
+
+		@Override
+		default void run() {
+			try {
+				perform();
+			} catch (Exception e) {
+				Throwing.unchecked(e);
+			}
+		}
 	}
 
 	@FunctionalInterface
@@ -96,7 +150,7 @@ public interface Throwing {
 
 		void acceptChecked(T t) throws Exception;
 
-		default TConsumer<T> andThen(TAction action) {
+		default TConsumer<T> andThen(Task action) {
 			return andThen(t -> action.run());
 		}
 
@@ -211,53 +265,9 @@ public interface Throwing {
 		boolean testChecked(T t) throws Exception;
 	}
 
-	@FunctionalInterface
-	interface Supplier<T> extends java.util.function.Supplier<T>, Callable<T> {
-
-		default Supplier<Either<T, Exception>> asEither() {
-			return () -> {
-				try {
-					return Either.left(getChecked());
-				} catch (Exception e) {
-					return Either.right(e);
-				}
-			};
-		}
-
-		default Supplier<Opt<T>> asOptional() {
-			return () -> {
-				try {
-					return Opt.of(getChecked());
-				} catch (Exception e) {
-					return Opt.none();
-				}
-			};
-		}
-
-		@Override
-		default T call() throws Exception {
-			return getChecked();
-		}
-
-		@Override
-		default T get() {
-			try {
-				return getChecked();
-			} catch (Exception e) {
-				return Throwing.unchecked(e);
-			}
-		}
-
-		T getChecked() throws Exception;
-
-		default <X> Supplier<X> map(Function<? super T, ? extends X> mapper) {
-			return () -> mapper.apply(getChecked());
-		}
-	}
-
 	String EXCEPTION_MESSAGE_TEMPLATE = "Could not invoke this with arguments %s";
 
-	static TAction action(TAction action) {
+	static Task action(Task action) {
 		return Require.nonNull(action);
 	}
 
@@ -265,10 +275,6 @@ public interface Throwing {
 	static <X, E extends Exception> X any(Throwable throwable) throws E {
 		Require.nonNull(throwable);
 		throw (E) throwable;
-	}
-
-	static Throwing of(Function<? super String, ? extends Throwable> exceptionFactory) {
-		return Require.nonNull(exceptionFactory)::apply;
 	}
 
 	static <T, U, R> TBiFunction<T, U, R> applied(TBiFunction<T, U, R> function) {
@@ -283,18 +289,22 @@ public interface Throwing {
 		return Require.nonNull(consumer);
 	}
 
-	static <T> Supplier<T> supplied(Supplier<T> supplier) {
-		return Require.nonNull(supplier);
-	}
-
-	static <T> TPredicate<T> tested(TPredicate<T> predicate) {
-		return Require.nonNull(predicate);
+	static Throwing of(Function<? super String, ? extends Throwable> exceptionFactory) {
+		return Require.nonNull(exceptionFactory)::apply;
 	}
 
 	static <E extends Exception, R> TFunction<E, R> rethrow() {
 		return e -> {
 			throw e;
 		};
+	}
+
+	static <T> Producer<T> task(Producer<T> supplier) {
+		return Require.nonNull(supplier);
+	}
+
+	static <T> TPredicate<T> tested(TPredicate<T> predicate) {
+		return Require.nonNull(predicate);
 	}
 
 	static <X> X unchecked(Throwable exception) {
@@ -313,7 +323,7 @@ public interface Throwing {
 		return (t) -> throwChecked(t);
 	}
 
-	default <T> Supplier<T> asSupplier() {
+	default <T> Producer<T> asSupplier() {
 		return () -> throwChecked();
 	}
 

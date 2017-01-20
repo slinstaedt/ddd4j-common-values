@@ -6,7 +6,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.value.Self;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TConsumer;
@@ -40,7 +40,7 @@ public abstract class Agent<T> {
 			return state;
 		}
 
-		public Outcome<T> performTransition(TFunction<? super T, ? extends T> transition) {
+		public Promise<T> performTransition(TFunction<? super T, ? extends T> transition) {
 			return scheduleIfNeeded(new Task<T, T>(getExecutor(), transition)).sync().whenComplete(this::updateState);
 		}
 
@@ -69,7 +69,7 @@ public abstract class Agent<T> {
 		return query.apply(getState());
 	}
 
-	public <R> Outcome<R> execute(TFunction<? super T, ? extends R> task) {
+	public <R> Promise<R> execute(TFunction<? super T, ? extends R> task) {
 		return scheduleIfNeeded(new Task<>(executor, task));
 	}
 
@@ -83,7 +83,7 @@ public abstract class Agent<T> {
 
 	protected abstract T getState();
 
-	public Outcome<T> perform(TConsumer<T> action) {
+	public Promise<T> perform(TConsumer<T> action) {
 		return scheduleIfNeeded(new Task<>(executor, action.asFunction()));
 	}
 

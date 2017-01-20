@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.collection.Cache.Pool;
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.Result;
 import org.ddd4j.infrastructure.channel.ColdSource;
@@ -106,7 +106,7 @@ public class FileColdSource implements ColdSource {
 		return scheduler.createResult(this, startAt, completeOnEnd);
 	}
 
-	public Outcome<CommitResult<ReadBuffer, Seq<ReadBuffer>>> tryCommit(Uncommitted<ReadBuffer, Seq<ReadBuffer>> attempt) {
+	public Promise<CommitResult<ReadBuffer, Seq<ReadBuffer>>> tryCommit(Uncommitted<ReadBuffer, Seq<ReadBuffer>> attempt) {
 		try {
 			Revisions actual = new Revisions(channel.size(), partition);
 			if (!attempt.getExpected().equal(actual)) {

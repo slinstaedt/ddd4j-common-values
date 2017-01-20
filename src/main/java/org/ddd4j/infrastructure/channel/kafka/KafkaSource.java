@@ -22,13 +22,13 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.Subscriber;
 import org.ddd4j.infrastructure.scheduler.Agent;
-import org.ddd4j.infrastructure.scheduler.LoopedTask;
+import org.ddd4j.infrastructure.scheduler.BlockingTask;
 import org.ddd4j.infrastructure.scheduler.Requesting;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.Bytes;
@@ -39,7 +39,7 @@ import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
 import org.reactivestreams.Subscription;
 
-public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerRebalanceListener {
+public class KafkaSource implements ColdSource, HotSource, BlockingTask, ConsumerRebalanceListener {
 
 	private class TopicSubscribers {
 
@@ -74,6 +74,7 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 
 			void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
 				if (!checkEndOfStream && !requesting.hasRemaining()) {
+					cancel();
 					subscriber.onComplete();
 				} else if (!expected.reachedBy(committed.getActual())) {
 					subscriber.onNext(committed);
@@ -169,7 +170,7 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 		client.perform(Consumer::close).sync().whenComplete((c, e) -> subscriptions.clear());
 	}
 
-	private Outcome<Revisions> endOffsets(String topic) {
+	private Promise<Revisions> endOffsets(String topic) {
 		return partitionSize(topic).handleSuccess(partitionSize -> {
 			Revisions revisions = new Revisions(partitionSize);
 			List<TopicPartition> partitions = IntStream.range(0, partitionSize).mapToObj(p -> new TopicPartition(topic, p)).collect(Collectors.toList());
@@ -179,16 +180,12 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 	}
 
 	@Override
-	public boolean keepRunning() {
-		return !subscriptions.isEmpty();
-	}
-
-	@Override
-	public void loop(long duration, TimeUnit unit) throws Exception {
-		client.execute(c -> subscriptions.isEmpty() ? ConsumerRecords.<byte[], byte[]>empty() : c.poll(unit.toMillis(duration)))
+	public Trigger perform(long timeout, TimeUnit unit) throws Exception {
+		client.execute(c -> subscriptions.isEmpty() ? ConsumerRecords.<byte[], byte[]>empty() : c.poll(unit.toMillis(timeout)))
 				.sync()
-				.whenCompleteSuccess(records -> records.forEach(r -> subscriptions.get(r.topic()).onNext(convert(r))))
-				.whenCompleteException(ex -> subscriptions.values().forEach(s -> s.onError(ex)));
+				.whenCompleteSuccessfully(records -> records.forEach(r -> subscriptions.get(r.topic()).onNext(convert(r))))
+				.whenCompleteExceptionally(ex -> subscriptions.values().forEach(s -> s.onError(ex)));
+		return subscriptions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
 	}
 
 	@Override
@@ -206,7 +203,7 @@ public class KafkaSource implements ColdSource, HotSource, LoopedTask, ConsumerR
 		});
 	}
 
-	private Outcome<Integer> partitionSize(String topic) {
+	private Promise<Integer> partitionSize(String topic) {
 		return client.execute(c -> c.partitionsFor(topic).size());
 	}
 

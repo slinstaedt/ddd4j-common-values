@@ -1,9 +1,9 @@
 package org.ddd4j.value.versioned;
 
-import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Promise;
 
 @FunctionalInterface
 public interface Committer<K, V> {
 
-	Outcome<CommitResult<K, V>> tryCommit(Uncommitted<K, V> attempt);
+	Promise<CommitResult<K, V>> tryCommit(Uncommitted<K, V> attempt);
 }

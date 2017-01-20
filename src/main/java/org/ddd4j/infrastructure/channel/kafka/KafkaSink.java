@@ -10,11 +10,11 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.ddd4j.contract.Require;
-import org.ddd4j.infrastructure.Outcome;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdSink;
 import org.ddd4j.infrastructure.channel.HotSink;
-import org.ddd4j.infrastructure.scheduler.CompletableOutcome;
+import org.ddd4j.infrastructure.scheduler.Deferred;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.buffer.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;
@@ -46,8 +46,8 @@ public class KafkaSink implements ColdSink, HotSink {
 	}
 
 	@Override
-	public Outcome<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
-		CompletableOutcome<CommitResult<ReadBuffer, ReadBuffer>> outcome = scheduler.createCompletableOutcome();
+	public Promise<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
+		Deferred<CommitResult<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
 		client.send(convert(topic, attempt), new Callback() {
 
 			@Override
@@ -55,12 +55,12 @@ public class KafkaSink implements ColdSink, HotSink {
 				if (metadata != null) {
 					long nextExpected = metadata.offset() + 1;
 					ZonedDateTime timestamp = Instant.ofEpochMilli(metadata.timestamp()).atZone(ZoneOffset.UTC);
-					outcome.completeSuccessfully(attempt.committed(nextExpected, timestamp));
+					deferred.completeSuccessfully(attempt.committed(nextExpected, timestamp));
 				} else {
-					outcome.completeExceptionally(exception);
+					deferred.completeExceptionally(exception);
 				}
 			}
 		});
-		return outcome;
+		return deferred;
 	}
 }
