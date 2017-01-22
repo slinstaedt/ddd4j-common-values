@@ -14,6 +14,7 @@ import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.Schema.Writer;
 import org.ddd4j.value.versioned.CommitResult;
+import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Uncommitted;
 
@@ -45,9 +46,9 @@ public class InbandSchemaHandler implements SchemaHandler {
 	}
 
 	private Promise<Revision> saveSchema(Schema<?> schema, SinkCommitter committer) {
-		try (WriteBuffer writer = PooledBytes.createBuffer(bytesPool)) {
-			schema.serialize(writer);
-			Uncommitted<ReadBuffer, ReadBuffer> attempt = new Uncommitted<>(null, writer.flip(), null);
+		try (WriteBuffer buffer = PooledBytes.createBuffer(bytesPool)) {
+			schema.serializeFingerprintAndSchema(buffer);
+			Uncommitted<ReadBuffer, ReadBuffer> attempt = Recorded.uncommitted(buffer.flip(), expected);
 			return committer.tryCommit(attempt).handleSuccess(CommitResult::getActual);
 		}
 	}

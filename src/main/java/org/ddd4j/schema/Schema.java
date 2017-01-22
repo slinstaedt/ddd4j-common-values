@@ -83,9 +83,14 @@ public interface Schema<T> extends Value<Schema<T>> {
 
 	Fingerprint getFingerprint();
 
-	// boolean contains(Type<?> type);
-
 	String getName();
 
+	// boolean contains(Type<?> type);
+
 	int hashCode(Object object);
+
+	default void serializeFingerprintAndSchema(WriteBuffer buffer) {
+		getFingerprint().serialize(buffer);
+		this.serialize(buffer);
+	}
 }
