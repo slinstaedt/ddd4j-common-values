@@ -1,4 +1,4 @@
-package org.ddd4j.io.buffer;
+package org.ddd4j.io;
 
 import java.io.IOException;
 import java.io.InputStream;

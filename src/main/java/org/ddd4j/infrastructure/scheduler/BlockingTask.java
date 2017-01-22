@@ -1,7 +1,6 @@
 package org.ddd4j.infrastructure.scheduler;
 
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 public interface BlockingTask {
 
@@ -14,8 +13,6 @@ public interface BlockingTask {
 
 		void apply(Scheduler scheduler, BlockingTask task);
 	};
-
-	public abstract void apply(Consumer<BlockingTask> scheduler, BlockingTask task);
 
 	default Trigger handleException(Throwable exception) {
 		return Trigger.NOTHING;

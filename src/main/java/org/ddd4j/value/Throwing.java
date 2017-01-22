@@ -308,7 +308,7 @@ public interface Throwing {
 	}
 
 	static <X> X unchecked(Throwable exception) {
-		return Throwing.<X, RuntimeException>any(exception);
+		return Throwing.<X, RuntimeException> any(exception);
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction() {

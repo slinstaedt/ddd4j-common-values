@@ -1,4 +1,4 @@
-package org.ddd4j.io.buffer;
+package org.ddd4j.io;
 
 import java.io.IOException;
 import java.io.UTFDataFormatException;
@@ -8,7 +8,7 @@ import java.nio.channels.WritableByteChannel;
 
 import org.ddd4j.collection.Cache;
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.buffer.ByteOrder.IndexedBytes;
+import org.ddd4j.io.ByteOrder.IndexedBytes;
 import org.ddd4j.value.Throwing;
 
 public abstract class Bytes implements IndexedBytes, AutoCloseable {

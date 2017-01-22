@@ -3,8 +3,8 @@ package org.ddd4j.schema;
 import java.io.Flushable;
 import java.io.IOException;
 
-import org.ddd4j.io.Input;
-import org.ddd4j.io.Output;
+import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Value;
 
 public interface Schema<T> extends Value<Schema<T>> {
@@ -59,6 +59,11 @@ public interface Schema<T> extends Value<Schema<T>> {
 
 		void apply(Mode mode, T value) throws IOException;
 
+		@Override
+		default void flush() throws IOException {
+			apply(Mode.FLUSH, null);
+		}
+
 		default void write(T value) throws IOException {
 			apply(Mode.WRITE, value);
 		}
@@ -66,26 +71,21 @@ public interface Schema<T> extends Value<Schema<T>> {
 		default void writeAndFlush(T value) throws IOException {
 			apply(Mode.BOTH, value);
 		}
-
-		@Override
-		default void flush() throws IOException {
-			apply(Mode.FLUSH, null);
-		}
 	}
 
 	boolean compatibleWith(Schema<?> existing);
 
-	int hashCode(Object object);
+	Reader<T> createReader(ReadBuffer buffer);
+
+	Writer<T> createWriter(WriteBuffer buffer);
 
 	boolean equal(Object o1, Object o2);
-
-	String getName();
 
 	Fingerprint getFingerprint();
 
 	// boolean contains(Type<?> type);
 
-	Reader<T> createReader(Input input);
+	String getName();
 
-	Writer<T> createWriter(Output output);
+	int hashCode(Object object);
 }

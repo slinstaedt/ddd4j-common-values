@@ -6,7 +6,7 @@ import java.lang.reflect.TypeVariable;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.ddd4j.contract.Require;
 import org.ddd4j.io.Input;
-import org.ddd4j.io.buffer.WriteBuffer;
+import org.ddd4j.io.WriteBuffer;
 
 public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Type> implements Value<Type<T>>, Serializable {
 

@@ -16,7 +16,7 @@ import org.ddd4j.infrastructure.channel.ColdSink;
 import org.ddd4j.infrastructure.channel.HotSink;
 import org.ddd4j.infrastructure.scheduler.Deferred;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
-import org.ddd4j.io.buffer.ReadBuffer;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;

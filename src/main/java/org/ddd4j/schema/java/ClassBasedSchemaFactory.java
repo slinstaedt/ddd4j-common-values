@@ -2,13 +2,14 @@ package org.ddd4j.schema.java;
 
 import java.io.IOException;
 import java.io.ObjectInput;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.util.Objects;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.Input;
-import org.ddd4j.io.Output;
-import org.ddd4j.io.buffer.WriteBuffer;
+import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
@@ -31,14 +32,14 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public Reader<T> createReader(Input input) {
-			ObjectInput in = Throwing.applied(Input::asObjectInput).apply(input);
+		public Reader<T> createReader(ReadBuffer buffer) {
+			ObjectInput in = Throwing.applied(ObjectInputStream::new).apply(buffer.asInputStream());
 			return Throwing.task(in::readObject).map(baseType::cast)::get;
 		}
 
 		@Override
-		public Writer<T> createWriter(Output output) {
-			ObjectOutput out = Throwing.applied(Output::asObjectOutput).apply(output, true);
+		public Writer<T> createWriter(WriteBuffer buffer) {
+			ObjectOutput out = Throwing.applied(ObjectOutputStream::new).apply(buffer.asOutputStream());
 			return (mode, value) -> mode.apply(value, out::writeObject, out::flush);
 		}
 
@@ -79,7 +80,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public Schema<?> readSchema(Input input) throws IOException {
-		return new JavaSchema<>(SchemaFactory.classForName(input.asDataInput().readUTF(), Throwing.rethrow()));
+	public Schema<?> readSchema(ReadBuffer buffer) throws IOException {
+		return new JavaSchema<>(SchemaFactory.classForName(buffer.getUTF(), Throwing.rethrow()));
 	}
 }

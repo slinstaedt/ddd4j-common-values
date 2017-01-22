@@ -26,35 +26,35 @@ import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.HotSource;
-import org.ddd4j.infrastructure.channel.Subscriber;
+import org.ddd4j.infrastructure.channel.RevisionsCallback;
+import org.ddd4j.infrastructure.channel.SourceSubscriber;
+import org.ddd4j.infrastructure.channel.SourceSubscriber.SourceSubscription;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.BlockingTask;
-import org.ddd4j.infrastructure.scheduler.Requesting;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
-import org.ddd4j.io.buffer.Bytes;
-import org.ddd4j.io.buffer.ReadBuffer;
+import org.ddd4j.io.Bytes;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
-import org.ddd4j.value.versioned.Revisions;
-import org.reactivestreams.Subscription;
+import org.ddd4j.value.versioned.Revisions;;
 
 public class KafkaSource implements ColdSource, HotSource, BlockingTask, ConsumerRebalanceListener {
 
-	private class TopicSubscribers {
+	private class KafkaSubscribers {
 
-		private class TopicSubscription implements Subscription {
+		private class KafkaSubscription implements SourceSubscription {
 
-			private final Subscriber subscriber;
+			private final SourceSubscriber subscriber;
+			private final RevisionsCallback callback;
 			private final Revisions expected;
 			private final boolean checkEndOfStream;
-			private final Requesting requesting;
 
-			TopicSubscription(Subscriber subscriber, int partitionSize, boolean checkEndOfStream) {
+			KafkaSubscription(SourceSubscriber subscriber, RevisionsCallback callback, int partitionSize, boolean checkEndOfStream) {
 				this.subscriber = Require.nonNull(subscriber);
+				this.callback = Require.nonNull(callback);
 				this.expected = new Revisions(partitionSize);
 				this.checkEndOfStream = checkEndOfStream;
-				this.requesting = new Requesting();
 				subscriber.onSubscribe(this);
 			}
 
@@ -64,7 +64,7 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 			}
 
 			void loadRevisions(int[] partitions) {
-				subscriber.loadRevisions(partitions).forEach(expected::update);
+				callback.loadRevisions(partitions).forEach(expected::update);
 			}
 
 			void onError(Throwable throwable) {
@@ -73,35 +73,29 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 			}
 
 			void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
-				if (!checkEndOfStream && !requesting.hasRemaining()) {
+				if (expected.reachedBy(committed.getActual())) {
+					// skip old commits
+					return;
+				}
+				subscriber.onNext(committed);
+				expected.update(committed.getExpected());
+				endOffsets(topic).handleSuccess(r -> r.reachedBy(expected));
+				if (checkEndOfStream && endOffsets(topic).reachedBy(expected)) {
 					cancel();
 					subscriber.onComplete();
-				} else if (!expected.reachedBy(committed.getActual())) {
-					subscriber.onNext(committed);
-					expected.update(committed.getExpected());
-					endOffsets(topic).handleSuccess(r -> r.reachedBy(expected));
-					if (checkEndOfStream && endOffsets(topic).reachedBy(expected)) {
-						cancel();
-						subscriber.onComplete();
-					}
 				}
 			}
 
-			@Override
-			public void request(long n) {
-				requesting.more(n);
-			}
-
 			void saveRevisions() {
-				subscriber.saveRevisions(expected);
+				callback.saveRevisions(expected);
 			}
 		}
 
 		private final String topic;
-		private final Map<Subscriber, TopicSubscription> subscribers;
+		private final Map<SourceSubscriber, KafkaSubscription> subscribers;
 		private int partitionSize;
 
-		TopicSubscribers(String topic) {
+		KafkaSubscribers(String topic) {
 			this.topic = Require.nonEmpty(topic);
 			this.subscribers = new ConcurrentHashMap<>();
 		}
@@ -118,19 +112,19 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 			subscribers.values().forEach(c -> c.onNext(committed));
 		}
 
-		void read(Subscriber subscriber) {
-			subscribers.computeIfAbsent(subscriber, s -> new TopicSubscription(s, partitionSize, true));
+		void read(SourceSubscriber subscriber, RevisionsCallback callback) {
+			subscribers.computeIfAbsent(subscriber, s -> new KafkaSubscription(s, callback, partitionSize, true));
 		}
 
 		void saveRevisions() {
 			subscribers.values().forEach(s -> s.saveRevisions());
 		}
 
-		void subscribe(Subscriber subscriber) {
-			subscribers.computeIfAbsent(subscriber, s -> new TopicSubscription(s, partitionSize, false));
+		void subscribe(SourceSubscriber subscriber, RevisionsCallback callback) {
+			subscribers.computeIfAbsent(subscriber, s -> new KafkaSubscription(s, callback, partitionSize, false));
 		}
 
-		boolean unsubscribe(Subscriber subscriber) {
+		boolean unsubscribe(SourceSubscriber subscriber) {
 			subscribers.remove(subscriber);
 			return subscribers.isEmpty();
 		}
@@ -158,7 +152,7 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 	}
 
 	private final Agent<Consumer<byte[], byte[]>> client;
-	private final Map<String, TopicSubscribers> subscriptions;
+	private final Map<String, KafkaSubscribers> subscriptions;
 
 	public KafkaSource(Scheduler scheduler, Properties properties) {
 		this.client = scheduler.createAgent(new KafkaConsumer<>(properties, DESERIALIZER, DESERIALIZER));
@@ -177,15 +171,6 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 			client.perform(c -> c.endOffsets(partitions).entrySet().forEach(e -> revisions.updateWithPartition(e.getKey().partition(), e.getValue())));
 			return revisions;
 		});
-	}
-
-	@Override
-	public Trigger perform(long timeout, TimeUnit unit) throws Exception {
-		client.execute(c -> subscriptions.isEmpty() ? ConsumerRecords.<byte[], byte[]>empty() : c.poll(unit.toMillis(timeout)))
-				.sync()
-				.whenCompleteSuccessfully(records -> records.forEach(r -> subscriptions.get(r.topic()).onNext(convert(r))))
-				.whenCompleteExceptionally(ex -> subscriptions.values().forEach(s -> s.onError(ex)));
-		return subscriptions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
 	}
 
 	@Override
@@ -208,23 +193,31 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 	}
 
 	@Override
-	public void read(ResourceDescriptor topic, Subscriber subscriber) {
-		subscriptions.computeIfAbsent(topic.value(), this::subscribeTo).read(subscriber);
+	public Trigger perform(long timeout, TimeUnit unit) throws Exception {
+		client.execute(c -> subscriptions.isEmpty() ? ConsumerRecords.<byte[], byte[]> empty() : c.poll(unit.toMillis(timeout))).sync()
+				.whenCompleteSuccessfully(records -> records.forEach(r -> subscriptions.get(r.topic()).onNext(convert(r))))
+				.whenCompleteExceptionally(ex -> subscriptions.values().forEach(s -> s.onError(ex)));
+		return subscriptions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
 	}
 
 	@Override
-	public void subscribe(ResourceDescriptor topic, Subscriber subscriber) {
-		subscriptions.computeIfAbsent(topic.value(), this::subscribeTo).subscribe(subscriber);
+	public void read(ResourceDescriptor topic, SourceSubscriber subscriber, RevisionsCallback callback) {
+		subscriptions.computeIfAbsent(topic.value(), this::subscribeTo).read(subscriber, callback);
 	}
 
-	private TopicSubscribers subscribeTo(String topic) {
+	@Override
+	public void subscribe(ResourceDescriptor topic, SourceSubscriber subscriber, RevisionsCallback callback) {
+		subscriptions.computeIfAbsent(topic.value(), this::subscribeTo).subscribe(subscriber, callback);
+	}
+
+	private KafkaSubscribers subscribeTo(String topic) {
 		Set<String> topics = new HashSet<>(subscriptions.keySet());
 		topics.add(Require.nonEmpty(topic));
 		client.perform(c -> c.subscribe(topics, this));
-		return new TopicSubscribers(topic);
+		return new KafkaSubscribers(topic);
 	}
 
-	private void unsubscribe(String topic, Subscriber subscriber) {
+	private void unsubscribe(String topic, SourceSubscriber subscriber) {
 		subscriptions.computeIfPresent(topic, (t, s) -> {
 			if (s.unsubscribe(subscriber)) {
 				client.perform(c -> c.subscribe(subscriptions.keySet(), this));

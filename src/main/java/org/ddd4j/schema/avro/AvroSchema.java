@@ -12,9 +12,8 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.Encoder;
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.Input;
-import org.ddd4j.io.Output;
-import org.ddd4j.io.buffer.WriteBuffer;
+import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
@@ -25,8 +24,8 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 
 	private static final Configuration.Key<AvroCoder> CODER = Configuration.keyOfEnum(AvroCoder.class, "coding", AvroCoder.JSON);
 
-	static AvroSchema<?> deserialize(AvroSchemaFactory factory, Input input) throws IOException {
-		org.apache.avro.Schema writerSchema = new Parser().parse(input.asDataInput().readUTF());
+	static AvroSchema<?> deserialize(AvroSchemaFactory factory, ReadBuffer buffer) throws IOException {
+		org.apache.avro.Schema writerSchema = new Parser().parse(buffer.getUTF());
 		Class<?> type = factory.getData().getClass(writerSchema);
 		if (type == null || type == Object.class) {
 			type = SchemaFactory.classForName(writerSchema.getFullName(), e -> Record.class);
@@ -56,7 +55,7 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 	}
 
 	@Override
-	public Reader<T> createReader(Input input) {
+	public Reader<T> createReader(ReadBuffer buffer) {
 		DatumReader<?> reader;
 		if (type == Record.class) {
 			reader = new GenericDatumReader<>(writerSchema, writerSchema, factory.getData());
@@ -64,13 +63,13 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 			org.apache.avro.Schema readerSchema = factory.getData().getSchema(type);
 			reader = factory.getData().createDatumReader(writerSchema, readerSchema);
 		}
-		Decoder decoder = coder().createDecoder(writerSchema, input.asStream());
+		Decoder decoder = coder().createDecoder(writerSchema, buffer.asInputStream());
 		return () -> type.cast(reader.read(null, decoder));
 	}
 
 	@Override
-	public Writer<T> createWriter(Output output) {
-		Encoder encoder = coder().createEncoder(writerSchema, output.asStream());
+	public Writer<T> createWriter(WriteBuffer buffer) {
+		Encoder encoder = coder().createEncoder(writerSchema, buffer.asOutputStream());
 		@SuppressWarnings("unchecked")
 		DatumWriter<Object> writer = factory.getData().createDatumWriter(writerSchema);
 		return (mode, value) -> mode.apply(value, v -> writer.write(v, encoder), encoder);

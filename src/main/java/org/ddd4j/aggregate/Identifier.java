@@ -2,8 +2,8 @@ package org.ddd4j.aggregate;
 
 import java.util.UUID;
 
-import org.ddd4j.io.buffer.ReadBuffer;
-import org.ddd4j.io.buffer.WriteBuffer;
+import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Value;
 
 public class Identifier extends Value.Simple<Identifier, UUID> {

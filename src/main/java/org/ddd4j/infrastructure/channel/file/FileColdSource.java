@@ -27,10 +27,10 @@ import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.Result;
 import org.ddd4j.infrastructure.channel.ColdSource;
-import org.ddd4j.infrastructure.channel.Subscriber;
+import org.ddd4j.infrastructure.channel.SourceSubscriber;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
-import org.ddd4j.io.buffer.Bytes;
-import org.ddd4j.io.buffer.ReadBuffer;
+import org.ddd4j.io.Bytes;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
@@ -120,7 +120,7 @@ public class FileColdSource implements ColdSource {
 	}
 
 	@Override
-	public void load(ResourceDescriptor descriptor, Subscriber subscriber) throws Exception {
+	public void load(ResourceDescriptor descriptor, SourceSubscriber subscriber) throws Exception {
 		// TODO Auto-generated method stub
 
 	}

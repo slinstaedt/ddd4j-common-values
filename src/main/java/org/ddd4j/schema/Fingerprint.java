@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.Input;
-import org.ddd4j.io.buffer.WriteBuffer;
+import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Value;
 
 public class Fingerprint extends Value.Simple<Fingerprint, byte[]> {
@@ -14,8 +14,8 @@ public class Fingerprint extends Value.Simple<Fingerprint, byte[]> {
 		return new Fingerprint(Arrays.copyOf(value, value.length));
 	}
 
-	static Fingerprint deserialize(Input input) throws IOException {
-		return new Fingerprint(input.readByteArray());
+	static Fingerprint deserialize(ReadBuffer buffer) throws IOException {
+		return new Fingerprint(buffer.getBytes());
 	}
 
 	private final byte[] value;
@@ -27,7 +27,7 @@ public class Fingerprint extends Value.Simple<Fingerprint, byte[]> {
 
 	@Override
 	public void serialize(WriteBuffer buffer) {
-		buffer.put(value);
+		buffer.putBytes(value);
 	}
 
 	@Override

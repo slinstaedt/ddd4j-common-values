@@ -1,8 +1,8 @@
 package org.ddd4j.value.versioned;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.buffer.ReadBuffer;
-import org.ddd4j.io.buffer.WriteBuffer;
+import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Value;
 
 public class Revision implements Value<Revision> {

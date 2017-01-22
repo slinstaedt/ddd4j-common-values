@@ -2,7 +2,7 @@ package org.ddd4j.schema;
 
 import java.io.IOException;
 
-import org.ddd4j.io.Input;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Service;
 import org.ddd4j.value.Throwing.TFunction;
 
@@ -19,5 +19,5 @@ public interface SchemaFactory extends Service<SchemaFactory, SchemaFactoryProvi
 	// TODO use Type here?
 	<T> Schema<T> createSchema(Class<T> type);
 
-	Schema<?> readSchema(Input input) throws IOException;
+	Schema<?> readSchema(ReadBuffer buffer) throws IOException;
 }

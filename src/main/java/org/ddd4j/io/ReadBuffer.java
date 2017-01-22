@@ -1,4 +1,4 @@
-package org.ddd4j.io.buffer;
+package org.ddd4j.io;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +30,12 @@ public interface ReadBuffer extends RelativeBuffer {
 	default ReadBuffer get(ByteBuffer dst) {
 		advancePosition(bytes().get(position(), remaining(), dst));
 		return this;
+	}
+
+	default byte[] getBytes() {
+		byte[] bytes = new byte[getInt()];
+		get(bytes);
+		return bytes;
 	}
 
 	default char getChar() {

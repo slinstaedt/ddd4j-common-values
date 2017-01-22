@@ -7,7 +7,7 @@ import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.buffer.WriteBuffer;
+import org.ddd4j.io.WriteBuffer;
 
 public interface Value<V extends Value<V>> extends Self<V> {
 

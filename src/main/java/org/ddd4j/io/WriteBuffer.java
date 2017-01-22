@@ -1,4 +1,4 @@
-package org.ddd4j.io.buffer;
+package org.ddd4j.io;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -48,6 +48,10 @@ public interface WriteBuffer extends RelativeBuffer {
 	default WriteBuffer put(ByteBuffer src) {
 		advancePosition(bytes().put(position(), remaining(), src));
 		return this;
+	}
+
+	default WriteBuffer putBytes(byte[] bytes) {
+		return putInt(bytes.length).put(bytes);
 	}
 
 	default WriteBuffer putChar(char value) {
