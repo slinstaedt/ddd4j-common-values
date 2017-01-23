@@ -12,8 +12,8 @@ import org.ddd4j.value.collection.Configuration;
 public class Providers {
 
 	public static ServiceLocator createServiceLocator() {
-		ServiceProvider.Loader providerLoader = loadWithDefault(ServiceProvider.Loader.class, JavaServiceProviderLoader::new);
-		Configuration.Loader configurationLoader = loadWithDefault(Configuration.Loader.class, SystemPropertiesConfigurationLoader::new);
+		ServiceProviderLoader providerLoader = loadWithDefault(ServiceProviderLoader.class, JavaServiceProviderLoader::new);
+		Configuration.ConfigurationLoader configurationLoader = loadWithDefault(Configuration.ConfigurationLoader.class, SystemPropertiesConfigurationLoader::new);
 		return new ServiceLocator(providerLoader, configurationLoader);
 	}
 

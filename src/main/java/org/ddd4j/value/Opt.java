@@ -249,6 +249,10 @@ public interface Opt<T> {
 		return applyNullable(predicate::test, () -> ifEmpty);
 	}
 
+	default Optional<T> toOptional() {
+		return Optional.ofNullable(getEmptyAsNull());
+	}
+
 	default Opt<T> visitNonNull(Consumer<? super T> consumer) {
 		return visitNonNull(consumer, () -> {
 		});

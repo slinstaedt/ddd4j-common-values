@@ -7,10 +7,10 @@ import org.ddd4j.value.collection.Seq;
 
 public class ServiceLocator {
 
-	private final ServiceProvider.Loader providerLoader;
-	private final Configuration.Loader configLoader;
+	private final ServiceProviderLoader providerLoader;
+	private final ConfigurationLoader configLoader;
 
-	public ServiceLocator(ServiceProvider.Loader providerLoader, Configuration.Loader configLoader) {
+	public ServiceLocator(ServiceProviderLoader providerLoader, ConfigurationLoader configLoader) {
 		this.providerLoader = Require.nonNull(providerLoader);
 		this.configLoader = Require.nonNull(configLoader);
 	}

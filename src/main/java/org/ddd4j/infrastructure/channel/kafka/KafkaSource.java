@@ -34,6 +34,7 @@ import org.ddd4j.infrastructure.scheduler.BlockingTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
@@ -138,7 +139,8 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 		Revision actual = new Revision(record.partition(), record.offset());
 		Revision expected = actual.increment(1);
 		ZonedDateTime timestamp = Instant.ofEpochMilli(record.timestamp()).atZone(ZoneOffset.UTC);
-		return new Committed<>(key, value, actual, expected, timestamp);
+		Props header = new Props(value);
+		return new Committed<>(key, value, actual, expected, timestamp, header);
 	}
 
 	static Properties propsFor(Seq<String> servers, int timeout) {
@@ -194,7 +196,8 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 
 	@Override
 	public Trigger perform(long timeout, TimeUnit unit) throws Exception {
-		client.execute(c -> subscriptions.isEmpty() ? ConsumerRecords.<byte[], byte[]> empty() : c.poll(unit.toMillis(timeout))).sync()
+		client.execute(c -> subscriptions.isEmpty() ? ConsumerRecords.<byte[], byte[]>empty() : c.poll(unit.toMillis(timeout)))
+				.sync()
 				.whenCompleteSuccessfully(records -> records.forEach(r -> subscriptions.get(r.topic()).onNext(convert(r))))
 				.whenCompleteExceptionally(ex -> subscriptions.values().forEach(s -> s.onError(ex)));
 		return subscriptions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;

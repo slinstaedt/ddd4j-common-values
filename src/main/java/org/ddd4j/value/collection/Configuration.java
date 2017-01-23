@@ -6,13 +6,15 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.spi.ServiceProvider;
+import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TFunction;
 import org.ddd4j.value.Value;
 
-public interface Configuration extends Value<Configuration> {
+public interface Configuration extends Value<Configuration>, Seq<Tpl<String, String>> {
 
 	interface Key<V> {
 
@@ -21,8 +23,8 @@ public interface Configuration extends Value<Configuration> {
 			return new Key<String>() {
 
 				@Override
-				public Configuration toConfig(Configuration configuration, String value) {
-					return configuration.with(key, value);
+				public <C extends Configuration> C toConfig(BiFunction<String, String, C> factory, String value) {
+					return factory.apply(key, value);
 				}
 
 				@Override
@@ -37,8 +39,8 @@ public interface Configuration extends Value<Configuration> {
 			return new Key<V>() {
 
 				@Override
-				public Configuration toConfig(Configuration configuration, V value) {
-					return configuration.with(key, value.toString());
+				public <C extends Configuration> C toConfig(BiFunction<String, String, C> factory, V value) {
+					return factory.apply(key, value.toString());
 				}
 
 				@Override
@@ -53,8 +55,8 @@ public interface Configuration extends Value<Configuration> {
 			return new Key<X>() {
 
 				@Override
-				public Configuration toConfig(Configuration configuration, X value) {
-					return Key.this.toConfig(configuration, writer.apply(value));
+				public <C extends Configuration> C toConfig(BiFunction<String, String, C> factory, X value) {
+					return Key.this.toConfig(factory, writer.apply(value));
 				}
 
 				@Override
@@ -64,7 +66,7 @@ public interface Configuration extends Value<Configuration> {
 			};
 		}
 
-		Configuration toConfig(Configuration configuration, V value);
+		<C extends Configuration> C toConfig(BiFunction<String, String, C> factory, V value);
 
 		V valueOf(Configuration configuration);
 
@@ -73,8 +75,8 @@ public interface Configuration extends Value<Configuration> {
 			return new Key<V>() {
 
 				@Override
-				public Configuration toConfig(Configuration configuration, V value) {
-					return Key.this.toConfig(configuration, value);
+				public <C extends Configuration> C toConfig(BiFunction<String, String, C> factory, V value) {
+					return Key.this.toConfig(factory, value);
 				}
 
 				@Override
@@ -86,26 +88,22 @@ public interface Configuration extends Value<Configuration> {
 		}
 	}
 
-	@FunctionalInterface
-	interface Loader {
-
-		Configuration loadFor(ServiceProvider<?> provider);
-	}
-
 	String KEY_DELIMITER = ".";
 
-	Configuration NONE = k -> Optional.empty();
-
 	static Class<?> classForName(String className) {
-		return Class.forName(className);
+		try {
+			return Class.forName(className);
+		} catch (ClassNotFoundException e) {
+			return Throwing.unchecked(e);
+		}
 	}
 
 	static Key<Boolean> keyOfBoolean(String key, Boolean defaultValue) {
 		return Key.ofStringable(key, defaultValue, Boolean::valueOf);
 	}
 
-	static Key<Class<?>> keyOfClass(String key, Class<?> defaultValue) {
-		return Key.ofStringable(key, defaultValue, Class::forName);
+	static <X> Key<Class<? extends X>> keyOfClass(String key, Class<X> baseClass, Class<?> defaultValue) {
+		return Key.ofStringable(key, defaultValue, Class::forName).map(c -> c.asSubclass(baseClass), c -> c);
 	}
 
 	static <E extends Enum<E>> Key<E> keyOfEnum(Class<E> enumType, String key, E defaultValue) {
@@ -141,14 +139,14 @@ public interface Configuration extends Value<Configuration> {
 		return new Configuration() {
 
 			@Override
-			public Seq<Tpl<String, String>> entries() {
-				return Configuration.this.entries();
-			}
-
-			@Override
 			public Optional<String> getString(String key) {
 				Optional<String> value = Configuration.this.getString(key);
 				return value.isPresent() ? value : fallback.getString(key);
+			}
+
+			@Override
+			public Stream<Tpl<String, String>> stream() {
+				return Configuration.this.stream();
 			}
 
 			@Override
@@ -192,24 +190,18 @@ public interface Configuration extends Value<Configuration> {
 
 	Optional<String> getString(String key);
 
-	Seq<Tpl<String, String>> entries();
-
-	default String getString(String key, String defaultValue) {
-		return getString(key).orElse(defaultValue);
-	}
-
 	default Configuration prefixed(String keyPrefix) {
 		Require.nonEmpty(keyPrefix);
 		return new Configuration() {
 
 			@Override
-			public Seq<Tpl<String, String>> entries() {
-				return Configuration.this.entries().map().to(tpl -> tpl.mapLeft(keyPrefix::concat));
+			public Optional<String> getString(String key) {
+				return Configuration.this.getString(keyPrefix + KEY_DELIMITER + key);
 			}
 
 			@Override
-			public Optional<String> getString(String key) {
-				return Configuration.this.getString(keyPrefix + KEY_DELIMITER + key);
+			public Stream<Tpl<String, String>> stream() {
+				return Configuration.this.stream().map(tpl -> tpl.mapLeft(keyPrefix::concat));
 			}
 
 			@Override
@@ -220,10 +212,8 @@ public interface Configuration extends Value<Configuration> {
 	}
 
 	default <V> Configuration with(Key<V> key, V value) {
-		return key.toConfig(this, value);
+		return key.toConfig(this::with, value);
 	}
 
-	default Configuration with(String key, String value) {
-		throw new UnsupportedOperationException();
-	}
+	Configuration with(String key, String value);
 }

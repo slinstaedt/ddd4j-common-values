@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.math.Ordered;
 
 public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Ordered<Committed<K, V>> {
@@ -14,18 +15,20 @@ public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>
 	private final Revision actual;
 	private final Revision expected;
 	private final ZonedDateTime timestamp;
+	private final Props header;
 
-	public Committed(K key, V value, Revision actual, Revision expected, ZonedDateTime timestamp) {
+	public Committed(K key, V value, Revision actual, Revision expected, ZonedDateTime timestamp, Props header) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.actual = Require.nonNull(actual);
 		this.expected = Require.nonNull(expected);
 		this.timestamp = Require.nonNull(timestamp);
+		this.header = Require.nonNull(header);
 	}
 
 	public <X> Optional<Committed<K, X>> asOf(Class<X> type) {
 		if (type.isInstance(value)) {
-			return Optional.of(new Committed<>(key, type.cast(value), actual, expected, timestamp));
+			return Optional.of(new Committed<>(key, type.cast(value), actual, expected, timestamp, header));
 		} else {
 			return Optional.empty();
 		}
@@ -58,6 +61,11 @@ public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>
 	@Override
 	public Revision getExpected() {
 		return expected;
+	}
+
+	@Override
+	public Props getHeader() {
+		return header;
 	}
 
 	@Override

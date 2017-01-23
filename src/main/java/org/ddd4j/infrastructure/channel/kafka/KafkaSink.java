@@ -24,11 +24,12 @@ import org.ddd4j.value.versioned.Uncommitted;
 
 public class KafkaSink implements ColdSink, HotSink {
 
-	public static ProducerRecord<byte[], byte[]> convert(ResourceDescriptor topic, Recorded<ReadBuffer, ReadBuffer> record) {
-		int partition = record.getExpected().getPartition();
+	public static ProducerRecord<byte[], byte[]> convert(ResourceDescriptor topic, Recorded<ReadBuffer, ReadBuffer> recorded) {
+		int partition = recorded.getExpected().getPartition();
 		long timestamp = Clock.systemUTC().millis();
-		byte[] key = record.getKey().toByteArray();
-		byte[] value = record.getValue().toByteArray();
+		byte[] key = recorded.getKey().toByteArray();
+		byte[] value = recorded.getValue().toByteArray();
+		// TODO serialize header?
 		return new ProducerRecord<>(topic.value(), partition, timestamp, key, value);
 	}
 

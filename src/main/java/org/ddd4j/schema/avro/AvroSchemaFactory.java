@@ -9,6 +9,7 @@ import org.ddd4j.io.Input;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.value.collection.Configuration;
+import org.ddd4j.value.collection.Props;
 
 public class AvroSchemaFactory implements SchemaFactory {
 
@@ -16,7 +17,7 @@ public class AvroSchemaFactory implements SchemaFactory {
 	private final ReflectData data;
 
 	public AvroSchemaFactory() {
-		this(Configuration.NONE);
+		this(Props.EMTPY);
 	}
 
 	public AvroSchemaFactory(Configuration configuration) {

@@ -3,6 +3,7 @@ package org.ddd4j.value.versioned;
 import java.util.function.Function;
 
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.value.collection.Props;
 
 public interface Recorded<K, V> {
 
@@ -17,6 +18,8 @@ public interface Recorded<K, V> {
 	<X> X foldRecorded(Function<Uncommitted<K, V>, X> uncommitted, Function<Committed<K, V>, X> committed);
 
 	Revision getExpected();
+
+	Props getHeader();
 
 	K getKey();
 
