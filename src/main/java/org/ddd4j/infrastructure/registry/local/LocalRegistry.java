@@ -4,8 +4,8 @@ import org.ddd4j.collection.Cache;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.registry.Registry;
 import org.ddd4j.infrastructure.registry.RegistryKey;
-import org.ddd4j.spi.Configuration;
 import org.ddd4j.spi.ServiceLocator;
+import org.ddd4j.value.collection.Configuration;
 
 public class LocalRegistry implements Registry {
 

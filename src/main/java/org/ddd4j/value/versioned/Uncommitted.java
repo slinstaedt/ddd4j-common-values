@@ -1,15 +1,17 @@
 package org.ddd4j.value.versioned;
 
 import java.time.ZonedDateTime;
+import java.util.Map;
 import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
 
-public class Uncommitted<K, V> implements Recorded<K, V> {
+public final class Uncommitted<K, V> implements Recorded<K, V> {
 
 	private final K key;
 	private final V value;
 	private final Revision expected;
+	private Map<String, Object> header;
 
 	public Uncommitted(K key, V value, Revision expected) {
 		this.key = Require.nonNull(key);

@@ -5,9 +5,9 @@ import javax.naming.NamingException;
 
 import org.ddd4j.infrastructure.context.Context;
 import org.ddd4j.infrastructure.context.ContextProvider;
-import org.ddd4j.spi.Configuration;
 import org.ddd4j.spi.ServiceLocator;
 import org.ddd4j.value.Throwing;
+import org.ddd4j.value.collection.Configuration;
 
 public class JndiContextProvider implements ContextProvider {
 

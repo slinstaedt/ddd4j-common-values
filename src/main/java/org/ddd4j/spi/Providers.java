@@ -7,6 +7,7 @@ import java.util.function.Supplier;
 import org.ddd4j.contract.Require;
 import org.ddd4j.spi.java.JavaServiceProviderLoader;
 import org.ddd4j.spi.java.SystemPropertiesConfigurationLoader;
+import org.ddd4j.value.collection.Configuration;
 
 public class Providers {
 

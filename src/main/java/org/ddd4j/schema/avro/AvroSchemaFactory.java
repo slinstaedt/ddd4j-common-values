@@ -8,7 +8,7 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.io.Input;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
-import org.ddd4j.spi.Configuration;
+import org.ddd4j.value.collection.Configuration;
 
 public class AvroSchemaFactory implements SchemaFactory {
 

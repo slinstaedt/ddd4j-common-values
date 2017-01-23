@@ -6,8 +6,8 @@ import java.util.concurrent.Executors;
 
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.infrastructure.scheduler.SchedulerProvider;
-import org.ddd4j.spi.Configuration;
 import org.ddd4j.spi.ServiceLocator;
+import org.ddd4j.value.collection.Configuration;
 
 public class PooledSchedulerProvider implements SchedulerProvider {
 

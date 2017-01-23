@@ -4,7 +4,7 @@ import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
 
-public class Conflicting<K, V> implements CommitResult<K, V> {
+public final class Conflicting<K, V> implements CommitResult<K, V> {
 
 	private final K key;
 	private final Revision expected;

@@ -1,7 +1,7 @@
 package org.ddd4j.infrastructure.queue;
 
-import org.ddd4j.spi.Configuration;
 import org.ddd4j.spi.Service;
+import org.ddd4j.value.collection.Configuration;
 
 public interface QueueFactory extends Service<QueueFactory, QueueFactoryProvider> {
 

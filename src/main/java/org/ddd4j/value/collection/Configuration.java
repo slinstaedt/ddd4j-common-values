@@ -1,4 +1,4 @@
-package org.ddd4j.spi;
+package org.ddd4j.value.collection;
 
 import java.net.URI;
 import java.net.URL;
@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.spi.ServiceProvider;
 import org.ddd4j.value.Throwing.TFunction;
 import org.ddd4j.value.Value;
 
@@ -95,6 +96,10 @@ public interface Configuration extends Value<Configuration> {
 
 	Configuration NONE = k -> Optional.empty();
 
+	static Class<?> classForName(String className) {
+		return Class.forName(className);
+	}
+
 	static Key<Boolean> keyOfBoolean(String key, Boolean defaultValue) {
 		return Key.ofStringable(key, defaultValue, Boolean::valueOf);
 	}
@@ -136,6 +141,11 @@ public interface Configuration extends Value<Configuration> {
 		return new Configuration() {
 
 			@Override
+			public Seq<Tpl<String, String>> entries() {
+				return Configuration.this.entries();
+			}
+
+			@Override
 			public Optional<String> getString(String key) {
 				Optional<String> value = Configuration.this.getString(key);
 				return value.isPresent() ? value : fallback.getString(key);
@@ -164,6 +174,10 @@ public interface Configuration extends Value<Configuration> {
 		return getString(key).map(Boolean::valueOf);
 	}
 
+	default <X> Optional<Class<? extends X>> getClass(Class<X> baseType, String key) {
+		return getString(key).map(Configuration::classForName).map(c -> c.<X>asSubclass(baseType));
+	}
+
 	default <E extends Enum<E>> Optional<E> getEnum(Class<E> enumType, String key) {
 		return getString(key).map(s -> Enum.valueOf(enumType, s));
 	}
@@ -178,6 +192,8 @@ public interface Configuration extends Value<Configuration> {
 
 	Optional<String> getString(String key);
 
+	Seq<Tpl<String, String>> entries();
+
 	default String getString(String key, String defaultValue) {
 		return getString(key).orElse(defaultValue);
 	}
@@ -185,6 +201,11 @@ public interface Configuration extends Value<Configuration> {
 	default Configuration prefixed(String keyPrefix) {
 		Require.nonEmpty(keyPrefix);
 		return new Configuration() {
+
+			@Override
+			public Seq<Tpl<String, String>> entries() {
+				return Configuration.this.entries().map().to(tpl -> tpl.mapLeft(keyPrefix::concat));
+			}
 
 			@Override
 			public Optional<String> getString(String key) {

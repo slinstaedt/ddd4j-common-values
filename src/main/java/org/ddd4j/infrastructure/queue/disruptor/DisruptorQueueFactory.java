@@ -3,7 +3,7 @@ package org.ddd4j.infrastructure.queue.disruptor;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.queue.Queue;
 import org.ddd4j.infrastructure.queue.QueueFactory;
-import org.ddd4j.spi.Configuration;
+import org.ddd4j.value.collection.Configuration;
 
 public class DisruptorQueueFactory implements QueueFactory {
 

@@ -7,7 +7,7 @@ import java.util.function.Function;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.math.Ordered;
 
-public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Ordered<Committed<K, V>> {
+public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Ordered<Committed<K, V>> {
 
 	private final K key;
 	private final V value;

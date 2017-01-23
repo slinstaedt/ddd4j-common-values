@@ -17,8 +17,8 @@ import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
-import org.ddd4j.spi.Configuration;
 import org.ddd4j.value.Value;
+import org.ddd4j.value.collection.Configuration;
 
 public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schema> implements Schema<T> {
 

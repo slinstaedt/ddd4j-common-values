@@ -3,7 +3,7 @@ package org.ddd4j.spi.java;
 import java.util.Optional;
 import java.util.Properties;
 
-import org.ddd4j.spi.Configuration;
+import org.ddd4j.value.collection.Configuration;
 
 public class PropertiesConfiguration implements Configuration {
 

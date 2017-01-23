@@ -35,6 +35,7 @@ public class InbandSchemaHandler implements SchemaHandler {
 			try (WriteBuffer buffer = PooledBytes.createBuffer(bytesPool)) {
 				Writer<V> writer = schema.createWriter(buffer);
 				writer.writeAndFlush(value);
+				return null;
 			}
 		};
 	}

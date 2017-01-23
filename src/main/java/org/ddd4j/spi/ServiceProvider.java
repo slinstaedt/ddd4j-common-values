@@ -1,6 +1,7 @@
 package org.ddd4j.spi;
 
 import org.ddd4j.value.Type;
+import org.ddd4j.value.collection.Configuration;
 import org.ddd4j.value.collection.Seq;
 
 @FunctionalInterface
