@@ -78,7 +78,7 @@ public class Buffer implements ReadBuffer, WriteBuffer {
 	}
 
 	@Override
-	public Bytes bytes() {
+	public Bytes backing() {
 		return bytes;
 	}
 

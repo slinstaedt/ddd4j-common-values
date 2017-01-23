@@ -13,17 +13,17 @@ public interface RelativeBuffer extends AutoCloseable {
 		return oldPosition;
 	}
 
-	Bytes bytes();
+	Bytes backing();
 
 	default int capacity() {
-		return bytes().length();
+		return backing().length();
 	}
 
 	WriteBuffer clear();
 
 	@Override
 	default void close() {
-		bytes().close();
+		backing().close();
 	}
 
 	default boolean hasRemaining() {
@@ -37,11 +37,11 @@ public interface RelativeBuffer extends AutoCloseable {
 	RelativeBuffer mark();
 
 	default ByteOrder order() {
-		return bytes().order();
+		return backing().order();
 	}
 
 	default RelativeBuffer order(ByteOrder order) {
-		bytes().order(order);
+		backing().order(order);
 		return this;
 	}
 

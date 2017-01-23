@@ -9,12 +9,16 @@ import org.ddd4j.contract.Require;
 
 public interface ReadBuffer extends RelativeBuffer {
 
+	default Bytes asBytes() {
+		return backing().sliceBy(position(), remaining());
+	}
+
 	InputStream asInputStream();
 
 	ReadBuffer duplicate();
 
 	default byte get() {
-		return bytes().get(advancePosition(Byte.BYTES));
+		return backing().get(advancePosition(Byte.BYTES));
 	}
 
 	default ReadBuffer get(byte[] dst) {
@@ -23,12 +27,12 @@ public interface ReadBuffer extends RelativeBuffer {
 
 	default ReadBuffer get(byte[] dst, int offset, int length) {
 		Require.that(offset + length <= dst.length);
-		bytes().get(advancePosition(length), dst, offset, length);
+		backing().get(advancePosition(length), dst, offset, length);
 		return this;
 	}
 
 	default ReadBuffer get(ByteBuffer dst) {
-		advancePosition(bytes().get(position(), remaining(), dst));
+		advancePosition(backing().get(position(), remaining(), dst));
 		return this;
 	}
 
@@ -39,35 +43,35 @@ public interface ReadBuffer extends RelativeBuffer {
 	}
 
 	default char getChar() {
-		return bytes().getChar(advancePosition(Character.BYTES));
+		return backing().getChar(advancePosition(Character.BYTES));
 	}
 
 	default double getDouble() {
-		return bytes().getDouble(advancePosition(Double.BYTES));
+		return backing().getDouble(advancePosition(Double.BYTES));
 	}
 
 	default float getFloat() {
-		return bytes().getFloat(advancePosition(Float.BYTES));
+		return backing().getFloat(advancePosition(Float.BYTES));
 	}
 
 	default int getInt() {
-		return bytes().getInt(advancePosition(Integer.BYTES));
+		return backing().getInt(advancePosition(Integer.BYTES));
 	}
 
 	default long getLong() {
-		return bytes().getLong(advancePosition(Long.BYTES));
+		return backing().getLong(advancePosition(Long.BYTES));
 	}
 
 	default short getShort() {
-		return bytes().getShort(advancePosition(Short.BYTES));
+		return backing().getShort(advancePosition(Short.BYTES));
 	}
 
 	default int getUnsignedByte() {
-		return bytes().getUnsignedByte(advancePosition(Byte.BYTES));
+		return backing().getUnsignedByte(advancePosition(Byte.BYTES));
 	}
 
 	default int getUnsignedShort() {
-		return bytes().getUnsignedShort(advancePosition(Short.BYTES));
+		return backing().getUnsignedShort(advancePosition(Short.BYTES));
 	}
 
 	default String getUTF() {
@@ -75,13 +79,13 @@ public interface ReadBuffer extends RelativeBuffer {
 	}
 
 	default StringBuilder getUTFAsBuilder() {
-		StringBuilder builder = bytes().getUTFAsBuilder(position());
+		StringBuilder builder = backing().getUTFAsBuilder(position());
 		advancePosition(Bytes.utfLength(builder));
 		return builder;
 	}
 
 	default int hash() {
-		return bytes().hash(position(), remaining());
+		return backing().hash(position(), remaining());
 	}
 
 	@Override
@@ -103,12 +107,12 @@ public interface ReadBuffer extends RelativeBuffer {
 
 	default byte[] toByteArray() {
 		byte[] b = new byte[remaining()];
-		bytes().get(position(), b);
+		backing().get(position(), b);
 		return b;
 	}
 
 	default ReadBuffer writeTo(WritableByteChannel channel) throws IOException {
-		advancePosition(bytes().writeTo(position(), remaining(), channel));
+		advancePosition(backing().writeTo(position(), remaining(), channel));
 		return this;
 	}
 }

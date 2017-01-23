@@ -180,6 +180,14 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	public void close() {
 	}
 
+	public Bytes congruent(Bytes other) {
+		int i = 0;
+		while (this.get(i) == other.get(i)) {
+			i++;
+		}
+		return sliceBy(0, i);
+	}
+
 	@Override
 	public abstract byte get(int index);
 
@@ -457,6 +465,10 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	}
 
 	public Bytes sliceBy(int offset) {
+		return sliceBy(offset, length() - offset);
+	}
+
+	public Bytes sliceBy(int offset, int length) {
 		return new Bytes() {
 
 			@Override
@@ -466,7 +478,7 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 
 			@Override
 			public int length() {
-				return Bytes.this.length();
+				return length;
 			}
 
 			@Override

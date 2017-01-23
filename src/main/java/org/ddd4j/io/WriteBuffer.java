@@ -31,7 +31,7 @@ public interface WriteBuffer extends RelativeBuffer {
 	WriteBuffer position(int newPosition);
 
 	default WriteBuffer put(byte b) {
-		bytes().put(advancePosition(Byte.BYTES), b);
+		backing().put(advancePosition(Byte.BYTES), b);
 		return this;
 	}
 
@@ -41,12 +41,12 @@ public interface WriteBuffer extends RelativeBuffer {
 
 	default WriteBuffer put(byte[] src, int offset, int length) {
 		Require.that(offset + length <= src.length);
-		bytes().put(advancePosition(length), src, offset, length);
+		backing().put(advancePosition(length), src, offset, length);
 		return this;
 	}
 
 	default WriteBuffer put(ByteBuffer src) {
-		advancePosition(bytes().put(position(), remaining(), src));
+		advancePosition(backing().put(position(), remaining(), src));
 		return this;
 	}
 
@@ -55,32 +55,32 @@ public interface WriteBuffer extends RelativeBuffer {
 	}
 
 	default WriteBuffer putChar(char value) {
-		bytes().putChar(advancePosition(Character.BYTES), value);
+		backing().putChar(advancePosition(Character.BYTES), value);
 		return this;
 	}
 
 	default WriteBuffer putDouble(double value) {
-		bytes().putDouble(advancePosition(Double.BYTES), value);
+		backing().putDouble(advancePosition(Double.BYTES), value);
 		return this;
 	}
 
 	default WriteBuffer putFloat(float value) {
-		bytes().putFloat(advancePosition(Float.BYTES), value);
+		backing().putFloat(advancePosition(Float.BYTES), value);
 		return this;
 	}
 
 	default WriteBuffer putInt(int value) {
-		bytes().putInt(advancePosition(Integer.BYTES), value);
+		backing().putInt(advancePosition(Integer.BYTES), value);
 		return this;
 	}
 
 	default WriteBuffer putLong(long value) {
-		bytes().putLong(advancePosition(Long.BYTES), value);
+		backing().putLong(advancePosition(Long.BYTES), value);
 		return this;
 	}
 
 	default WriteBuffer putShort(short value) {
-		bytes().putShort(advancePosition(Short.BYTES), value);
+		backing().putShort(advancePosition(Short.BYTES), value);
 		return this;
 	}
 
@@ -93,12 +93,12 @@ public interface WriteBuffer extends RelativeBuffer {
 	}
 
 	default WriteBuffer putUTF(CharSequence chars) {
-		bytes().putUTF(advancePosition(Bytes.utfLength(chars)), chars);
+		backing().putUTF(advancePosition(Bytes.utfLength(chars)), chars);
 		return this;
 	}
 
 	default WriteBuffer readFrom(ReadableByteChannel channel) throws IOException {
-		advancePosition(bytes().readFrom(position(), remaining(), channel));
+		advancePosition(backing().readFrom(position(), remaining(), channel));
 		return this;
 	}
 
