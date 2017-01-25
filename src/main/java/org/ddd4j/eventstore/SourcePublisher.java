@@ -16,6 +16,7 @@ import org.reactivestreams.Subscription;
 
 public class SourcePublisher implements Publisher<ReadBuffer, ReadBuffer> {
 
+	// TODO delegate to subscriber in a async way?
 	private class SourcedSubscriber implements SourceSubscriber, Subscription {
 
 		private final ResourceDescriptor channel;

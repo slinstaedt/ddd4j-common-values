@@ -64,14 +64,14 @@ public interface Promise<T> {
 		return of(executor, future);
 	}
 
-	default Promise<Void> acceptEither(CompletionStage<? extends T> other, Consumer<? super T> action) {
-		return apply((e, s) -> s.acceptEitherAsync(other, action, e));
+	default Promise<Void> acceptEither(Promise<? extends T> other, Consumer<? super T> action) {
+		return apply((e, s) -> s.acceptEitherAsync(other.toCompletionStage(), action, e));
 	}
 
 	<X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn);
 
-	default <U> Promise<U> applyToEither(CompletionStage<? extends T> other, Function<? super T, U> fn) {
-		return apply((e, s) -> s.applyToEitherAsync(other, fn, e));
+	default <U> Promise<U> applyToEither(Promise<? extends T> other, Function<? super T, U> fn) {
+		return apply((e, s) -> s.applyToEitherAsync(other.toCompletionStage(), fn, e));
 	}
 
 	default Promise<T> async(Executor executor) {
@@ -94,12 +94,12 @@ public interface Promise<T> {
 		return handle((t, ex) -> ex != null ? Throwing.unchecked(ex) : fn.apply(t));
 	}
 
-	default Promise<Void> runAfterBoth(CompletionStage<?> other, Runnable action) {
-		return apply((e, s) -> s.runAfterBothAsync(other, action, e));
+	default Promise<Void> runAfterBoth(Promise<?> other, Runnable action) {
+		return apply((e, s) -> s.runAfterBothAsync(other.toCompletionStage(), action, e));
 	}
 
-	default Promise<Void> runAfterEither(CompletionStage<?> other, Runnable action) {
-		return apply((e, s) -> s.runAfterEitherAsync(other, action, e));
+	default Promise<Void> runAfterEither(Promise<?> other, Runnable action) {
+		return apply((e, s) -> s.runAfterEitherAsync(other.toCompletionStage(), action, e));
 	}
 
 	default Promise<T> sync() {
@@ -110,20 +110,20 @@ public interface Promise<T> {
 		return apply((e, s) -> s.thenAcceptAsync(action, e));
 	}
 
-	default <U> Promise<Void> thenAcceptBoth(CompletionStage<? extends U> other, BiConsumer<? super T, ? super U> action) {
-		return apply((e, s) -> s.thenAcceptBothAsync(other, action, e));
+	default <U> Promise<Void> thenAcceptBoth(Promise<? extends U> other, BiConsumer<? super T, ? super U> action) {
+		return apply((e, s) -> s.thenAcceptBothAsync(other.toCompletionStage(), action, e));
 	}
 
 	default <U> Promise<U> thenApply(Function<? super T, ? extends U> fn) {
 		return apply((e, s) -> s.thenApplyAsync(fn, e));
 	}
 
-	default <U, V> Promise<V> thenCombine(CompletionStage<? extends U> other, BiFunction<? super T, ? super U, ? extends V> fn) {
-		return apply((e, s) -> s.thenCombineAsync(other, fn, e));
+	default <U, V> Promise<V> thenCombine(Promise<? extends U> other, BiFunction<? super T, ? super U, ? extends V> fn) {
+		return apply((e, s) -> s.thenCombineAsync(other.toCompletionStage(), fn, e));
 	}
 
-	default <U> Promise<U> thenCompose(Function<? super T, ? extends CompletionStage<U>> fn) {
-		return apply((e, s) -> s.thenComposeAsync(fn, e));
+	default <U> Promise<U> thenCompose(Function<? super T, ? extends Promise<U>> fn) {
+		return apply((e, s) -> s.thenComposeAsync(fn.andThen(Promise::toCompletionStage), e));
 	}
 
 	default Promise<Void> thenRun(Runnable action) {

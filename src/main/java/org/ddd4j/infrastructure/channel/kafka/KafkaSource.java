@@ -80,10 +80,13 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 				}
 				subscriber.onNext(committed);
 				expected.update(committed.getExpected());
-				endOffsets(topic).handleSuccess(r -> r.reachedBy(expected));
-				if (checkEndOfStream && endOffsets(topic).reachedBy(expected)) {
-					cancel();
-					subscriber.onComplete();
+				if (checkEndOfStream) {
+					endOffsets(topic).whenCompleteSuccessfully(r -> {
+						if (r.reachedBy(expected)) {
+							cancel();
+							subscriber.onComplete();
+						}
+					});
 				}
 			}
 
@@ -167,11 +170,13 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 	}
 
 	private Promise<Revisions> endOffsets(String topic) {
-		return partitionSize(topic).handleSuccess(partitionSize -> {
+		return partitionSize(topic).thenCompose(partitionSize -> {
 			Revisions revisions = new Revisions(partitionSize);
 			List<TopicPartition> partitions = IntStream.range(0, partitionSize).mapToObj(p -> new TopicPartition(topic, p)).collect(Collectors.toList());
-			client.perform(c -> c.endOffsets(partitions).entrySet().forEach(e -> revisions.updateWithPartition(e.getKey().partition(), e.getValue())));
-			return revisions;
+			return client.execute(c -> c.endOffsets(partitions))
+					.sync()
+					.whenCompleteSuccessfully(m -> m.entrySet().forEach(e -> revisions.updateWithPartition(e.getKey().partition(), e.getValue())))
+					.handleSuccess(c -> revisions);
 		});
 	}
 
@@ -191,7 +196,7 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 	}
 
 	private Promise<Integer> partitionSize(String topic) {
-		return client.execute(c -> c.partitionsFor(topic).size());
+		return client.execute(c -> c.partitionsFor(topic).size()).sync();
 	}
 
 	@Override
