@@ -18,16 +18,12 @@ import org.ddd4j.value.Type;
 @FunctionalInterface
 public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvider> {
 
-	default <T> Promise<T> completedOutcome(T value) {
-		return Promise.ofCompleted(this, value);
-	}
-
 	default <T> Agent<T> createAgent(T initialState) {
 		return Agent.create(this, initialState);
 	}
 
 	default <T> T createAgentDecorator(Type<T> type, T initialState) {
-		return ActorInvocationHandler.create(this, type, initialState);
+		return AgentInvocationHandler.create(this, type, initialState);
 	}
 
 	default <T> Deferred<T> createDeferredPromise() {
@@ -54,10 +50,6 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 		} catch (InterruptedException e) {
 			Throwing.unchecked(e);
 		}
-	}
-
-	default <T> Promise<T> failedOutcome(Throwable exception) {
-		return Promise.ofFailed(this, exception);
 	}
 
 	default int getBurstProcessing() {

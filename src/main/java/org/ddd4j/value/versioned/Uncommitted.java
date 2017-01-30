@@ -32,8 +32,13 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 		return new Committed<>(key, value, expected, nextExpected, timestamp, header);
 	}
 
-	public Conflicting<K, V> conflictsWith(Revision actual) {
+	public Conflicting<K, V> conflicting(Revision actual) {
 		return new Conflicting<>(key, expected, actual);
+	}
+
+	public CommitResult<K, V> resulting(CommitResult<?, ?> result) {
+		return result.foldResult(committed -> committed(committed.getExpected(), committed.getTimestamp()),
+				conflicting -> conflicting(conflicting.getActual()));
 	}
 
 	@Override

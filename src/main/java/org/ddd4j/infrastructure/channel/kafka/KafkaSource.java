@@ -204,7 +204,8 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 		client.execute(c -> subscriptions.isEmpty() ? ConsumerRecords.<byte[], byte[]>empty() : c.poll(unit.toMillis(timeout)))
 				.sync()
 				.whenCompleteSuccessfully(records -> records.forEach(r -> subscriptions.get(r.topic()).onNext(convert(r))))
-				.whenCompleteExceptionally(ex -> subscriptions.values().forEach(s -> s.onError(ex)));
+				.whenCompleteExceptionally(ex -> subscriptions.values().forEach(s -> s.onError(ex)))
+				.whenCompleteExceptionally(ex -> subscriptions.clear());
 		return subscriptions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
 	}
 

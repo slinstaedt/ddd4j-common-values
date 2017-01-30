@@ -7,17 +7,17 @@ import java.lang.reflect.Proxy;
 import org.ddd4j.value.Throwing.TFunction;
 import org.ddd4j.value.Type;
 
-public class ActorInvocationHandler implements InvocationHandler {
+public class AgentInvocationHandler implements InvocationHandler {
 
 	public static <T> T create(Scheduler scheduler, Type<T> type, T delegate) {
-		ActorInvocationHandler handler = new ActorInvocationHandler(scheduler, delegate);
+		AgentInvocationHandler handler = new AgentInvocationHandler(scheduler, delegate);
 		Object proxy = Proxy.newProxyInstance(type.getClassLoader(), type.getInterfaceClosure(), handler);
 		return type.cast(proxy);
 	}
 
 	private final Agent<Object> actor;
 
-	private ActorInvocationHandler(Scheduler scheduler, Object delegate) {
+	private AgentInvocationHandler(Scheduler scheduler, Object delegate) {
 		this.actor = Agent.create(scheduler, delegate);
 	}
 

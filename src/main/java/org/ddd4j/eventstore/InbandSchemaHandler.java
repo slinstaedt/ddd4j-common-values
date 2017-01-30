@@ -12,16 +12,21 @@ import org.ddd4j.io.PooledBytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Schema;
-import org.ddd4j.schema.Schema.Writer;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
+import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Uncommitted;
 
 public class InbandSchemaHandler implements SchemaHandler {
 
+	private enum MessageType {
+		SCHEMA, COMMIT;
+	}
+
 	private final Cache.Pool<Bytes> bytesPool;
 	private final Cache.Aside<Schema<?>, Promise<Revision>> schemaCache;
+	private Revisions revisions;
 
 	public InbandSchemaHandler(Cache.Pool<Bytes> bytesPool) {
 		this.bytesPool = Require.nonNull(bytesPool);
@@ -30,14 +35,14 @@ public class InbandSchemaHandler implements SchemaHandler {
 
 	@Override
 	public <K, V> Committer<K, V> committer(EventChannel<K, V> channel, SinkCommitter committer) {
-		Promise<Revision> revision = schemaCache.acquire(channel.eventSchema(), s -> saveSchema(s, committer));
-		return u -> {
+		return attempt -> schemaCache.acquire(channel.eventSchema(), s -> schemaRevision(s, committer)).thenCompose(schemaRevision -> {
 			try (WriteBuffer buffer = PooledBytes.createBuffer(bytesPool)) {
-				Writer<V> writer = schema.createWriter(buffer);
-				writer.writeAndFlush(value);
-				return null;
+				channel.eventSchema().createWriter(buffer).writeAndFlush(attempt.getValue());
+				return committer.tryCommit(Recorded.uncommitted(buffer.flip(), null)).handleSuccess(attempt::resulting);
+			} catch (Exception e) {
+				return Promise.failed(e);
 			}
-		};
+		});
 	}
 
 	@Override
@@ -46,7 +51,7 @@ public class InbandSchemaHandler implements SchemaHandler {
 		return null;
 	}
 
-	private Promise<Revision> saveSchema(Schema<?> schema, SinkCommitter committer) {
+	private Promise<Revision> schemaRevision(Schema<?> schema, SinkCommitter committer) {
 		try (WriteBuffer buffer = PooledBytes.createBuffer(bytesPool)) {
 			schema.serializeFingerprintAndSchema(buffer);
 			Uncommitted<ReadBuffer, ReadBuffer> attempt = Recorded.uncommitted(buffer.flip(), expected);

@@ -7,7 +7,6 @@ import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.RevisionsCallback;
 import org.ddd4j.infrastructure.channel.SourceSubscriber;
-import org.ddd4j.infrastructure.scheduler.Requesting;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.versioned.Committed;

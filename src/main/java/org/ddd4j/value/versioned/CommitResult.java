@@ -5,7 +5,7 @@ import java.util.function.Function;
 
 public interface CommitResult<K, V> {
 
-	<X> X foldResult(Function<Committed<K, V>, X> committed, Function<Conflicting<K, V>, X> conflict);
+	<X> X foldResult(Function<Committed<K, V>, X> committed, Function<Conflicting<K, V>, X> conflicting);
 
 	Revision getActual();
 

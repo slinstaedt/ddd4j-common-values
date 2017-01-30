@@ -18,6 +18,18 @@ import org.ddd4j.value.Throwing.TFunction;
 
 public interface Promise<T> {
 
+	static <T> Promise<T> completed(T value) {
+		CompletableFuture<T> future = new CompletableFuture<>();
+		future.complete(value);
+		return of(Runnable::run, future);
+	}
+
+	static <T> Promise<T> failed(Throwable exception) {
+		CompletableFuture<T> future = new CompletableFuture<>();
+		future.completeExceptionally(exception);
+		return of(Runnable::run, future);
+	}
+
 	static <T> Promise<T> of(Executor executor, CompletionStage<T> stage) {
 		Require.nonNullElements(executor, stage);
 		return new Promise<T>() {
@@ -52,16 +64,6 @@ public interface Promise<T> {
 			}
 		});
 		return of(executor, result);
-	}
-
-	static <T> Promise<T> ofCompleted(Executor executor, T value) {
-		return of(executor, CompletableFuture.completedFuture(value));
-	}
-
-	static <T> Promise<T> ofFailed(Executor executor, Throwable exception) {
-		CompletableFuture<T> future = new CompletableFuture<>();
-		future.completeExceptionally(exception);
-		return of(executor, future);
 	}
 
 	default Promise<Void> acceptEither(Promise<? extends T> other, Consumer<? super T> action) {

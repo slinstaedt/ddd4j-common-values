@@ -30,6 +30,7 @@ public class KafkaSink implements ColdSink, HotSink {
 		byte[] key = recorded.getKey().toByteArray();
 		byte[] value = recorded.getValue().toByteArray();
 		// TODO serialize header?
+		recorded.getHeader();
 		return new ProducerRecord<>(topic.value(), partition, timestamp, key, value);
 	}
 

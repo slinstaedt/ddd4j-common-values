@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.scheduler;
+package org.ddd4j.eventstore;
 
 import org.ddd4j.contract.Require;
 

@@ -44,7 +44,8 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 	}
 
 	public int partition(int hash) {
-		return Math.abs(hash) % offsets.length;
+		int p = hash % offsets.length;
+		return p >= 0 ? p : p + offsets.length;
 	}
 
 	public boolean reachedBy(Revision revision) {
