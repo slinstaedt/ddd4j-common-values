@@ -8,7 +8,6 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.math.Ordered;
 
-//TODO move to infrastructure?
 public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 
 	private final long[] offsets;
@@ -44,8 +43,7 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 	}
 
 	public int partition(int hash) {
-		int p = hash % offsets.length;
-		return p >= 0 ? p : p + offsets.length;
+		return Math.abs(hash) % offsets.length;
 	}
 
 	public boolean reachedBy(Revision revision) {
@@ -69,16 +67,17 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return IntStream.range(0, offsets.length).filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET).mapToObj(p -> new Revision(p, offsets[p]));
 	}
 
-	public void updateWithPartition(int partition, long nextOffset) {
+	public Revisions updateWithPartition(int partition, long nextOffset) {
 		Require.that(Long.compareUnsigned(nextOffset, offset(partition)) > 0);
 		this.offsets[partition] = nextOffset;
+		return this;
 	}
 
-	public void updateWithHash(int hash, long nextOffset) {
-		updateWithPartition(partition(hash), nextOffset);
+	public Revisions updateWithHash(int hash, long nextOffset) {
+		return updateWithPartition(partition(hash), nextOffset);
 	}
 
-	public void update(Revision revision) {
-		updateWithPartition(revision.getPartition(), revision.getOffset());
+	public Revisions update(Revision revision) {
+		return updateWithPartition(revision.getPartition(), revision.getOffset());
 	}
 }

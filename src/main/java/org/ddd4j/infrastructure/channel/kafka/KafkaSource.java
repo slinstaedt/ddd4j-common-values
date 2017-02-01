@@ -48,14 +48,14 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 
 			private final SourceSubscriber subscriber;
 			private final RevisionsCallback callback;
-			private final Revisions expected;
 			private final boolean checkEndOfStream;
+			private Revisions expected;
 
 			KafkaSubscription(SourceSubscriber subscriber, RevisionsCallback callback, int partitionSize, boolean checkEndOfStream) {
 				this.subscriber = Require.nonNull(subscriber);
 				this.callback = Require.nonNull(callback);
-				this.expected = new Revisions(partitionSize);
 				this.checkEndOfStream = checkEndOfStream;
+				expected = new Revisions(partitionSize);
 				subscriber.onSubscribe(this);
 			}
 
@@ -79,7 +79,7 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 					return;
 				}
 				subscriber.onNext(committed);
-				expected.update(committed.getExpected());
+				expected = expected.update(committed.getExpected());
 				if (checkEndOfStream) {
 					endOffsets(topic).whenCompleteSuccessfully(r -> {
 						if (r.reachedBy(expected)) {
@@ -140,7 +140,7 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 		ReadBuffer key = Bytes.wrap(record.key()).buffered();
 		ReadBuffer value = Bytes.wrap(record.value()).buffered();
 		Revision actual = new Revision(record.partition(), record.offset());
-		Revision expected = actual.increment(1);
+		Revisions expected = actual.increment(1);
 		ZonedDateTime timestamp = Instant.ofEpochMilli(record.timestamp()).atZone(ZoneOffset.UTC);
 		Props header = new Props(value);
 		return new Committed<>(key, value, actual, expected, timestamp, header);

@@ -10,35 +10,32 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 
 	private final K key;
 	private final V value;
-	private final Revision expected;
+	private final Revisions expected;
 	private final Props header;
 
-	public Uncommitted(K key, V value, Revision expected) {
+	public Uncommitted(K key, V value, Revisions expected) {
 		this(key, value, expected, Props.EMTPY);
 	}
 
-	public Uncommitted(K key, V value, Revision expected, Props header) {
+	public Uncommitted(K key, V value, Revisions expected, Props header) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.expected = Require.nonNull(expected);
 		this.header = Require.nonNull(header);
 	}
 
-	public Committed<K, V> committed(long nextExpectedOffset, ZonedDateTime timestamp) {
-		return committed(expected.next(nextExpectedOffset), timestamp);
-	}
-
 	public Committed<K, V> committed(Revision nextExpected, ZonedDateTime timestamp) {
-		return new Committed<>(key, value, expected, nextExpected, timestamp, header);
+		Revisions expected = this.expected.update(nextExpected);
+		Revision actual = expected.revisionOfPartition(nextExpected.getPartition());
+		return new Committed<>(key, value, actual, expected, timestamp, header);
 	}
 
-	public Conflicting<K, V> conflicting(Revision actual) {
+	public Conflicting<K, V> conflicts(Revision actual) {
 		return new Conflicting<>(key, expected, actual);
 	}
 
 	public CommitResult<K, V> resulting(CommitResult<?, ?> result) {
-		return result.foldResult(committed -> committed(committed.getExpected(), committed.getTimestamp()),
-				conflicting -> conflicting(conflicting.getActual()));
+		return result.foldResult(committed -> committed(committed.getActual(), committed.getTimestamp()), conflicting -> conflicts(conflicting.getActual()));
 	}
 
 	@Override
@@ -47,7 +44,7 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	}
 
 	@Override
-	public Revision getExpected() {
+	public Revisions getExpected() {
 		return expected;
 	}
 

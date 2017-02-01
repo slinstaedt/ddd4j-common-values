@@ -20,12 +20,13 @@ import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;
+import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Uncommitted;
 
 public class KafkaSink implements ColdSink, HotSink {
 
 	public static ProducerRecord<byte[], byte[]> convert(ResourceDescriptor topic, Recorded<ReadBuffer, ReadBuffer> recorded) {
-		int partition = recorded.getExpected().getPartition();
+		int partition = recorded.partition(ReadBuffer::hash);
 		long timestamp = Clock.systemUTC().millis();
 		byte[] key = recorded.getKey().toByteArray();
 		byte[] value = recorded.getValue().toByteArray();
@@ -55,7 +56,7 @@ public class KafkaSink implements ColdSink, HotSink {
 			@Override
 			public void onCompletion(RecordMetadata metadata, Exception exception) {
 				if (metadata != null) {
-					long nextExpected = metadata.offset() + 1;
+					Revision nextExpected = new Revision(metadata.partition(), metadata.offset() + 1);
 					ZonedDateTime timestamp = Instant.ofEpochMilli(metadata.timestamp()).atZone(ZoneOffset.UTC);
 					deferred.completeSuccessfully(attempt.committed(nextExpected, timestamp));
 				} else {

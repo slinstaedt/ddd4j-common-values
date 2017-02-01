@@ -7,10 +7,10 @@ import org.ddd4j.contract.Require;
 public final class Conflicting<K, V> implements CommitResult<K, V> {
 
 	private final K key;
-	private final Revision expected;
+	private final Revisions expected;
 	private final Revision actual;
 
-	public Conflicting(K key, Revision expected, Revision actual) {
+	public Conflicting(K key, Revisions expected, Revision actual) {
 		this.key = Require.nonNull(key);
 		this.expected = Require.nonNull(expected);
 		this.actual = Require.nonNull(actual);
@@ -26,7 +26,7 @@ public final class Conflicting<K, V> implements CommitResult<K, V> {
 		return actual;
 	}
 
-	public Revision getExpected() {
+	public Revisions getExpected() {
 		return expected;
 	}
 

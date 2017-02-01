@@ -38,7 +38,7 @@ public class InbandSchemaHandler implements SchemaHandler {
 		return attempt -> schemaCache.acquire(channel.eventSchema(), s -> schemaRevision(s, committer)).thenCompose(schemaRevision -> {
 			try (WriteBuffer buffer = PooledBytes.createBuffer(bytesPool)) {
 				channel.eventSchema().createWriter(buffer).writeAndFlush(attempt.getValue());
-				return committer.tryCommit(Recorded.uncommitted(buffer.flip(), null)).handleSuccess(attempt::resulting);
+				return committer.tryCommit(Recorded.uncommitted(buffer.flip(), revisions)).handleSuccess(attempt::resulting);
 			} catch (Exception e) {
 				return Promise.failed(e);
 			}
@@ -54,7 +54,7 @@ public class InbandSchemaHandler implements SchemaHandler {
 	private Promise<Revision> schemaRevision(Schema<?> schema, SinkCommitter committer) {
 		try (WriteBuffer buffer = PooledBytes.createBuffer(bytesPool)) {
 			schema.serializeFingerprintAndSchema(buffer);
-			Uncommitted<ReadBuffer, ReadBuffer> attempt = Recorded.uncommitted(buffer.flip(), expected);
+			Uncommitted<ReadBuffer, ReadBuffer> attempt = Recorded.uncommitted(buffer.flip(), revisions);
 			return committer.tryCommit(attempt).handleSuccess(CommitResult::getActual);
 		}
 	}

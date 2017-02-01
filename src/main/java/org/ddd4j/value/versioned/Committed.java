@@ -13,11 +13,11 @@ public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>
 	private final K key;
 	private final V value;
 	private final Revision actual;
-	private final Revision expected;
+	private final Revisions expected;
 	private final ZonedDateTime timestamp;
 	private final Props header;
 
-	public Committed(K key, V value, Revision actual, Revision expected, ZonedDateTime timestamp, Props header) {
+	public Committed(K key, V value, Revision actual, Revisions expected, ZonedDateTime timestamp, Props header) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.actual = Require.nonNull(actual);
@@ -59,7 +59,7 @@ public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>
 	}
 
 	@Override
-	public Revision getExpected() {
+	public Revisions getExpected() {
 		return expected;
 	}
 
