@@ -5,15 +5,18 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
@@ -35,13 +38,23 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = new ConsumerRecords<>(Collections.emptyMap());
 
+	static Revisions currentRevisions(Consumer<?, ?> client, String topic) {
+		List<PartitionInfo> infos = client.partitionsFor(topic);
+		List<TopicPartition> partitions = infos.stream().map(i -> new TopicPartition(i.topic(), i.partition())).collect(Collectors.toList());
+		Map<TopicPartition, Long> offsets = client.endOffsets(partitions);
+		return offsets.entrySet().stream().reduce(new Revisions(offsets.size()), (r, e) -> r.updateWithPartition(e.getKey().partition(), e.getValue()),
+				Revisions::update);
+	}
+
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final ChannelListener listener;
-	private Revisions current;
+
+	private final Map<String, Revisions> subscriptions;
 
 	public KafkaCallback(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener listener) {
 		this.client = scheduler.createAgent(consumer);
 		this.listener = Require.nonNull(listener);
+		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
 	@Override
@@ -77,45 +90,39 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	@Override
 	public Promise<Trigger> perform(long timeout, TimeUnit unit) throws Exception {
-		return client.execute(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
-				.sync()
+		return client.execute(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout))).sync()
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> listener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
-				.whenCompleteExceptionally(listener::onError)
-				.handleSuccess(rs -> rs == EMPTY_RECORDS ? Trigger.NOTHING : Trigger.RESCHEDULE);
-	}
-
-	@Override
-	public void subscribe(ResourceDescriptor topic) {
-		client.perform(c -> {
-			Set<String> subscription = c.subscription();
-			if (!subscription.contains(topic.value())) {
-				Set<String> result = new HashSet<>(subscription);
-				result.add(topic.value());
-				c.subscribe(result, this);
-			}
-		});
-	}
-
-	@Override
-	public void unsubscribe(ResourceDescriptor topic) {
-		client.perform(c -> {
-			Set<String> subscription = c.subscription();
-			if (subscription.contains(topic.value())) {
-				Set<String> result = new HashSet<>(subscription);
-				result.remove(topic.value());
-				c.subscribe(result, this);
-			}
-		});
+				.whenCompleteExceptionally(listener::onError).handleSuccess(rs -> rs == EMPTY_RECORDS ? Trigger.NOTHING : Trigger.RESCHEDULE);
 	}
 
 	@Override
 	public void seek(ResourceDescriptor topic, Revision revision) {
 		subscribe(topic);
-		client.perform(c -> c.seek(new TopicPartition(topic.value(), revision.getPartition()), revision.getOffset()));
+		client.perform(c -> {
+			subscriptions.computeIfPresent(topic.value(), (t, r) -> r.update(revision));
+			c.seek(new TopicPartition(topic.value(), revision.getPartition()), revision.getOffset());
+		});
+	}
+
+	@Override
+	public void subscribe(ResourceDescriptor topic) {
+		if (subscriptions.putIfAbsent(topic.value(), Revisions.NONE) == null) {
+			client.perform(c -> {
+				subscriptions.put(topic.value(), currentRevisions(c, topic.value()));
+				c.subscribe(subscriptions.keySet(), this);
+			});
+		}
 	}
 
 	@Override
 	public void unseek(ResourceDescriptor topic) {
 		unsubscribe(topic);
+	}
+
+	@Override
+	public void unsubscribe(ResourceDescriptor topic) {
+		if (subscriptions.remove(topic.value()) != null) {
+			client.perform(c -> c.subscribe(subscriptions.keySet(), this));
+		}
 	}
 }
