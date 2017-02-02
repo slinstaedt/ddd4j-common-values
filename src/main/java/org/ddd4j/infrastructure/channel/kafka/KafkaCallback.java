@@ -10,10 +10,10 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
@@ -35,18 +35,18 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = new ConsumerRecords<>(Collections.emptyMap());
 
-	private final Agent<KafkaConsumer<byte[], byte[]>> client;
+	private final Agent<Consumer<byte[], byte[]>> client;
 	private final ChannelListener listener;
 	private Revisions current;
 
-	public KafkaCallback(Scheduler scheduler, KafkaConsumer<byte[], byte[]> consumer, ChannelListener listener) {
+	public KafkaCallback(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener listener) {
 		this.client = scheduler.createAgent(consumer);
 		this.listener = Require.nonNull(listener);
 	}
 
 	@Override
 	public void closeChecked() {
-		client.perform(KafkaConsumer::close);
+		client.perform(Consumer::close);
 	}
 
 	private Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
