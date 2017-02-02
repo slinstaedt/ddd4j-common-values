@@ -24,8 +24,6 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.ColdSource;
-import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.RevisionsCallback;
 import org.ddd4j.infrastructure.channel.SourceSubscriber;
 import org.ddd4j.infrastructure.channel.SourceSubscriber.SourceSubscription;
@@ -40,7 +38,7 @@ import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;;
 
-public class KafkaSource implements ColdSource, HotSource, BlockingTask, ConsumerRebalanceListener {
+public class KafkaSource implements BlockingTask, ConsumerRebalanceListener {
 
 	private class KafkaSubscribers {
 
@@ -209,12 +207,10 @@ public class KafkaSource implements ColdSource, HotSource, BlockingTask, Consume
 		return subscriptions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
 	}
 
-	@Override
 	public void read(ResourceDescriptor topic, SourceSubscriber subscriber, RevisionsCallback callback) {
 		subscriptions.computeIfAbsent(topic.value(), this::subscribeTo).read(subscriber, callback);
 	}
 
-	@Override
 	public void subscribe(ResourceDescriptor topic, SourceSubscriber subscriber, RevisionsCallback callback) {
 		subscriptions.computeIfAbsent(topic.value(), this::subscribeTo).subscribe(subscriber, callback);
 	}

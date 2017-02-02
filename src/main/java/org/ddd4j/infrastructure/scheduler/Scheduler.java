@@ -40,7 +40,7 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 
 	default void schedulePeriodic(BlockingTask task) {
 		Require.nonNull(task);
-		Producer<Trigger> producer = () -> task.perform(1000, TimeUnit.MILLISECONDS);
+		Producer<Promise<Trigger>> producer = () -> task.perform(1000, TimeUnit.MILLISECONDS);
 		schedule(producer).handleException(task::handleException).whenCompleteSuccessfully(t -> t.apply(this, task));
 	}
 

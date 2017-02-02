@@ -7,6 +7,10 @@ public class ResourceDescriptor extends Value.StringBased<ResourceDescriptor> {
 
 	private static final int MAX_DESCRIPTOR_LENGTH = 30;
 
+	public static ResourceDescriptor of(String value) {
+		return new ResourceDescriptor(value);
+	}
+
 	public ResourceDescriptor(String value) {
 		super(Require.that(value, value != null && !value.isEmpty() && value.length() < MAX_DESCRIPTOR_LENGTH));
 	}
