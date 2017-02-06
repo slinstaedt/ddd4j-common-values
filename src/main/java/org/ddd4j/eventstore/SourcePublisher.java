@@ -1,7 +1,7 @@
 package org.ddd4j.eventstore;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.eventstore.EventStore.Publisher;
+import org.ddd4j.eventstore.Repository.Publisher;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.HotSource;

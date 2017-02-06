@@ -10,7 +10,7 @@ import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Uncommitted;
 import org.reactivestreams.Subscriber;
 
-public interface EventStore {
+public interface Repository {
 
 	interface Committer<K, V> {
 

@@ -2,7 +2,7 @@ package org.ddd4j.aggregate;
 
 import java.util.function.Function;
 
-import org.ddd4j.eventstore.EventStore;
+import org.ddd4j.eventstore.Repository;
 import org.ddd4j.value.behavior.Behavior;
 import org.ddd4j.value.behavior.HandlerChain;
 import org.ddd4j.value.behavior.Reaction;
@@ -19,7 +19,7 @@ public class AggregateType<ID extends Identifier, T, C, E> {
 		<X> X apply(Function<? super T, Behavior<X>> function);
 	}
 
-	private EventStore eventStore;
+	private Repository eventStore;
 	private Aggregates aggregates;
 	private HandlerChain<T> commandHandler;
 	private HandlerChain<T> eventHandler;

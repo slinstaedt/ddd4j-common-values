@@ -1,6 +1,6 @@
 package org.ddd4j.eventstore;
 
-public class SchemaEventStore implements EventStore {
+public class SchemaEventStore implements Repository {
 
 	public interface SchemaHandler {
 

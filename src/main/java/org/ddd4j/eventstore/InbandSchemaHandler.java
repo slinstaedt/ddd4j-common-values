@@ -2,9 +2,9 @@ package org.ddd4j.eventstore;
 
 import org.ddd4j.collection.Cache;
 import org.ddd4j.contract.Require;
-import org.ddd4j.eventstore.EventStore.Committer;
-import org.ddd4j.eventstore.EventStore.EventChannel;
-import org.ddd4j.eventstore.EventStore.Publisher;
+import org.ddd4j.eventstore.Repository.Committer;
+import org.ddd4j.eventstore.Repository.EventChannel;
+import org.ddd4j.eventstore.Repository.Publisher;
 import org.ddd4j.eventstore.SchemaEventStore.SchemaHandler;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.io.Bytes;

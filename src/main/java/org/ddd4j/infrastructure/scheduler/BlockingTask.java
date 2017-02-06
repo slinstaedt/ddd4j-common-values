@@ -1,5 +1,6 @@
 package org.ddd4j.infrastructure.scheduler;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import org.ddd4j.infrastructure.Promise;
@@ -20,5 +21,5 @@ public interface BlockingTask {
 		return Trigger.NOTHING;
 	}
 
-	Promise<Trigger> perform(long timeout, TimeUnit unit) throws Exception;
+	Promise<Trigger> scheduleWith(Executor executor, long timeout, TimeUnit unit);
 }

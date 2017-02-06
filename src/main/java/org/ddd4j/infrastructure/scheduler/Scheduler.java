@@ -5,7 +5,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.scheduler.BlockingTask.Trigger;
 import org.ddd4j.spi.Service;
@@ -39,9 +38,8 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 	}
 
 	default void schedulePeriodic(BlockingTask task) {
-		Require.nonNull(task);
-		Producer<Promise<Trigger>> producer = () -> task.perform(1000, TimeUnit.MILLISECONDS);
-		schedule(producer).handleException(task::handleException).whenCompleteSuccessfully(t -> t.apply(this, task));
+		Promise<Trigger> retrigger = task.scheduleWith(this, 1000, TimeUnit.MILLISECONDS);
+		retrigger.handleException(task::handleException).whenCompleteSuccessfully(t -> t.apply(this, task));
 	}
 
 	default void executeBlockingTask(long timeout, TimeUnit unit) {

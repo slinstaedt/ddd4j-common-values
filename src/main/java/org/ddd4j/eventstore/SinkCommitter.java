@@ -1,7 +1,7 @@
 package org.ddd4j.eventstore;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.eventstore.EventStore.Committer;
+import org.ddd4j.eventstore.Repository.Committer;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdSink;

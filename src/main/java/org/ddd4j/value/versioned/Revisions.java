@@ -88,7 +88,7 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return updateWithPartition(revision.getPartition(), revision.getOffset());
 	}
 
-	public Revisions update(Revisions revisions) {
+	public Revisions update(Seq<Revision> revisions) {
 		return revisions.stream().reduce(this, Revisions::update, Revisions::update);
 	}
 

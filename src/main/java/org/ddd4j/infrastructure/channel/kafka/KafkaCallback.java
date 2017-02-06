@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -89,10 +90,12 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	}
 
 	@Override
-	public Promise<Trigger> perform(long timeout, TimeUnit unit) throws Exception {
-		return client.execute(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout))).sync()
+	public Promise<Trigger> scheduleWith(Executor executor, long timeout, TimeUnit unit) {
+		return client.execute(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
+				.sync()
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> listener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
-				.whenCompleteExceptionally(listener::onError).handleSuccess(rs -> rs == EMPTY_RECORDS ? Trigger.NOTHING : Trigger.RESCHEDULE);
+				.whenCompleteExceptionally(listener::onError)
+				.handleSuccess(rs -> rs == EMPTY_RECORDS ? Trigger.NOTHING : Trigger.RESCHEDULE);
 	}
 
 	@Override
