@@ -5,7 +5,7 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.eventstore.Repository.Committer;
 import org.ddd4j.eventstore.Repository.EventChannel;
 import org.ddd4j.eventstore.Repository.Publisher;
-import org.ddd4j.eventstore.SchemaEventStore.SchemaHandler;
+import org.ddd4j.eventstore.SchemaRepository.SchemaHandler;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.PooledBytes;
@@ -34,7 +34,7 @@ public class InbandSchemaHandler implements SchemaHandler {
 	}
 
 	@Override
-	public <K, V> Committer<K, V> committer(EventChannel<K, V> channel, SinkCommitter committer) {
+	public <K, V> Committer<K, V> committer(EventChannel<K, V> channel, ChannelCommitter committer) {
 		return attempt -> schemaCache.acquire(channel.eventSchema(), s -> schemaRevision(s, committer)).thenCompose(schemaRevision -> {
 			try (WriteBuffer buffer = PooledBytes.createBuffer(bytesPool)) {
 				channel.eventSchema().createWriter(buffer).writeAndFlush(attempt.getValue());
@@ -46,12 +46,12 @@ public class InbandSchemaHandler implements SchemaHandler {
 	}
 
 	@Override
-	public <K, V> Publisher<K, V> publisher(EventChannel<K, V> channel, SourcePublisher publisher) {
+	public <K, V> Publisher<K, V> publisher(EventChannel<K, V> channel, ChannelPublisher publisher) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
-	private Promise<Revision> schemaRevision(Schema<?> schema, SinkCommitter committer) {
+	private Promise<Revision> schemaRevision(Schema<?> schema, ChannelCommitter committer) {
 		try (WriteBuffer buffer = PooledBytes.createBuffer(bytesPool)) {
 			schema.serializeFingerprintAndSchema(buffer);
 			Uncommitted<ReadBuffer, ReadBuffer> attempt = Recorded.uncommitted(buffer.flip(), revisions);

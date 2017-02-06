@@ -5,8 +5,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.IntStream;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.eventstore.Repository.Committer;
-import org.ddd4j.eventstore.Repository.Publisher;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ChannelListener;
 import org.ddd4j.infrastructure.channel.ColdChannel;
@@ -31,11 +29,11 @@ public class ChannelRepository implements ChannelListener {
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
-	public Committer<ReadBuffer, ReadBuffer> committer(ResourceDescriptor topic) {
+	public ChannelCommitter committer(ResourceDescriptor topic) {
 		return new ChannelCommitter(topic, coldChannel, hotChannel);
 	}
 
-	public Publisher<ReadBuffer, ReadBuffer> subscriber(ResourceDescriptor topic) {
+	public ChannelPublisher publisher(ResourceDescriptor topic) {
 		return subscriptions.computeIfAbsent(topic, ChannelPublisher::new);
 	}
 
