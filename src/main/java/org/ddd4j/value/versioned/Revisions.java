@@ -44,6 +44,14 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return Integer.signum(result);
 	}
 
+	public boolean isPartitionSizeKnown() {
+		return getPartitionSize() > 0;
+	}
+
+	public int getPartitionSize() {
+		return offsets.length;
+	}
+
 	public long offset(int partition) {
 		long offset = offsets[partition];
 		Require.that(offset != Revision.UNKNOWN_OFFSET);
@@ -84,19 +92,19 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return IntStream.range(0, offsets.length).filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET).mapToObj(p -> new Revision(p, offsets[p]));
 	}
 
-	public Revisions update(Revision revision) {
-		return updateWithPartition(revision.getPartition(), revision.getOffset());
+	public Revisions with(Revision revision) {
+		return withPartition(revision.getPartition(), revision.getOffset());
 	}
 
-	public Revisions update(Seq<Revision> revisions) {
-		return revisions.stream().reduce(this, Revisions::update, Revisions::update);
+	public Revisions with(Seq<Revision> revisions) {
+		return revisions.stream().reduce(this, Revisions::with, Revisions::with);
 	}
 
-	public Revisions updateWithHash(int hash, long nextOffset) {
-		return updateWithPartition(partition(hash), nextOffset);
+	public Revisions withHash(int hash, long nextOffset) {
+		return withPartition(partition(hash), nextOffset);
 	}
 
-	public Revisions updateWithPartition(int partition, long nextOffset) {
+	public Revisions withPartition(int partition, long nextOffset) {
 		// TODO Require.that(Long.compareUnsigned(nextOffset, offset(partition)) > 0);
 		return new Revisions(this, partition, nextOffset);
 	}

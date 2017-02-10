@@ -13,7 +13,6 @@ import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 import org.reactivestreams.Subscriber;
 
-//TODO delegate to subscriber in a async way?
 public class ChannelRepository implements ChannelListener {
 
 	private final ColdChannel coldChannel;
@@ -27,6 +26,8 @@ public class ChannelRepository implements ChannelListener {
 		this.coldChannel = Require.nonNull(coldChannel);
 		this.hotChannel = Require.nonNull(hotChannel);
 		this.subscriptions = new ConcurrentHashMap<>();
+		coldChannel.register(this);
+		hotChannel.register(this);
 	}
 
 	public ChannelCommitter committer(ResourceDescriptor topic) {
@@ -34,7 +35,7 @@ public class ChannelRepository implements ChannelListener {
 	}
 
 	public ChannelPublisher publisher(ResourceDescriptor topic) {
-		return subscriptions.computeIfAbsent(topic, ChannelPublisher::new);
+		return subscriptions.computeIfAbsent(topic, t -> new ChannelPublisher(t, coldCallback, hotCallback));
 	}
 
 	void unsubscribe(ResourceDescriptor topic, Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber) {

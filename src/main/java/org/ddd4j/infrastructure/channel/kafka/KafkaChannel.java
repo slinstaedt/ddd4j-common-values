@@ -70,9 +70,10 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 
 	@Override
 	public void register(ChannelListener listener) {
+		// TODO configure client
 		KafkaConsumer<byte[], byte[]> client = new KafkaConsumer<>(new Properties(), DESERIALIZER, DESERIALIZER);
 		KafkaCallback callback = new KafkaCallback(scheduler, client, listener);
-		listener.onColdRegistration(callback);
+		listener.onRegistration(callback);
 	}
 
 	@Override

@@ -54,8 +54,8 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 		List<PartitionInfo> infos = client.partitionsFor(topic);
 		List<TopicPartition> partitions = infos.stream().map(i -> new TopicPartition(i.topic(), i.partition())).collect(Collectors.toList());
 		Map<TopicPartition, Long> offsets = client.endOffsets(partitions);
-		return offsets.entrySet().stream().reduce(new Revisions(offsets.size()), (r, e) -> r.updateWithPartition(e.getKey().partition(), e.getValue()),
-				Revisions::update);
+		return offsets.entrySet().stream().reduce(new Revisions(offsets.size()), (r, e) -> r.withPartition(e.getKey().partition(), e.getValue()),
+				Revisions::with);
 	}
 
 	private final Agent<Consumer<byte[], byte[]>> client;
@@ -89,6 +89,12 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 		});
 	}
 
+	public int partitionSize(ResourceDescriptor topic) {
+		// TODO Auto-generated method stub
+		client.execute(c -> c.partitionsFor(topic.value()).size());
+		return 0;
+	}
+
 	@Override
 	public Promise<Trigger> scheduleWith(Executor executor, long timeout, TimeUnit unit) {
 		return client.execute(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
@@ -99,16 +105,21 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	}
 
 	@Override
-	public void seek(ResourceDescriptor topic, Revision revision) {
-		subscribe(topic);
+	public Promise<Revisions> seek(ResourceDescriptor topic, Revision revision) {
+		Promise<Revisions> revisions = subscribe(topic);
 		client.perform(c -> {
-			subscriptions.computeIfPresent(topic.value(), (t, r) -> r.update(revision));
+			subscriptions.computeIfPresent(topic.value(), (t, r) -> r.with(revision));
 			c.seek(new TopicPartition(topic.value(), revision.getPartition()), revision.getOffset());
 		});
+		return revisions;
 	}
 
 	@Override
-	public void subscribe(ResourceDescriptor topic) {
+	public Promise<Revisions> subscribe(ResourceDescriptor topic) {
+		Revisions revisions = subscriptions.get(topic.value());
+		if (revisions != null && revisions.isPartitionSizeKnown()) {
+			return revisions;
+		}
 		if (subscriptions.putIfAbsent(topic.value(), Revisions.NONE) == null) {
 			client.perform(c -> {
 				subscriptions.put(topic.value(), currentRevisions(c, topic.value()));
