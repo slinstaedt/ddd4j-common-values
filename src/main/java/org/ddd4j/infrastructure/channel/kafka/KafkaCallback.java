@@ -39,6 +39,17 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = new ConsumerRecords<>(Collections.emptyMap());
 
+	private static Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
+		ReadBuffer key = Bytes.wrap(record.key()).buffered();
+		ReadBuffer value = Bytes.wrap(record.value()).buffered();
+		Revision actual = new Revision(record.partition(), record.offset());
+		Revision next = actual.increment(1);
+		ZonedDateTime timestamp = Instant.ofEpochMilli(record.timestamp()).atZone(ZoneOffset.UTC);
+		// TODO deserialize header?
+		Props header = new Props(value);
+		return new Committed<>(key, value, actual, next, timestamp, header);
+	}
+
 	static Revisions currentRevisions(Consumer<?, ?> client, String topic) {
 		List<PartitionInfo> infos = client.partitionsFor(topic);
 		List<TopicPartition> partitions = infos.stream().map(i -> new TopicPartition(i.topic(), i.partition())).collect(Collectors.toList());
@@ -49,7 +60,6 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final ChannelListener listener;
-
 	private final Map<String, Revisions> subscriptions;
 
 	public KafkaCallback(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener listener) {
@@ -61,16 +71,6 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	@Override
 	public void closeChecked() {
 		client.perform(Consumer::close);
-	}
-
-	private Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
-		ReadBuffer key = Bytes.wrap(record.key()).buffered();
-		ReadBuffer value = Bytes.wrap(record.value()).buffered();
-		Revision actual = new Revision(record.partition(), record.offset());
-		current = current.updateWithPartition(record.partition(), record.offset());
-		ZonedDateTime timestamp = Instant.ofEpochMilli(record.timestamp()).atZone(ZoneOffset.UTC);
-		Props header = new Props(value);
-		return new Committed<>(key, value, actual, current, timestamp, header);
 	}
 
 	@Override

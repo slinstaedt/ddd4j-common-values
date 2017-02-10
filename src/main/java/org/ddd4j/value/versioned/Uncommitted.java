@@ -2,6 +2,7 @@ package org.ddd4j.value.versioned;
 
 import java.time.ZonedDateTime;
 import java.util.function.Function;
+import java.util.function.ToIntFunction;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Props;
@@ -25,9 +26,8 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	}
 
 	public Committed<K, V> committed(Revision nextExpected, ZonedDateTime timestamp) {
-		Revisions expected = this.expected.update(nextExpected);
 		Revision actual = expected.revisionOfPartition(nextExpected.getPartition());
-		return new Committed<>(key, value, actual, expected, timestamp, header);
+		return new Committed<>(key, value, actual, nextExpected, timestamp, header);
 	}
 
 	public Conflicting<K, V> conflicts(Revision actual) {
@@ -44,11 +44,6 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	}
 
 	@Override
-	public Revisions getExpected() {
-		return expected;
-	}
-
-	@Override
 	public Props getHeader() {
 		return header;
 	}
@@ -61,6 +56,12 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	@Override
 	public V getValue() {
 		return value;
+	}
+
+	@Override
+	public int partition(ToIntFunction<? super K> keyHasher) {
+		int hash = keyHasher.applyAsInt(getKey());
+		return expected.partition(hash);
 	}
 
 	public Uncommitted<K, V> withHeader(Function<Props, Props> headerBuilder) {

@@ -1,7 +1,7 @@
 package org.ddd4j.eventstore;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.stream.IntStream;
 
 import org.ddd4j.contract.Require;
@@ -18,7 +18,7 @@ public class ChannelRepository implements ChannelListener {
 
 	private final ColdChannel coldChannel;
 	private final HotChannel hotChannel;
-	private final ConcurrentMap<ResourceDescriptor, ChannelPublisher> subscriptions;
+	private final Map<ResourceDescriptor, ChannelPublisher> subscriptions;
 
 	private ColdChannelCallback coldCallback;
 	private HotChannelCallback hotCallback;

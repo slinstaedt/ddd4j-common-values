@@ -3,6 +3,7 @@ package org.ddd4j.value.versioned;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.ToIntFunction;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Props;
@@ -13,22 +14,22 @@ public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>
 	private final K key;
 	private final V value;
 	private final Revision actual;
-	private final Revisions expected;
+	private final Revision nextExpected;
 	private final ZonedDateTime timestamp;
 	private final Props header;
 
-	public Committed(K key, V value, Revision actual, Revisions expected, ZonedDateTime timestamp, Props header) {
+	public Committed(K key, V value, Revision actual, Revision next, ZonedDateTime timestamp, Props header) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.actual = Require.nonNull(actual);
-		this.expected = Require.nonNull(expected);
+		this.nextExpected = Require.nonNull(next);
 		this.timestamp = Require.nonNull(timestamp);
 		this.header = Require.nonNull(header);
 	}
 
 	public <X> Optional<Committed<K, X>> asOf(Class<X> type) {
 		if (type.isInstance(value)) {
-			return Optional.of(new Committed<>(key, type.cast(value), actual, expected, timestamp, header));
+			return Optional.of(new Committed<>(key, type.cast(value), actual, nextExpected, timestamp, header));
 		} else {
 			return Optional.empty();
 		}
@@ -58,9 +59,8 @@ public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>
 		return actual;
 	}
 
-	@Override
-	public Revisions getExpected() {
-		return expected;
+	public Revision getNextExpected() {
+		return nextExpected;
 	}
 
 	@Override
@@ -80,5 +80,10 @@ public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>
 	@Override
 	public V getValue() {
 		return value;
+	}
+
+	@Override
+	public int partition(ToIntFunction<? super K> keyHasher) {
+		return actual.getPartition();
 	}
 }

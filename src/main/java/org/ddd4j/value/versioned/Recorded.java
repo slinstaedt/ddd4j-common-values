@@ -18,16 +18,11 @@ public interface Recorded<K, V> {
 
 	<X> X foldRecorded(Function<Uncommitted<K, V>, X> uncommitted, Function<Committed<K, V>, X> committed);
 
-	Revisions getExpected();
-
 	Props getHeader();
 
 	K getKey();
 
 	V getValue();
 
-	default int partition(ToIntFunction<? super K> keyHasher) {
-		int hash = keyHasher.applyAsInt(getKey());
-		return getExpected().partition(hash);
-	}
+	int partition(ToIntFunction<? super K> keyHasher);
 }
