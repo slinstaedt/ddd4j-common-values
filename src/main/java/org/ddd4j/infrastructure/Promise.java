@@ -30,6 +30,10 @@ public interface Promise<T> {
 		return of(Runnable::run, future);
 	}
 
+	static <T> Promise<T> never() {
+		return of(Runnable::run, new CompletableFuture<>());
+	}
+
 	static <T> Promise<T> of(Executor executor, CompletionStage<T> stage) {
 		Require.nonNullElements(executor, stage);
 		return new Promise<T>() {

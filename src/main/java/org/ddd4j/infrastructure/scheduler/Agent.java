@@ -84,7 +84,7 @@ public abstract class Agent<T> {
 	protected abstract T getState();
 
 	public Promise<T> perform(TConsumer<T> action) {
-		return scheduleIfNeeded(new Task<>(executor, action.asFunction()));
+		return scheduleIfNeeded(new Task<>(Runnable::run, action.asFunction()));
 	}
 
 	private void run() {
