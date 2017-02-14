@@ -5,7 +5,7 @@ import java.io.IOException;
 import org.apache.avro.Conversions;
 import org.apache.avro.reflect.ReflectData;
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.Input;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.value.collection.Configuration;
@@ -33,8 +33,8 @@ public class AvroSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public Schema<?> readSchema(Input input) throws IOException {
-		return AvroSchema.deserialize(this, input);
+	public Schema<?> readSchema(ReadBuffer buffer) throws IOException {
+		return AvroSchema.deserialize(this, buffer);
 	}
 
 	public ReflectData getData() {
