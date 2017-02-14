@@ -2,6 +2,7 @@ package org.ddd4j.value.collection;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -73,6 +74,10 @@ public interface Tpl<L, R> {
 
 	static <L, R> Tpl<L, R> of(L left, R right) {
 		return new Tuple<>(left, right);
+	}
+
+	static <K, V> Tpl<K, V> of(Map.Entry<K, V> entry) {
+		return of(entry.getKey(), entry.getValue());
 	}
 
 	static <L> Tpl<L, Void> ofLeft(L left) {

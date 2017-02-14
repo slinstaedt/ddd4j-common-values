@@ -38,17 +38,6 @@ public class ChannelRepository implements ChannelListener {
 		return subscriptions.computeIfAbsent(topic, t -> new ChannelPublisher(t, coldCallback, hotCallback));
 	}
 
-	void unsubscribe(ResourceDescriptor topic, Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber) {
-		subscriptions.computeIfPresent(topic, (t, s) -> {
-			if (s.unsubscribe(subscriber)) {
-				client.perform(c -> c.subscribe(subscriptions.keySet(), this));
-				return null;
-			} else {
-				return s;
-			}
-		});
-	}
-
 	@Override
 	public void onError(Throwable throwable) {
 		subscriptions.values().forEach(s -> s.onError(throwable));
@@ -77,5 +66,16 @@ public class ChannelRepository implements ChannelListener {
 	@Override
 	public void onHotRegistration(HotChannelCallback callback) {
 		hotCallback = Require.nonNull(callback);
+	}
+
+	void unsubscribe(ResourceDescriptor topic, Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber) {
+		subscriptions.computeIfPresent(topic, (t, s) -> {
+			if (s.unsubscribe(subscriber)) {
+				client.perform(c -> c.subscribe(subscriptions.keySet(), this));
+				return null;
+			} else {
+				return s;
+			}
+		});
 	}
 }

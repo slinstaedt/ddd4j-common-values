@@ -25,12 +25,12 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 
 		private final Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber;
 		private final RevisionsCallback callback;
-		private Revisions expected;
+		private Revisions position;
 
 		ChannelSubscription(Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber, RevisionsCallback callback, int partitionSize) {
 			this.subscriber = Require.nonNull(subscriber);
 			this.callback = Require.nonNull(callback);
-			expected = new Revisions(partitionSize);
+			position = new Revisions(partitionSize);
 			subscriber.onSubscribe(this);
 		}
 
@@ -40,7 +40,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		}
 
 		void loadRevisions(IntStream partitions) {
-			expected = expected.with(callback.loadRevisions(partitions));
+			position = position.with(callback.loadRevisions(partitions));
 		}
 
 		void onError(Throwable throwable) {
@@ -49,12 +49,12 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		}
 
 		void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
-			if (expected.reachedBy(committed.getActual())) {
+			if (position.reachedBy(committed.getActual())) {
 				// skip old commits
 				return;
 			}
 			subscriber.onNext(committed);
-			expected = expected.with(committed.getNextExpected());
+			position = position.with(committed.getNextExpected());
 			// TODO
 		}
 
@@ -64,7 +64,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		}
 
 		void saveRevisions(IntStream partitions) {
-			callback.saveRevisions(expected);
+			callback.saveRevisions(position);
 		}
 	}
 
@@ -102,15 +102,21 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 
 	@Override
 	public void subscribe(Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber, RevisionsCallback callback) {
+		if (subscriptions.isEmpty()) {
+			hotCallback.subscribe(topic);
+		}
 		subscriptions.computeIfAbsent(subscriber,
 				s -> hotCallback.subscribe(topic)
 						.whenCompleteExceptionally(e -> subscriber.onError(e))
 						.whenCompleteExceptionally(e -> subscriptions.remove(subscriber))
-						.handleSuccess(r -> new ChannelSubscription(s, callback, r.getPartitionSize())));
+						.handleSuccess(size -> new ChannelSubscription(s, callback, size)));
 	}
 
-	boolean unsubscribe(Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber) {
+	private boolean unsubscribe(Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber) {
 		subscriptions.remove(subscriber);
+		if (subscriptions.isEmpty()) {
+			hotCallback.unsubscribe(topic);
+		}
 		return subscriptions.isEmpty();
 	}
 }

@@ -6,20 +6,23 @@ import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.Throwing.Closeable;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
-import org.ddd4j.value.versioned.Revisions;
 
 public interface ChannelListener extends PartitionRebalanceListener {
 
 	interface ColdChannelCallback extends Closeable {
 
-		Promise<Revisions> seek(ResourceDescriptor topic, Revision revision);
+		void seek(ResourceDescriptor topic, Revision revision);
 
 		void unseek(ResourceDescriptor topic);
+
+		void pause(ResourceDescriptor topic);
+
+		void unpause(ResourceDescriptor topic);
 	}
 
 	interface HotChannelCallback extends Closeable {
 
-		Promise<Revisions> subscribe(ResourceDescriptor topic);
+		Promise<Integer> subscribe(ResourceDescriptor topic);
 
 		void unsubscribe(ResourceDescriptor topic);
 	}
