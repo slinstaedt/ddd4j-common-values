@@ -69,6 +69,12 @@ public abstract class Agent<T> {
 		return query.apply(getState());
 	}
 
+	/**
+	 * Will return a {@link Promise}, that runs in the {@link Scheduler}'s thread.
+	 *
+	 * @param task
+	 * @return
+	 */
 	public <R> Promise<R> execute(TFunction<? super T, ? extends R> task) {
 		return scheduleIfNeeded(new Task<>(executor, task));
 	}
@@ -83,6 +89,12 @@ public abstract class Agent<T> {
 
 	protected abstract T getState();
 
+	/**
+	 * Will return a {@link Promise}, that runs in the {@link Agent}'s thread.
+	 *
+	 * @param action
+	 * @return
+	 */
 	public Promise<T> perform(TConsumer<T> action) {
 		return scheduleIfNeeded(new Task<>(Runnable::run, action.asFunction()));
 	}
