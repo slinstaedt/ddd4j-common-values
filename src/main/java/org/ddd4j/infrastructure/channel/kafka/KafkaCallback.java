@@ -97,21 +97,18 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	@Override
 	public Promise<Trigger> scheduleWith(Executor executor, long timeout, TimeUnit unit) {
-		return client.execute(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
-				.sync()
+		return client.execute(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout))).sync()
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> listener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
-				.whenCompleteExceptionally(listener::onError)
-				.handleSuccess(rs -> rs == EMPTY_RECORDS ? Trigger.NOTHING : Trigger.RESCHEDULE);
+				.whenCompleteExceptionally(listener::onError).handleSuccess(rs -> rs == EMPTY_RECORDS ? Trigger.NOTHING : Trigger.RESCHEDULE);
 	}
 
 	@Override
 	public Promise<Revisions> seek(ResourceDescriptor topic, Revision revision) {
-		Promise<Revisions> revisions = subscribe(topic);
-		client.perform(c -> {
+		subscribeOrAssign(topic, null).whenCompleteSuccessfully(c -> {
 			subscriptions.computeIfPresent(topic.value(), (t, r) -> r.with(revision));
 			c.seek(new TopicPartition(topic.value(), revision.getPartition()), revision.getOffset());
 		});
-		return revisions;
+		return null;
 	}
 
 	@Override
@@ -120,11 +117,22 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 		if (revisions != null && revisions.isPartitionSizeKnown()) {
 			return revisions;
 		}
-		if (subscriptions.putIfAbsent(topic.value(), Revisions.NONE) == null) {
-			client.perform(c -> {
-				subscriptions.put(topic.value(), currentRevisions(c, topic.value()));
-				c.subscribe(subscriptions.keySet(), this);
+		subscribeOrAssign(topic, Revisions.NONE).whenCompleteSuccessfully(c -> subscriptions.put(topic.value(), currentRevisions(c, topic.value())));
+	}
+
+	private Promise<Consumer<byte[], byte[]>> subscribeOrAssign(ResourceDescriptor topic, Revisions revisions) {
+		if (subscriptions.putIfAbsent(topic.value(), revisions) == null) {
+			return client.perform(c -> {
+				if (revisions.isPartitionSizeKnown() && c.subscription().isEmpty()) {
+					List<TopicPartition> topicPartitions = subscriptions.entrySet().stream()
+							.flatMap(e -> e.getValue().stream().map(r -> new TopicPartition(e.getKey(), r.getPartition()))).collect(Collectors.toList());
+					c.assign(topicPartitions);
+				} else {
+					c.subscribe(subscriptions.keySet(), this);
+				}
 			});
+		} else {
+			return client.perform(Consumer::subscription);
 		}
 	}
 
