@@ -3,12 +3,12 @@ package org.ddd4j.infrastructure.channel.kafka;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -35,6 +35,7 @@ import org.ddd4j.infrastructure.scheduler.BlockingTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
@@ -52,13 +53,13 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 		@Override
 		public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
 			consumer.seekToEnd(partitions);
-			partitions.forEach(tp -> subscriptions.get(tp.topic()).assigned(tp.partition()));
+			partitions.forEach(tp -> assignments(tp.topic(), a -> a.assigned(tp.partition())));
 			partitionsByTopic(partitions).forEach(listener::onPartitionsAssigned);
 		}
 
 		@Override
 		public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-			partitions.forEach(tp -> subscriptions.get(tp.topic()).unassigned(tp.partition()));
+			partitions.forEach(tp -> assignments(tp.topic(), a -> a.unassigned(tp.partition())));
 			partitionsByTopic(partitions).forEach(listener::onPartitionsRevoked);
 		}
 
@@ -69,8 +70,6 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	}
 
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = new ConsumerRecords<>(Collections.emptyMap());
-
-	private static final PartitionAssignments MANUALLY_ASSIGNED = new PartitionAssignments(0);
 
 	static Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
 		ReadBuffer key = Bytes.wrap(record.key()).buffered();
@@ -86,13 +85,13 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final ChannelListener listener;
 	private final KafkaRebalanceListener rebalanceListener;
-	private final Map<String, PartitionAssignments> subscriptions;
+	private final Map<String, Promise<PartitionAssignments>> assignments;
 
 	public KafkaCallback(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener listener) {
 		this.client = scheduler.createAgent(consumer);
 		this.listener = Require.nonNull(listener);
 		this.rebalanceListener = new KafkaRebalanceListener(consumer);
-		this.subscriptions = new ConcurrentHashMap<>();
+		this.assignments = new ConcurrentHashMap<>();
 	}
 
 	@Override
@@ -100,26 +99,29 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 		client.perform(Consumer::close);
 	}
 
-	private void doAssign(Consumer<?, ?> consumer, String topic, Revision revision) {
+	private void assignments(String topic, TConsumer<PartitionAssignments> action) {
+		assignments.get(topic).sync().whenCompleteSuccessfully(action);
+	}
+
+	private void doAssign(Consumer<?, ?> consumer, ResourceDescriptor topic, Revision revision) {
 		if (consumer.subscription().isEmpty()) {
-			subscriptions.get(topic).assigned(revision.getPartition());
-			List<TopicPartition> assignedPartitions = subscriptions.entrySet()
-					.stream()
-					.flatMap(e -> e.getValue().assigned().mapToObj(p -> new TopicPartition(e.getKey(), p)))
-					.collect(toList());
-			consumer.assign(assignedPartitions);
+			List<TopicPartition> partitions = new ArrayList<>(consumer.assignment());
+			partitions.add(new TopicPartition(topic.value(), revision.getPartition()));
+			consumer.assign(partitions);
 		} else {
 			doSubscribe(consumer, topic);
 		}
+		consumer.seek(new TopicPartition(topic.value(), revision.getPartition()), revision.getOffset());
 	}
 
-	private void doFetchPartitionLayout(Consumer<?, ?> consumer, String topic) {
-		int partitionSize = consumer.partitionsFor(topic).size();
-		subscriptions.put(topic, new PartitionAssignments(partitionSize));
+	private PartitionAssignments doFetchPartitionLayout(Consumer<?, ?> consumer, ResourceDescriptor topic) {
+		int partitionSize = consumer.partitionsFor(topic.value()).size();
+		return new PartitionAssignments(topic, partitionSize);
 	}
 
-	private void doSubscribe(Consumer<?, ?> consumer, String topic) {
-		consumer.subscribe(subscriptions.keySet(), rebalanceListener);
+	private PartitionAssignments doSubscribe(Consumer<?, ?> consumer, ResourceDescriptor topic) {
+		consumer.subscribe(assignments.keySet(), rebalanceListener);
+		return doFetchPartitionLayout(consumer, topic);
 	}
 
 	@Override
@@ -138,23 +140,16 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	@Override
 	public void seek(ResourceDescriptor topic, Revision revision) {
-		if (subscriptions.putIfAbsent(topic.value(), MANUALLY_ASSIGNED) == null) {
-			client.perform(c -> doFetchPartitionLayout(c, topic.value()))
-					.whenCompleteSuccessfully(c -> doAssign(c, topic.value(), revision))
-					.whenCompleteSuccessfully(
-							c -> c.seek(new TopicPartition(topic.value(), revision.getPartition()), revision.getOffset()));
-		}
+		assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doFetchPartitionLayout(c, topic)))
+				.sync()
+				.testAndFail(a -> a.assigned(revision.getPartition()))
+				.whenCompleteSuccessfully(a -> client.perform(c -> doAssign(c, topic, revision)));
 	}
 
 	@Override
 	public Promise<Integer> subscribe(ResourceDescriptor topic) {
-		if (subscriptions.putIfAbsent(topic.value(), MANUALLY_ASSIGNED) == null) {
-			client.perform(c -> doFetchPartitionLayout(c, topic.value())).whenCompleteSuccessfully(c -> doSubscribe(c, topic.value()));
-			return null;
-		} else {
-			// TODO
-			return null;
-		}
+		return assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doSubscribe(c, topic)))
+				.handleSuccess(PartitionAssignments::partitionSize);
 	}
 
 	@Override
@@ -169,8 +164,8 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	@Override
 	public void unsubscribe(ResourceDescriptor topic) {
-		if (subscriptions.remove(topic.value()) != null) {
-			client.perform(c -> c.subscribe(subscriptions.keySet(), rebalanceListener));
+		if (assignments.remove(topic.value()) != null) {
+			client.perform(c -> c.subscribe(assignments.keySet(), rebalanceListener));
 		}
 	}
 }

@@ -9,12 +9,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
+import org.ddd4j.value.Throwing.TBiFunction;
+import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.Throwing.TFunction;
+import org.ddd4j.value.Throwing.TPredicate;
 
 public interface Promise<T> {
 
@@ -70,13 +71,13 @@ public interface Promise<T> {
 		return of(executor, result);
 	}
 
-	default Promise<Void> acceptEither(Promise<? extends T> other, Consumer<? super T> action) {
+	default Promise<Void> acceptEither(Promise<? extends T> other, TConsumer<? super T> action) {
 		return apply((e, s) -> s.acceptEitherAsync(other.toCompletionStage(), action, e));
 	}
 
 	<X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn);
 
-	default <U> Promise<U> applyToEither(Promise<? extends T> other, Function<? super T, U> fn) {
+	default <U> Promise<U> applyToEither(Promise<? extends T> other, TFunction<? super T, U> fn) {
 		return apply((e, s) -> s.applyToEitherAsync(other.toCompletionStage(), fn, e));
 	}
 
@@ -84,16 +85,20 @@ public interface Promise<T> {
 		return withExecutor(executor);
 	}
 
-	default Promise<T> exceptionally(Function<Throwable, ? extends T> fn) {
+	default Promise<T> exceptionally(TFunction<Throwable, ? extends T> fn) {
 		return apply((e, s) -> s.exceptionally(fn));
 	}
 
-	default <U> Promise<U> handle(BiFunction<? super T, Throwable, ? extends U> fn) {
+	default <U> Promise<U> handle(TBiFunction<? super T, Throwable, ? extends U> fn) {
 		return apply((e, s) -> s.handleAsync(fn, e));
 	}
 
 	default Promise<T> handleException(TFunction<? super Throwable, T> fn) {
 		return handle((t, ex) -> ex != null ? fn.apply(ex) : t);
+	}
+
+	default Promise<T> testAndFail(TPredicate<? super T> predicate) {
+		return whenCompleteSuccessfully(predicate.throwOnFail(RuntimeException::new));
 	}
 
 	default <X> Promise<X> handleSuccess(TFunction<? super T, X> fn) {
@@ -112,7 +117,7 @@ public interface Promise<T> {
 		return withExecutor(Runnable::run);
 	}
 
-	default Promise<Void> thenAccept(Consumer<? super T> action) {
+	default Promise<Void> thenAccept(TConsumer<? super T> action) {
 		return apply((e, s) -> s.thenAcceptAsync(action, e));
 	}
 
@@ -120,15 +125,15 @@ public interface Promise<T> {
 		return apply((e, s) -> s.thenAcceptBothAsync(other.toCompletionStage(), action, e));
 	}
 
-	default <U> Promise<U> thenApply(Function<? super T, ? extends U> fn) {
+	default <U> Promise<U> thenApply(TFunction<? super T, ? extends U> fn) {
 		return apply((e, s) -> s.thenApplyAsync(fn, e));
 	}
 
-	default <U, V> Promise<V> thenCombine(Promise<? extends U> other, BiFunction<? super T, ? super U, ? extends V> fn) {
+	default <U, V> Promise<V> thenCombine(Promise<? extends U> other, TBiFunction<? super T, ? super U, ? extends V> fn) {
 		return apply((e, s) -> s.thenCombineAsync(other.toCompletionStage(), fn, e));
 	}
 
-	default <U> Promise<U> thenCompose(Function<? super T, ? extends Promise<U>> fn) {
+	default <U> Promise<U> thenCompose(TFunction<? super T, ? extends Promise<U>> fn) {
 		return apply((e, s) -> s.thenComposeAsync(fn.andThen(Promise::toCompletionStage), e));
 	}
 
@@ -147,11 +152,11 @@ public interface Promise<T> {
 		return apply((e, s) -> s.whenCompleteAsync(action, e));
 	}
 
-	default Promise<T> whenCompleteExceptionally(Consumer<? super Throwable> action) {
+	default Promise<T> whenCompleteExceptionally(TConsumer<? super Throwable> action) {
 		return whenComplete((t, ex) -> action.accept(ex));
 	}
 
-	default Promise<T> whenCompleteSuccessfully(Consumer<? super T> action) {
+	default Promise<T> whenCompleteSuccessfully(TConsumer<? super T> action) {
 		return whenComplete((t, ex) -> action.accept(t));
 	}
 

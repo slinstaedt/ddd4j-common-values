@@ -1,30 +1,45 @@
 package org.ddd4j.infrastructure.channel;
 
-import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
+
+import org.ddd4j.contract.Require;
+import org.ddd4j.infrastructure.ResourceDescriptor;
 
 public class PartitionAssignments {
 
-	private final boolean[] partitions;
+	private final ResourceDescriptor topic;
+	private final AtomicBoolean[] partitions;
 
-	public PartitionAssignments(int partitionSize) {
-		this.partitions = new boolean[partitionSize];
-		Arrays.fill(partitions, false);
+	public PartitionAssignments(ResourceDescriptor topic, int partitionSize) {
+		this.topic = Require.nonNull(topic);
+		this.partitions = new AtomicBoolean[partitionSize];
+		for (int i = 0; i < partitions.length; i++) {
+			partitions[i] = new AtomicBoolean(false);
+		}
+	}
+
+	public PartitionAssignments(String topic, int partitionSize) {
+		this(ResourceDescriptor.of(topic), partitionSize);
 	}
 
 	public IntStream assigned() {
-		return IntStream.range(0, partitions.length).filter(p -> partitions[p]);
+		return IntStream.range(0, partitions.length).filter(p -> partitions[p].get());
 	}
 
-	public void assigned(int partition) {
-		partitions[partition] = true;
+	public boolean assigned(int partition) {
+		return partitions[partition].compareAndSet(false, true);
+	}
+
+	public ResourceDescriptor getTopic() {
+		return topic;
 	}
 
 	public int partitionSize() {
 		return partitions.length;
 	}
 
-	public void unassigned(int partition) {
-		partitions[partition] = false;
+	public boolean unassigned(int partition) {
+		return partitions[partition].compareAndSet(true, false);
 	}
 }

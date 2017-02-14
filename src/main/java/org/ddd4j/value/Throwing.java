@@ -249,6 +249,14 @@ public interface Throwing {
 			};
 		}
 
+		default TConsumer<T> throwOnFail(Function<String, Exception> exceptionFactory) {
+			return t -> {
+				if (!testChecked(t)) {
+					throw exceptionFactory.apply("Failed test " + this + " on: " + t);
+				}
+			};
+		}
+
 		default TPredicate<T> returningFalseOnException() {
 			return returningFalseOn(Exception.class);
 		}
