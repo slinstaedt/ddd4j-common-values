@@ -1,4 +1,4 @@
-package org.ddd4j.eventstore;
+package org.ddd4j.log;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,7 +13,7 @@ import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 import org.reactivestreams.Subscriber;
 
-public class ChannelRepository implements ChannelListener {
+public class ChannelLog implements ChannelListener {
 
 	private final ColdChannel coldChannel;
 	private final HotChannel hotChannel;
@@ -22,7 +22,7 @@ public class ChannelRepository implements ChannelListener {
 	private ColdChannelCallback coldCallback;
 	private HotChannelCallback hotCallback;
 
-	public ChannelRepository(ColdChannel coldChannel, HotChannel hotChannel) {
+	public ChannelLog(ColdChannel coldChannel, HotChannel hotChannel) {
 		this.coldChannel = Require.nonNull(coldChannel);
 		this.hotChannel = Require.nonNull(hotChannel);
 		this.subscriptions = new ConcurrentHashMap<>();

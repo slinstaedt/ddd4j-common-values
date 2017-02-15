@@ -1,12 +1,12 @@
-package org.ddd4j.eventstore;
+package org.ddd4j.log;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.eventstore.Repository.Committer;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdChannel;
 import org.ddd4j.infrastructure.channel.HotChannel;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.log.Log.Committer;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Uncommitted;
 

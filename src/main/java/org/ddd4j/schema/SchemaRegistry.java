@@ -30,7 +30,7 @@ public interface SchemaRegistry {
 
 	class RepositoryBasedSchemaRegistry implements SchemaRegistry {
 
-		private final Repository<Fingerprint, Schema<?>> repository;
+		private final Log<Fingerprint, Schema<?>> repository;
 
 		public RepositoryBasedSchemaRegistry(RepositoryFactory factory) {
 			this.repository = factory.create(null, null);

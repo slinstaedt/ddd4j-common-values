@@ -1,6 +1,6 @@
-package org.ddd4j.eventstore;
+package org.ddd4j.log;
 
-public class SchemaRepository implements Repository {
+public class SchemaLog implements Log {
 
 	public interface SchemaHandler {
 
@@ -9,16 +9,16 @@ public class SchemaRepository implements Repository {
 		<K, V> Publisher<K, V> publisher(EventChannel<K, V> channel, ChannelPublisher publisher);
 	}
 
-	private ChannelRepository repository;
+	private ChannelLog delegate;
 	private SchemaHandler handler;
 
 	@Override
 	public <K, V> Committer<K, V> committer(EventChannel<K, V> channel) {
-		return handler.committer(channel, repository.committer(channel.topic()));
+		return handler.committer(channel, delegate.committer(channel.topic()));
 	}
 
 	@Override
 	public <K, V> Publisher<K, V> publisher(EventChannel<K, V> channel) {
-		return handler.publisher(channel, repository.publisher(channel.topic()));
+		return handler.publisher(channel, delegate.publisher(channel.topic()));
 	}
 }

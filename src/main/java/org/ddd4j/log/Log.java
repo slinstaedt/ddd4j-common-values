@@ -1,4 +1,4 @@
-package org.ddd4j.eventstore;
+package org.ddd4j.log;
 
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
@@ -10,14 +10,14 @@ import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Uncommitted;
 import org.reactivestreams.Subscriber;
 
-public interface Repository {
+public interface Log {
 
 	interface Committer<K, V> {
 
 		Promise<CommitResult<K, V>> tryCommit(Uncommitted<K, V> attempt);
 	}
 
-	interface EventChannel<K, V> {
+	interface LogChannel<K, V> {
 
 		Schema<V> eventSchema();
 
@@ -31,15 +31,15 @@ public interface Repository {
 		void subscribe(Subscriber<Committed<K, V>> subscriber, RevisionsCallback callback);
 	}
 
-	<K, V> Committer<K, V> committer(EventChannel<K, V> channel);
+	<K, V> Committer<K, V> committer(LogChannel<K, V> channel);
 
-	<K, V> Publisher<K, V> publisher(EventChannel<K, V> channel);
+	<K, V> Publisher<K, V> publisher(LogChannel<K, V> channel);
 
-	default <K, V> void subscribe(EventChannel<K, V> channel, Subscriber<Committed<K, V>> subscriber, RevisionsCallback callback) {
+	default <K, V> void subscribe(LogChannel<K, V> channel, Subscriber<Committed<K, V>> subscriber, RevisionsCallback callback) {
 		publisher(channel).subscribe(subscriber, callback);
 	}
 
-	default <K, V> Promise<CommitResult<K, V>> tryCommit(EventChannel<K, V> channel, Uncommitted<K, V> attempt) {
+	default <K, V> Promise<CommitResult<K, V>> tryCommit(LogChannel<K, V> channel, Uncommitted<K, V> attempt) {
 		return committer(channel).tryCommit(attempt);
 	}
 }

@@ -1,16 +1,16 @@
-package org.ddd4j.eventstore;
+package org.ddd4j.log;
 
 import org.ddd4j.collection.Cache;
 import org.ddd4j.contract.Require;
-import org.ddd4j.eventstore.Repository.Committer;
-import org.ddd4j.eventstore.Repository.EventChannel;
-import org.ddd4j.eventstore.Repository.Publisher;
-import org.ddd4j.eventstore.SchemaRepository.SchemaHandler;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.PooledBytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
+import org.ddd4j.log.Log.Committer;
+import org.ddd4j.log.Log.EventChannel;
+import org.ddd4j.log.Log.Publisher;
+import org.ddd4j.log.SchemaLog.SchemaHandler;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Recorded;

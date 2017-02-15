@@ -1,4 +1,4 @@
-package org.ddd4j.eventstore;
+package org.ddd4j.log;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -6,13 +6,13 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 import org.ddd4j.contract.Require;
-import org.ddd4j.eventstore.Repository.Publisher;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ChannelListener.ColdChannelCallback;
 import org.ddd4j.infrastructure.channel.ChannelListener.HotChannelCallback;
 import org.ddd4j.infrastructure.channel.RevisionsCallback;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.log.Log.Publisher;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revisions;
 import org.reactivestreams.Subscriber;

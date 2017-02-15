@@ -3,6 +3,7 @@ package org.ddd4j.infrastructure.channel.kafka;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 import java.time.Instant;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
 import org.apache.kafka.clients.consumer.Consumer;
@@ -159,7 +161,13 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	@Override
 	public void unseek(ResourceDescriptor topic) {
-		// TODO Auto-generated method stub
+		if (assignments.remove(topic.value()) != null) {
+			client.perform(c -> {
+				Predicate<String> isAssigned = assignments.keySet()::contains;
+				List<TopicPartition> partitions = c.assignment().stream().filter(tp -> isAssigned.test(tp.topic())).collect(toList());
+				c.assign(partitions);
+			});
+		}
 	}
 
 	@Override

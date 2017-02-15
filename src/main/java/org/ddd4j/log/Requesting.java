@@ -1,4 +1,4 @@
-package org.ddd4j.eventstore;
+package org.ddd4j.log;
 
 import org.ddd4j.contract.Require;
 
