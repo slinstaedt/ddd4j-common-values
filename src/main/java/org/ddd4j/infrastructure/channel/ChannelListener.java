@@ -15,9 +15,8 @@ public interface ChannelListener extends PartitionRebalanceListener {
 
 		void unseek(ResourceDescriptor topic);
 
-		void pause(ResourceDescriptor topic);
-
-		void unpause(ResourceDescriptor topic);
+		// void pause(ResourceDescriptor topic);
+		// void unpause(ResourceDescriptor topic);
 	}
 
 	interface HotChannelCallback extends Closeable {

@@ -17,6 +17,7 @@ public interface Log {
 		Promise<CommitResult<K, V>> tryCommit(Uncommitted<K, V> attempt);
 	}
 
+	// TODO rename?
 	interface LogChannel<K, V> {
 
 		Schema<V> eventSchema();

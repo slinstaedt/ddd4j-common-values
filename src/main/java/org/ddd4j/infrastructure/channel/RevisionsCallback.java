@@ -1,13 +1,13 @@
 package org.ddd4j.infrastructure.channel;
 
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
-import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Revision;
 
 public interface RevisionsCallback {
 
-	Seq<Revision> loadRevisions(IntStream partitions);
+	Stream<Revision> loadRevisions(IntStream partitions);
 
-	void saveRevisions(Seq<Revision> revisions);
+	void saveRevisions(Stream<Revision> revisions);
 }

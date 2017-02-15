@@ -4,8 +4,9 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Value;
+import org.ddd4j.value.math.Ordered;
 
-public class Revision implements Value<Revision> {
+public class Revision implements Value<Revision>, Ordered<Revision> {
 
 	public static final long UNKNOWN_OFFSET = -1;
 
@@ -19,6 +20,12 @@ public class Revision implements Value<Revision> {
 
 	public Revision(ReadBuffer buffer) {
 		this(buffer.getInt(), buffer.getLong());
+	}
+
+	@Override
+	public int compareTo(Revision other) {
+		Require.that(this.partition == other.partition);
+		return Long.signum(this.offset - other.offset);
 	}
 
 	public int getPartition() {

@@ -12,12 +12,13 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
 import org.apache.kafka.clients.consumer.Consumer;
@@ -31,13 +32,11 @@ import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ChannelListener;
 import org.ddd4j.infrastructure.channel.ChannelListener.ColdChannelCallback;
 import org.ddd4j.infrastructure.channel.ChannelListener.HotChannelCallback;
-import org.ddd4j.infrastructure.channel.PartitionAssignments;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.BlockingTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
@@ -55,13 +54,11 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 		@Override
 		public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
 			consumer.seekToEnd(partitions);
-			partitions.forEach(tp -> assignments(tp.topic(), a -> a.assigned(tp.partition())));
 			partitionsByTopic(partitions).forEach(listener::onPartitionsAssigned);
 		}
 
 		@Override
 		public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-			partitions.forEach(tp -> assignments(tp.topic(), a -> a.unassigned(tp.partition())));
 			partitionsByTopic(partitions).forEach(listener::onPartitionsRevoked);
 		}
 
@@ -87,7 +84,7 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final ChannelListener listener;
 	private final KafkaRebalanceListener rebalanceListener;
-	private final Map<String, Promise<PartitionAssignments>> assignments;
+	private final Map<String, Promise<Integer>> assignments;
 
 	public KafkaCallback(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener listener) {
 		this.client = scheduler.createAgent(consumer);
@@ -101,34 +98,27 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 		client.perform(Consumer::close);
 	}
 
-	private void assignments(String topic, TConsumer<PartitionAssignments> action) {
-		assignments.get(topic).sync().whenCompleteSuccessfully(action);
-	}
-
-	private void doAssign(Consumer<?, ?> consumer, ResourceDescriptor topic, Revision revision) {
-		if (consumer.subscription().isEmpty()) {
+	private void doAssignAndSeek(Consumer<?, ?> consumer, String topic, Revision revision) {
+		Set<String> kafkaSubscriptions = consumer.subscription();
+		if (kafkaSubscriptions.isEmpty()) {
 			List<TopicPartition> partitions = new ArrayList<>(consumer.assignment());
-			partitions.add(new TopicPartition(topic.value(), revision.getPartition()));
+			partitions.add(new TopicPartition(topic, revision.getPartition()));
 			consumer.assign(partitions);
-		} else {
+		} else if (!kafkaSubscriptions.contains(topic)) {
 			doSubscribe(consumer, topic);
 		}
-		consumer.seek(new TopicPartition(topic.value(), revision.getPartition()), revision.getOffset());
+		consumer.seek(new TopicPartition(topic, revision.getPartition()), revision.getOffset());
 	}
 
-	private PartitionAssignments doFetchPartitionLayout(Consumer<?, ?> consumer, ResourceDescriptor topic) {
-		int partitionSize = consumer.partitionsFor(topic.value()).size();
-		return new PartitionAssignments(topic, partitionSize);
+	private int doFetchPartitionSize(Consumer<?, ?> consumer, String topic) {
+		return consumer.partitionsFor(topic).size();
 	}
 
-	private PartitionAssignments doSubscribe(Consumer<?, ?> consumer, ResourceDescriptor topic) {
-		consumer.subscribe(assignments.keySet(), rebalanceListener);
-		return doFetchPartitionLayout(consumer, topic);
-	}
-
-	@Override
-	public void pause(ResourceDescriptor topic) {
-		// TODO Auto-generated method stub
+	private int doSubscribe(Consumer<?, ?> consumer, String topic) {
+		Set<String> topics = new HashSet<>(assignments.keySet());
+		topics.add(topic);
+		consumer.subscribe(topics, rebalanceListener);
+		return doFetchPartitionSize(consumer, topic);
 	}
 
 	@Override
@@ -142,29 +132,22 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 
 	@Override
 	public void seek(ResourceDescriptor topic, Revision revision) {
-		assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doFetchPartitionLayout(c, topic)))
+		assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doFetchPartitionSize(c, t)))
 				.sync()
-				.testAndFail(a -> a.assigned(revision.getPartition()))
-				.whenCompleteSuccessfully(a -> client.perform(c -> doAssign(c, topic, revision)));
+				.whenCompleteSuccessfully(size -> client.perform(c -> doAssignAndSeek(c, topic.value(), revision)));
 	}
 
 	@Override
 	public Promise<Integer> subscribe(ResourceDescriptor topic) {
-		return assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doSubscribe(c, topic)))
-				.handleSuccess(PartitionAssignments::partitionSize);
-	}
-
-	@Override
-	public void unpause(ResourceDescriptor topic) {
-		// TODO Auto-generated method stub
+		return assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doSubscribe(c, t)));
 	}
 
 	@Override
 	public void unseek(ResourceDescriptor topic) {
 		if (assignments.remove(topic.value()) != null) {
 			client.perform(c -> {
-				Predicate<String> isAssigned = assignments.keySet()::contains;
-				List<TopicPartition> partitions = c.assignment().stream().filter(tp -> isAssigned.test(tp.topic())).collect(toList());
+				Set<String> assigned = assignments.keySet();
+				List<TopicPartition> partitions = c.assignment().stream().filter(tp -> assigned.contains(tp.topic())).collect(toList());
 				c.assign(partitions);
 			});
 		}

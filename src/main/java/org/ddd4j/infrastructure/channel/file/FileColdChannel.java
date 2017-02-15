@@ -6,28 +6,24 @@ import static java.nio.file.StandardOpenOption.DSYNC;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.sql.Connection;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.ddd4j.aggregate.Identifier;
-import org.ddd4j.collection.Cache.Pool;
-import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.Result;
-import org.ddd4j.infrastructure.channel.ColdSource;
-import org.ddd4j.infrastructure.channel.SourceSubscriber;
+import org.ddd4j.infrastructure.channel.ChannelListener;
+import org.ddd4j.infrastructure.channel.ColdChannel;
+import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
@@ -38,13 +34,9 @@ import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Uncommitted;
 
-public class FileColdSource implements ColdSource {
+public class FileColdChannel implements ColdChannel {
 
-	private class FileConnection implements Connection<Committed<ReadBuffer, Seq<ReadBuffer>>> {
-
-		@Override
-		public void closeChecked() throws Exception {
-		}
+	private class FileConnection {
 
 		private Committed<ReadBuffer, Seq<ReadBuffer>> readCommitted(long position, ByteBuffer buffer) {
 			Revisions actual = new Revisions(position + buffer.position() - Integer.BYTES, partition);
@@ -60,7 +52,6 @@ public class FileColdSource implements ColdSource {
 			return new Committed<>(identifier, entries::stream, actual, expected, timestamp);
 		}
 
-		@Override
 		public Seq<Committed<ReadBuffer, Seq<ReadBuffer>>> request(Revision position, int n) throws Exception {
 			ByteBuffer buffer = channel.map(MapMode.READ_ONLY, position.getOffset(), Integer.MAX_VALUE);
 			List<Committed<ReadBuffer, Seq<ReadBuffer>>> result = new ArrayList<>(n);
@@ -75,53 +66,40 @@ public class FileColdSource implements ColdSource {
 		}
 	}
 
-	private static final OpenOption[] OPEN_OPTIONS = { CREATE, READ, WRITE, APPEND, DSYNC };
-	private static final int COMMIT_DELIM = 0xFFFFAFFE;
+	private class Committer implements Closeable {
 
-	private final Scheduler scheduler;
-	private final Pool<ByteBuffer> bufferPool;
-	private final FileChannel channel;
-	private int partition;
-	private AtomicLong currentOffset;
+		CommitResult<ReadBuffer, ReadBuffer> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
 
-	public FileColdSource(Scheduler scheduler, Pool<ByteBuffer> bufferPool, Path file) throws IOException {
-		this.scheduler = Require.nonNull(scheduler);
-		this.bufferPool = Require.nonNull(bufferPool);
-		this.channel = FileChannel.open(file, OPEN_OPTIONS);
-	}
+		}
 
-	public void closeChecked() throws Exception {
-		channel.close();
-	}
+		@Override
+		public void close() throws IOException {
+			// TODO Auto-generated method stub
 
-	public Revisions currentRevisions() throws Exception {
-		return Revisions.initial(1).next(0, currentOffset.get());
-	}
-
-	public Cursor<Committed<ReadBuffer, Seq<ReadBuffer>>> open() throws Exception {
-		return new FileConnection().toCursor();
-	}
-
-	public Result<Committed<ReadBuffer, Seq<ReadBuffer>>> publisher(Revisions startAt, boolean completeOnEnd) {
-		return scheduler.createResult(this, startAt, completeOnEnd);
-	}
-
-	public Promise<CommitResult<ReadBuffer, Seq<ReadBuffer>>> tryCommit(Uncommitted<ReadBuffer, Seq<ReadBuffer>> attempt) {
-		try {
-			Revisions actual = new Revisions(channel.size(), partition);
-			if (!attempt.getExpected().equal(actual)) {
-				return scheduler.completedOutcome(attempt.conflictsWith(actual));
-			}
-			channel.position(actual.asLong());
-			attempt.getEntry().forEachThrowing(b -> b.writeTo(channel));
-		} catch (IOException e) {
-			return scheduler.failedOutcome(e);
 		}
 	}
 
-	@Override
-	public void load(ResourceDescriptor descriptor, SourceSubscriber subscriber) throws Exception {
-		// TODO Auto-generated method stub
+	private static final OpenOption[] OPEN_OPTIONS = { CREATE, READ, WRITE, APPEND, DSYNC };
+	private static final int COMMIT_DELIM = 0xFFFFAFFE;
 
+	private Scheduler scheduler;
+	private Path baseDirectory;
+	private int partitionsPerTopic;
+	private Agent<Committer> committer;
+
+	@Override
+	public void closeChecked() throws Exception {
+		committer.perform(Committer::close).toCompletionStage().toCompletableFuture().join();
+	}
+
+	@Override
+	public void register(ChannelListener listener) {
+		FileColdCallback callback = new FileColdCallback();
+		listener.onColdRegistration(callback);
+	}
+
+	@Override
+	public Promise<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
+		return committer.execute(c -> c.tryCommit(topic, attempt));
 	}
 }

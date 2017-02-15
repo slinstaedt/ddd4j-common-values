@@ -1,21 +1,21 @@
 package org.ddd4j.value.versioned;
 
 import java.util.Arrays;
-import java.util.PrimitiveIterator;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Seq;
-import org.ddd4j.value.math.Ordered;
+import org.ddd4j.value.math.Ordered.Comparison;
 
-public class Revisions implements Seq<Revision>, Ordered<Revisions> {
+public class Revisions {
 
 	public static final Revisions NONE = new Revisions(0);
 
 	private final long[] offsets;
 
 	public Revisions(int partitionSize) {
+		Require.that(partitionSize >= 0);
 		this.offsets = new long[partitionSize];
 		Arrays.fill(offsets, Revision.UNKNOWN_OFFSET);
 	}
@@ -24,24 +24,13 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		this.offsets = Arrays.copyOf(offsets, offsets.length);
 	}
 
-	private Revisions(Revisions copy, int partition, long nextOffset) {
-		this.offsets = Arrays.copyOf(copy.offsets, copy.offsets.length);
-		this.offsets[partition] = nextOffset;
-	}
-
 	public Revisions(Seq<Revision> revisions) {
 		this(revisions.stream().mapToInt(Revision::getPartition).max().orElse(0));
 		revisions.forEach(r -> offsets[r.getPartition()] = r.getOffset());
 	}
 
-	@Override
-	public int compareTo(Revisions other) {
-		Require.that(this.offsets.length == other.offsets.length);
-		int result = 0;
-		for (int i = 0; i < offsets.length; i++) {
-			result += Long.compareUnsigned(this.offsets[i], other.offsets[i]);
-		}
-		return Integer.signum(result);
+	public Comparison compare(Revision revision) {
+		return Comparison.of(Long.signum(offset(revision.getPartition()) - revision.getOffset()));
 	}
 
 	public boolean isPartitionSizeKnown() {
@@ -62,21 +51,8 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return Math.abs(hash) % offsets.length;
 	}
 
-	public boolean reachedBy(Revision revision) {
-		return offset(revision.getPartition()) >= revision.getOffset();
-	}
-
-	public boolean reachedBy(Revisions revisions) {
-		return revisions.stream().allMatch(this::reachedBy);
-	}
-
-	public Revisions reset(IntStream partitions) {
-		Revisions resetted = this;
-		PrimitiveIterator.OfInt iter = partitions.iterator();
-		while (iter.hasNext()) {
-			resetted = new Revisions(resetted, iter.nextInt(), Revision.UNKNOWN_OFFSET);
-		}
-		return resetted;
+	public void reset(IntStream partitions) {
+		partitions.forEach(p -> updateWithPartition(p, Revision.UNKNOWN_OFFSET));
 	}
 
 	public Revision revisionOfHash(int hash) {
@@ -87,25 +63,34 @@ public class Revisions implements Seq<Revision>, Ordered<Revisions> {
 		return new Revision(partition, offset(partition));
 	}
 
-	@Override
+	public Stream<Revision> revisionsOfPartitions(IntStream partitions) {
+		return partitions.mapToObj(this::revisionOfPartition);
+	}
+
 	public Stream<Revision> stream() {
-		return IntStream.range(0, offsets.length).filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET).mapToObj(p -> new Revision(p, offsets[p]));
+		return IntStream.range(0, offsets.length)
+				.filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET)
+				.mapToObj(p -> new Revision(p, offsets[p]));
 	}
 
-	public Revisions with(Revision revision) {
-		return withPartition(revision.getPartition(), revision.getOffset());
+	public void update(Revision revision) {
+		updateWithPartition(revision.getPartition(), revision.getOffset());
 	}
 
-	public Revisions with(Seq<Revision> revisions) {
-		return revisions.stream().reduce(this, Revisions::with, Revisions::with);
+	public void update(Stream<Revision> revisions) {
+		revisions.forEachOrdered(this::update);
 	}
 
-	public Revisions withHash(int hash, long nextOffset) {
-		return withPartition(partition(hash), nextOffset);
+	public void updateWithHash(int hash, long nextOffset) {
+		updateWithPartition(partition(hash), nextOffset);
 	}
 
-	public Revisions withPartition(int partition, long nextOffset) {
+	public void updateWithPartition(int partition, long nextOffset) {
 		// TODO Require.that(Long.compareUnsigned(nextOffset, offset(partition)) > 0);
-		return new Revisions(this, partition, nextOffset);
+		offsets[partition] = nextOffset;
+	}
+
+	public void updateWithPartitions(IntStream partitions, long nextOffset) {
+		partitions.forEach(p -> updateWithPartition(p, nextOffset));
 	}
 }
