@@ -8,6 +8,7 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.math.Ordered.Comparison;
 
+//TODO move to log package
 public class Revisions {
 
 	public static final Revisions NONE = new Revisions(0);

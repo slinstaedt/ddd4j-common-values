@@ -13,7 +13,7 @@ public interface ChannelListener extends PartitionRebalanceListener {
 
 		void seek(ResourceDescriptor topic, Revision revision);
 
-		void unseek(ResourceDescriptor topic);
+		void unseek(ResourceDescriptor topic, int partition);
 
 		// void pause(ResourceDescriptor topic);
 		// void unpause(ResourceDescriptor topic);

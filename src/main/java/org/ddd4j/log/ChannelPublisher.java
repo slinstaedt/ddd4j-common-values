@@ -29,12 +29,13 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		private final Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber;
 		private final RevisionsCallback callback;
 		private final Revisions expected;
-		private Requesting requesting;
+		private final Requesting requesting;
 
 		ChannelSubscription(Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber, RevisionsCallback callback, int partitionSize) {
 			this.subscriber = Require.nonNull(subscriber);
 			this.callback = Require.nonNull(callback);
 			this.expected = new Revisions(partitionSize);
+			this.requesting = new Requesting();
 			subscriber.onSubscribe(this);
 		}
 
@@ -57,12 +58,17 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		}
 
 		void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
+			if (!requesting.hasRemaining()) {
+				return;
+			}
+
 			Revision actualRevision = committed.getActual();
 			Revision expectedRevision = expected.revisionOfPartition(actualRevision.getPartition());
 			Comparison expectation = actualRevision.compare(expectedRevision);
 			if (expectation == Comparison.EQUAL) {
 				subscriber.onNext(committed);
 				expected.update(committed.getNextExpected());
+				requesting.processed();
 			} else if (expectation == Comparison.LARGER) {
 				coldCallback.seek(topic, expectedRevision);
 				// TODO
@@ -98,6 +104,8 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
+		// if (current.get().handleSuccess(r->r.compare(committed.getNextExpected())))
+		// TODO unseek cold when committed reached current
 		forAllSubscriptions(c -> c.onNext(committed));
 	}
 
