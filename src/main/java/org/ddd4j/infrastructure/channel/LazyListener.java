@@ -1,66 +1,67 @@
 package org.ddd4j.infrastructure.channel;
 
-import java.util.Objects;
 import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.Throwing.Closeable;
+import org.ddd4j.value.Lazy;
 import org.ddd4j.value.collection.Ref;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
 public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> implements ChannelListener, PartitionRebalanceListener {
 
-	private class ColdCallback implements ColdChannel.Callback {
+	private static class ColdCallback implements ColdChannel.Callback {
 
-		private final ColdChannel.Callback delegate;
+		private final Lazy<? extends ColdChannel.Callback> delegate;
+		private final Runnable closer;
 
-		ColdCallback(ColdChannel.Callback delegate) {
+		ColdCallback(Lazy<? extends ColdChannel.Callback> delegate, Runnable closer) {
 			this.delegate = Require.nonNull(delegate);
+			this.closer = Require.nonNull(closer);
 		}
 
 		@Override
 		public void closeChecked() throws Exception {
-			coldDelegate.unset();
-			checkCloseCallbackDelegate();
+			closer.run();
 		}
 
 		@Override
 		public void seek(ResourceDescriptor topic, Revision revision) {
-			delegate.seek(topic, revision);
+			delegate.get().seek(topic, revision);
 		}
 
 		@Override
 		public void unseek(ResourceDescriptor topic, int partition) {
-			delegate.unseek(topic, partition);
+			delegate.get().unseek(topic, partition);
 		}
 	}
 
-	private class HotCallback implements HotChannel.Callback {
+	private static class HotCallback implements HotChannel.Callback {
 
-		private final HotChannel.Callback delegate;
+		private final Lazy<? extends HotChannel.Callback> delegate;
+		private final Runnable closer;
 
-		HotCallback(HotChannel.Callback delegate) {
+		HotCallback(Lazy<? extends HotChannel.Callback> delegate, Runnable closer) {
 			this.delegate = Require.nonNull(delegate);
+			this.closer = Require.nonNull(closer);
 		}
 
 		@Override
 		public void closeChecked() throws Exception {
-			hotDelegate.unset();
-			checkCloseCallbackDelegate();
+			closer.run();
 		}
 
 		@Override
 		public Promise<Integer> subscribe(ResourceDescriptor topic) {
-			return delegate.subscribe(topic);
+			return delegate.get().subscribe(topic);
 		}
 
 		@Override
 		public void unsubscribe(ResourceDescriptor topic) {
-			delegate.unsubscribe(topic);
+			delegate.get().unsubscribe(topic);
 		}
 	}
 
@@ -72,37 +73,35 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> 
 		}
 	}
 
-	private final Function<LazyListener<C>, C> delegateFactory;
-	private final Ref<C> callbackDelegate;
+	private final Lazy<C> callbackDelegate;
 	private final Ref<ColdChannel.Listener> coldDelegate;
 	private final Ref<HotChannel.Listener> hotDelegate;
 
 	public LazyListener(Function<LazyListener<C>, C> delegateFactory) {
-		this.delegateFactory = Require.nonNull(delegateFactory);
-		this.callbackDelegate = Ref.createThreadsafe();
+		Require.nonNull(delegateFactory);
+		this.callbackDelegate = new Lazy<>(() -> delegateFactory.apply(this));
 		this.coldDelegate = Ref.createThreadsafe();
 		this.hotDelegate = Ref.createThreadsafe();
 	}
 
-	public void assign(ColdChannel.Listener listener) {
+	public ColdChannel.Callback assign(ColdChannel.Listener listener) {
 		coldDelegate.updateAndGet(l -> ensureNull(l, listener));
-		listener.onRegistration(new ColdCallback(callback()));
+		return new ColdCallback(callbackDelegate, this::closeColdCallback);
 	}
 
-	public void assign(HotChannel.Listener listener) {
+	public HotChannel.Callback assign(HotChannel.Listener listener) {
 		hotDelegate.updateAndGet(l -> ensureNull(l, listener));
-		listener.onRegistration(new HotCallback(callback()));
+		return new HotCallback(callbackDelegate, this::closeHotCallback);
 	}
 
-	private C callback() {
-		return callbackDelegate.updateAndGet(() -> delegateFactory.apply(this), Objects::isNull);
+	private synchronized void closeColdCallback() {
+		coldDelegate.unset();
+		hotDelegate.ifNotPresent(callbackDelegate::destroy);
 	}
 
-	private synchronized void checkCloseCallbackDelegate() {
-		if (coldDelegate.isNull() && hotDelegate.isNull()) {
-			callbackDelegate.ifPresent(Closeable::close);
-			callbackDelegate.unset();
-		}
+	private synchronized void closeHotCallback() {
+		hotDelegate.unset();
+		coldDelegate.ifNotPresent(callbackDelegate::destroy);
 	}
 
 	@Override

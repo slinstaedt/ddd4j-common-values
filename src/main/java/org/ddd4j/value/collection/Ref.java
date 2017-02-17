@@ -1,5 +1,6 @@
 package org.ddd4j.value.collection;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -163,11 +164,19 @@ public interface Ref<T> {
 		return getAndUpdate(t -> newValue, predicate);
 	}
 
+	default Ref<T> ifNotPresent(Runnable runnable) {
+		update(t -> {
+			runnable.run();
+			return t;
+		}, Objects::isNull);
+		return this;
+	}
+
 	default Ref<T> ifPresent(Consumer<? super T> consumer) {
-		T value = get();
-		if (value != null) {
-			consumer.accept(value);
-		}
+		update(t -> {
+			consumer.accept(t);
+			return t;
+		}, Objects::nonNull);
 		return this;
 	}
 

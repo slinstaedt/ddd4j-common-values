@@ -9,8 +9,8 @@ import java.util.function.Consumer;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.ColdChannelCallback;
-import org.ddd4j.infrastructure.channel.HotChannelCallback;
+import org.ddd4j.infrastructure.channel.ColdChannel;
+import org.ddd4j.infrastructure.channel.HotChannel;
 import org.ddd4j.infrastructure.channel.RevisionsCallback;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Publisher;
@@ -82,12 +82,12 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	private final ResourceDescriptor topic;
-	private final ColdChannelCallback coldCallback;
-	private final HotChannelCallback hotCallback;
+	private final ColdChannel.Callback coldCallback;
+	private final HotChannel.Callback hotCallback;
 	private final AtomicReference<Promise<Revisions>> current;
 	private final Map<Subscriber<Committed<ReadBuffer, ReadBuffer>>, ChannelSubscription> subscriptions;
 
-	public ChannelPublisher(ResourceDescriptor topic, ColdChannelCallback coldCallback, HotChannelCallback hotCallback) {
+	public ChannelPublisher(ResourceDescriptor topic, ColdChannel.Callback coldCallback, HotChannel.Callback hotCallback) {
 		this.topic = Require.nonNull(topic);
 		this.coldCallback = Require.nonNull(coldCallback);
 		this.hotCallback = Require.nonNull(hotCallback);
@@ -103,7 +103,13 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		forAllSubscriptions(c -> c.onError(throwable));
 	}
 
-	void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
+	void onNextCold(Committed<ReadBuffer, ReadBuffer> committed) {
+		// if (current.get().handleSuccess(r->r.compare(committed.getNextExpected())))
+		// TODO unseek cold when committed reached current
+		forAllSubscriptions(c -> c.onNext(committed));
+	}
+
+	void onNextHot(Committed<ReadBuffer, ReadBuffer> committed) {
 		// if (current.get().handleSuccess(r->r.compare(committed.getNextExpected())))
 		// TODO unseek cold when committed reached current
 		forAllSubscriptions(c -> c.onNext(committed));

@@ -9,13 +9,10 @@ import org.ddd4j.infrastructure.channel.ColdChannel;
 import org.ddd4j.infrastructure.channel.HotChannel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
-import org.reactivestreams.Subscriber;
 
 public class ChannelLog {
 
 	private class ColdListener implements ColdChannel.Listener {
-
-		private ColdChannel.Callback callback;
 
 		@Override
 		public void onError(Throwable throwable) {
@@ -24,12 +21,7 @@ public class ChannelLog {
 
 		@Override
 		public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
-			subscriptions.get(topic).onNext(committed);
-		}
-
-		@Override
-		public void onRegistration(ColdChannel.Callback callback) {
-			this.callback = Require.nonNull(callback);
+			subscriptions.get(topic).onNextCold(committed);
 		}
 	}
 
@@ -44,21 +36,30 @@ public class ChannelLog {
 		public void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
 			subscriptions.get(topic).saveRevisions(partitions);
 		}
+
+		@Override
+		public void onError(Throwable throwable) {
+			subscriptions.values().forEach(s -> s.onError(throwable));
+		}
+
+		@Override
+		public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+			subscriptions.get(topic).onNextHot(committed);
+		}
 	}
 
 	private final ColdChannel coldChannel;
 	private final HotChannel hotChannel;
 	private final Map<ResourceDescriptor, ChannelPublisher> subscriptions;
-
-	private ColdChannelCallback coldCallback;
-	private HotChannelCallback hotCallback;
+	private final ColdChannel.Callback coldCallback;
+	private final HotChannel.Callback hotCallback;
 
 	public ChannelLog(ColdChannel coldChannel, HotChannel hotChannel) {
 		this.coldChannel = Require.nonNull(coldChannel);
 		this.hotChannel = Require.nonNull(hotChannel);
 		this.subscriptions = new ConcurrentHashMap<>();
-		coldChannel.register(new ColdListener());
-		hotChannel.register(new HotListener());
+		this.coldCallback = coldChannel.register(new ColdListener());
+		this.hotCallback = hotChannel.register(new HotListener());
 	}
 
 	public ChannelCommitter committer(ResourceDescriptor topic) {
@@ -69,14 +70,7 @@ public class ChannelLog {
 		return subscriptions.computeIfAbsent(topic, t -> new ChannelPublisher(t, coldCallback, hotCallback));
 	}
 
-	void unsubscribe(ResourceDescriptor topic, Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber) {
-		subscriptions.computeIfPresent(topic, (t, s) -> {
-			if (s.unsubscribe(subscriber)) {
-				client.perform(c -> c.subscribe(subscriptions.keySet(), this));
-				return null;
-			} else {
-				return s;
-			}
-		});
+	void unsubscribe(ResourceDescriptor topic) {
+		subscriptions.remove(topic);
 	}
 }

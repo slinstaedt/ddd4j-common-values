@@ -60,13 +60,13 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 	}
 
 	@Override
-	public void register(ColdChannel.Listener listener) {
-		lazyListener.assign(listener);
+	public ColdChannel.Callback register(ColdChannel.Listener listener) {
+		return lazyListener.assign(listener);
 	}
 
 	@Override
-	public void register(HotChannel.Listener listener) {
-		lazyListener.assign(listener);
+	public HotChannel.Callback register(HotChannel.Listener listener) {
+		return lazyListener.assign(listener);
 	}
 
 	@Override

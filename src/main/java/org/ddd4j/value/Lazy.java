@@ -2,6 +2,7 @@ package org.ddd4j.value;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import org.ddd4j.contract.Require;
@@ -10,7 +11,7 @@ import org.ddd4j.value.Throwing.Producer;
 import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.collection.Seq;
 
-public class Lazy<T> implements Closeable, Seq<T> {
+public class Lazy<T> implements Closeable, Seq<T>, Supplier<T> {
 
 	private final Producer<? extends T> creator;
 	private final TConsumer<? super T> destroyer;
@@ -45,6 +46,7 @@ public class Lazy<T> implements Closeable, Seq<T> {
 		});
 	}
 
+	@Override
 	public T get() {
 		return reference.updateAndGet(t -> t != null ? t : creator.get());
 	}

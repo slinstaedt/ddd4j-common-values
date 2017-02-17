@@ -21,11 +21,9 @@ public interface ColdChannel extends Closeable {
 	}
 
 	interface Listener extends ChannelListener {
-
-		void onRegistration(Callback callback);
 	}
 
 	Promise<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt);
 
-	void register(Listener listener);
+	Callback register(Listener listener);
 }
