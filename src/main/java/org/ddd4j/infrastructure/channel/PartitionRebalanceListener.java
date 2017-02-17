@@ -1,12 +1,23 @@
 package org.ddd4j.infrastructure.channel;
 
-import java.util.stream.IntStream;
-
 import org.ddd4j.infrastructure.ResourceDescriptor;
 
 public interface PartitionRebalanceListener {
 
-	void onPartitionsAssigned(ResourceDescriptor topic, IntStream partitions);
+	PartitionRebalanceListener NOOP_LISTENER = new PartitionRebalanceListener() {
 
-	void onPartitionsRevoked(ResourceDescriptor topic, IntStream partitions);
+		@Override
+		public void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
+			// ignore
+		}
+
+		@Override
+		public void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions) {
+			// ignore
+		}
+	};
+
+	void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions);
+
+	void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions);
 }

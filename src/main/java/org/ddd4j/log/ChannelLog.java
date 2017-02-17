@@ -2,18 +2,49 @@ package org.ddd4j.log;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.IntStream;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.ChannelListener;
 import org.ddd4j.infrastructure.channel.ColdChannel;
 import org.ddd4j.infrastructure.channel.HotChannel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 import org.reactivestreams.Subscriber;
 
-public class ChannelLog implements ChannelListener {
+public class ChannelLog {
+
+	private class ColdListener implements ColdChannel.Listener {
+
+		private ColdChannel.Callback callback;
+
+		@Override
+		public void onError(Throwable throwable) {
+			subscriptions.values().forEach(s -> s.onError(throwable));
+		}
+
+		@Override
+		public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+			subscriptions.get(topic).onNext(committed);
+		}
+
+		@Override
+		public void onRegistration(ColdChannel.Callback callback) {
+			this.callback = Require.nonNull(callback);
+		}
+	}
+
+	private class HotListener implements HotChannel.Listener {
+
+		@Override
+		public void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions) {
+			subscriptions.get(topic).loadRevisions(partitions);
+		}
+
+		@Override
+		public void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
+			subscriptions.get(topic).saveRevisions(partitions);
+		}
+	}
 
 	private final ColdChannel coldChannel;
 	private final HotChannel hotChannel;
@@ -26,8 +57,8 @@ public class ChannelLog implements ChannelListener {
 		this.coldChannel = Require.nonNull(coldChannel);
 		this.hotChannel = Require.nonNull(hotChannel);
 		this.subscriptions = new ConcurrentHashMap<>();
-		coldChannel.register(this);
-		hotChannel.register(this);
+		coldChannel.register(new ColdListener());
+		hotChannel.register(new HotListener());
 	}
 
 	public ChannelCommitter committer(ResourceDescriptor topic) {
@@ -36,36 +67,6 @@ public class ChannelLog implements ChannelListener {
 
 	public ChannelPublisher publisher(ResourceDescriptor topic) {
 		return subscriptions.computeIfAbsent(topic, t -> new ChannelPublisher(t, coldCallback, hotCallback));
-	}
-
-	@Override
-	public void onError(Throwable throwable) {
-		subscriptions.values().forEach(s -> s.onError(throwable));
-	}
-
-	@Override
-	public void onPartitionsAssigned(ResourceDescriptor topic, IntStream partitions) {
-		subscriptions.get(topic).loadRevisions(partitions);
-	}
-
-	@Override
-	public void onPartitionsRevoked(ResourceDescriptor topic, IntStream partitions) {
-		subscriptions.get(topic).saveRevisions(partitions);
-	}
-
-	@Override
-	public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
-		subscriptions.get(topic).onNext(committed);
-	}
-
-	@Override
-	public void onColdRegistration(ColdChannelCallback callback) {
-		coldCallback = Require.nonNull(callback);
-	}
-
-	@Override
-	public void onHotRegistration(HotChannelCallback callback) {
-		hotCallback = Require.nonNull(callback);
 	}
 
 	void unsubscribe(ResourceDescriptor topic, Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber) {

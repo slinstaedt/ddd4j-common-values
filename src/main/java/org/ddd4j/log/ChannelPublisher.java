@@ -1,16 +1,16 @@
 package org.ddd4j.log;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.stream.IntStream;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.ChannelListener.ColdChannelCallback;
-import org.ddd4j.infrastructure.channel.ChannelListener.HotChannelCallback;
+import org.ddd4j.infrastructure.channel.ColdChannelCallback;
+import org.ddd4j.infrastructure.channel.HotChannelCallback;
 import org.ddd4j.infrastructure.channel.RevisionsCallback;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Publisher;
@@ -44,12 +44,12 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 			unsubscribe(subscriber);
 		}
 
-		void loadRevisions(IntStream partitions) {
-			expected.update(callback.loadRevisions(partitions));
+		void loadRevisions(int[] partitions) {
+			expected.update(callback.loadRevisions(Arrays.stream(partitions)));
 		}
 
-		void saveRevisions(IntStream partitions) {
-			callback.saveRevisions(expected.revisionsOfPartitions(partitions));
+		void saveRevisions(int[] partitions) {
+			callback.saveRevisions(expected.revisionsOfPartitions(Arrays.stream(partitions)));
 		}
 
 		void onError(Throwable throwable) {
@@ -109,12 +109,12 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		forAllSubscriptions(c -> c.onNext(committed));
 	}
 
-	void loadRevisions(IntStream partitions) {
+	void loadRevisions(int[] partitions) {
 		current.get().whenCompleteSuccessfully(r -> r.updateWithPartitions(partitions, 0));
 		forAllSubscriptions(s -> s.loadRevisions(partitions));
 	}
 
-	void saveRevisions(IntStream partitions) {
+	void saveRevisions(int[] partitions) {
 		forAllSubscriptions(s -> s.saveRevisions(partitions));
 		current.get().whenCompleteSuccessfully(r -> r.reset(partitions));
 	}

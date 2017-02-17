@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
@@ -30,8 +29,9 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ChannelListener;
-import org.ddd4j.infrastructure.channel.ChannelListener.ColdChannelCallback;
-import org.ddd4j.infrastructure.channel.ChannelListener.HotChannelCallback;
+import org.ddd4j.infrastructure.channel.ColdChannel;
+import org.ddd4j.infrastructure.channel.HotChannel;
+import org.ddd4j.infrastructure.channel.PartitionRebalanceListener;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.BlockingTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -41,14 +41,16 @@ import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
-public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, BlockingTask {
+public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback, BlockingTask {
 
 	private class KafkaRebalanceListener implements ConsumerRebalanceListener {
 
 		private final Consumer<byte[], byte[]> consumer;
+		private final PartitionRebalanceListener listener;
 
-		KafkaRebalanceListener(Consumer<byte[], byte[]> consumer) {
+		KafkaRebalanceListener(Consumer<byte[], byte[]> consumer, PartitionRebalanceListener listener) {
 			this.consumer = Require.nonNull(consumer);
+			this.listener = Require.nonNull(listener);
 		}
 
 		@Override
@@ -62,9 +64,9 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 			partitionsByTopic(partitions).forEach(listener::onPartitionsRevoked);
 		}
 
-		private Map<ResourceDescriptor, IntStream> partitionsByTopic(Collection<TopicPartition> partitions) {
+		private Map<ResourceDescriptor, int[]> partitionsByTopic(Collection<TopicPartition> partitions) {
 			return partitions.stream().collect(groupingBy(tp -> new ResourceDescriptor(tp.topic()),
-					mapping(TopicPartition::partition, collectingAndThen(toSet(), p -> p.stream().mapToInt(Integer::intValue)))));
+					mapping(TopicPartition::partition, collectingAndThen(toSet(), p -> p.stream().mapToInt(Integer::intValue).toArray()))));
 		}
 	}
 
@@ -82,14 +84,15 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	}
 
 	private final Agent<Consumer<byte[], byte[]>> client;
-	private final ChannelListener listener;
-	private final KafkaRebalanceListener rebalanceListener;
+	private final ChannelListener channelListener;
+	private final KafkaRebalanceListener kafkaRebalanceListener;
 	private final Map<String, Promise<Integer>> assignments;
 
-	public KafkaCallback(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener listener) {
+	public KafkaCallback(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener channelListener,
+			PartitionRebalanceListener rebalanceListener) {
 		this.client = scheduler.createAgent(consumer);
-		this.listener = Require.nonNull(listener);
-		this.rebalanceListener = new KafkaRebalanceListener(consumer);
+		this.channelListener = Require.nonNull(channelListener);
+		this.kafkaRebalanceListener = new KafkaRebalanceListener(consumer, rebalanceListener);
 		this.assignments = new ConcurrentHashMap<>();
 	}
 
@@ -117,7 +120,7 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	private int doSubscribe(Consumer<?, ?> consumer, String topic) {
 		Set<String> topics = new HashSet<>(assignments.keySet());
 		topics.add(topic);
-		consumer.subscribe(topics, rebalanceListener);
+		consumer.subscribe(topics, kafkaRebalanceListener);
 		return doFetchPartitionSize(consumer, topic);
 	}
 
@@ -125,8 +128,8 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	public Promise<Trigger> scheduleWith(Executor executor, long timeout, TimeUnit unit) {
 		return client.execute(c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
 				.sync()
-				.whenCompleteSuccessfully(rs -> rs.forEach(r -> listener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
-				.whenCompleteExceptionally(listener::onError)
+				.whenCompleteSuccessfully(rs -> rs.forEach(r -> channelListener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
+				.whenCompleteExceptionally(channelListener::onError)
 				.handleSuccess(rs -> rs == EMPTY_RECORDS ? Trigger.NOTHING : Trigger.RESCHEDULE);
 	}
 
@@ -143,7 +146,8 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	}
 
 	@Override
-	public void unseek(ResourceDescriptor topic) {
+	public void unseek(ResourceDescriptor topic, int partition) {
+		// TODO handle partition
 		if (assignments.remove(topic.value()) != null) {
 			client.perform(c -> {
 				Set<String> assigned = assignments.keySet();
@@ -156,7 +160,7 @@ public class KafkaCallback implements ColdChannelCallback, HotChannelCallback, B
 	@Override
 	public void unsubscribe(ResourceDescriptor topic) {
 		if (assignments.remove(topic.value()) != null) {
-			client.perform(c -> c.subscribe(assignments.keySet(), rebalanceListener));
+			client.perform(c -> c.subscribe(assignments.keySet(), kafkaRebalanceListener));
 		}
 	}
 }

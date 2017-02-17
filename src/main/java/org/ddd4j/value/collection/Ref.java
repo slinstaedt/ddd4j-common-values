@@ -106,7 +106,8 @@ public interface Ref<T> {
 		return f -> Tpl.of(holder.get(), holder.updateAndGet(f));
 	}
 
-	static <T, H> Supplier<Ref<T>> factoryOf(Supplier<H> factory, Function<? super H, ? extends T> getter, BiConsumer<? super H, ? super T> setter) {
+	static <T, H> Supplier<Ref<T>> factoryOf(Supplier<H> factory, Function<? super H, ? extends T> getter,
+			BiConsumer<? super H, ? super T> setter) {
 		Require.nonNullElements(factory, getter, setter);
 		return () -> of(factory.get(), getter, setter);
 	}
@@ -162,6 +163,14 @@ public interface Ref<T> {
 		return getAndUpdate(t -> newValue, predicate);
 	}
 
+	default Ref<T> ifPresent(Consumer<? super T> consumer) {
+		T value = get();
+		if (value != null) {
+			consumer.accept(value);
+		}
+		return this;
+	}
+
 	default boolean isNull() {
 		return get() == null;
 	}
@@ -175,6 +184,10 @@ public interface Ref<T> {
 		return value.applyNullable(this::set, () -> this);
 	}
 
+	default Ref<T> unset() {
+		return set(null);
+	}
+
 	default Tpl<T, T> update(Supplier<? extends T> supplier) {
 		return update(t -> supplier.get());
 	}
@@ -184,8 +197,7 @@ public interface Ref<T> {
 	}
 
 	/**
-	 * Updates this reference with the given function. Returns a {@link Tpl} with left containing the old value and
-	 * right the new one.
+	 * Updates this reference with the given function. Returns a {@link Tpl} with left containing the old value and right the new one.
 	 *
 	 * @param updateFunction
 	 *            The function to update this reference with

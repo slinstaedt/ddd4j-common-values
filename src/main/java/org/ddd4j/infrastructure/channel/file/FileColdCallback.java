@@ -1,7 +1,7 @@
 package org.ddd4j.infrastructure.channel.file;
 
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.ChannelListener.ColdChannelCallback;
+import org.ddd4j.infrastructure.channel.ColdChannelCallback;
 import org.ddd4j.value.versioned.Revision;
 
 public class FileColdCallback implements ColdChannelCallback {

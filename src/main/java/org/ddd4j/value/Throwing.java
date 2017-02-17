@@ -319,26 +319,37 @@ public interface Throwing {
 		return Throwing.<X, RuntimeException> any(exception);
 	}
 
-	default <T, U, R> TBiFunction<T, U, R> asBiFunction() {
-		return (t, u) -> throwChecked(t, u);
+	@SafeVarargs
+	static <T> T[] arrayConcat(T[] array, T... append) {
+		if (append.length == 0) {
+			return array;
+		} else {
+			T[] copy = Arrays.copyOf(array, array.length + append.length);
+			System.arraycopy(append, 0, copy, array.length, append.length);
+			return copy;
+		}
 	}
 
-	default <T> TConsumer<T> asConsumer() {
-		return (t) -> throwChecked(t);
+	default <T, U, R> TBiFunction<T, U, R> asBiFunction(Object... args) {
+		return (t, u) -> throwChecked(arrayConcat(args, t, u));
 	}
 
-	default <T, R> TFunction<T, R> asFunction() {
-		return (t) -> throwChecked(t);
+	default <T> TConsumer<T> asConsumer(Object... args) {
+		return (t) -> throwChecked(arrayConcat(args, t));
 	}
 
-	default <T> Producer<T> asSupplier() {
-		return () -> throwChecked();
+	default <T, R> TFunction<T, R> asFunction(Object... args) {
+		return (t) -> throwChecked(arrayConcat(args, t));
+	}
+
+	default <T> Producer<T> asSupplier(Object... args) {
+		return () -> throwChecked(args);
 	}
 
 	Throwable createException(String message);
 
 	default String formatMessage(Object... args) {
-		return Arrays.asList(args).toString();
+		return Arrays.toString(args);
 	}
 
 	default <X> X throwChecked(Object... args) throws Exception {
