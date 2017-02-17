@@ -1,6 +1,7 @@
 package org.ddd4j.infrastructure.channel;
 
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
@@ -13,12 +14,12 @@ import org.ddd4j.value.versioned.Revision;
 
 public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> implements ChannelListener, PartitionRebalanceListener {
 
-	private static class ColdCallback implements ColdChannel.Callback {
+	private static class LazyColdCallback implements ColdChannel.Callback {
 
-		private final Lazy<? extends ColdChannel.Callback> delegate;
+		private final Supplier<? extends ColdChannel.Callback> delegate;
 		private final Runnable closer;
 
-		ColdCallback(Lazy<? extends ColdChannel.Callback> delegate, Runnable closer) {
+		LazyColdCallback(Supplier<? extends ColdChannel.Callback> delegate, Runnable closer) {
 			this.delegate = Require.nonNull(delegate);
 			this.closer = Require.nonNull(closer);
 		}
@@ -39,12 +40,12 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> 
 		}
 	}
 
-	private static class HotCallback implements HotChannel.Callback {
+	private static class LazyHotCallback implements HotChannel.Callback {
 
-		private final Lazy<? extends HotChannel.Callback> delegate;
+		private final Supplier<? extends HotChannel.Callback> delegate;
 		private final Runnable closer;
 
-		HotCallback(Lazy<? extends HotChannel.Callback> delegate, Runnable closer) {
+		LazyHotCallback(Supplier<? extends HotChannel.Callback> delegate, Runnable closer) {
 			this.delegate = Require.nonNull(delegate);
 			this.closer = Require.nonNull(closer);
 		}
@@ -86,12 +87,12 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> 
 
 	public ColdChannel.Callback assign(ColdChannel.Listener listener) {
 		coldDelegate.updateAndGet(l -> ensureNull(l, listener));
-		return new ColdCallback(callbackDelegate, this::closeColdCallback);
+		return new LazyColdCallback(callbackDelegate, this::closeColdCallback);
 	}
 
 	public HotChannel.Callback assign(HotChannel.Listener listener) {
 		hotDelegate.updateAndGet(l -> ensureNull(l, listener));
-		return new HotCallback(callbackDelegate, this::closeHotCallback);
+		return new LazyHotCallback(callbackDelegate, this::closeHotCallback);
 	}
 
 	private synchronized void closeColdCallback() {
