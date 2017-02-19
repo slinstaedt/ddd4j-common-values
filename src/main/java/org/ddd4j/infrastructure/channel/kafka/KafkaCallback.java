@@ -140,8 +140,8 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	}
 
 	@Override
-	public int subscribe(ResourceDescriptor topic) {
-		return assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doSubscribe(c, t))).join();
+	public Promise<Integer> subscribe(ResourceDescriptor topic) {
+		return assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doSubscribe(c, t)));
 	}
 
 	@Override

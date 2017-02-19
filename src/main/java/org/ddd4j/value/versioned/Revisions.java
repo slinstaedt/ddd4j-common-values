@@ -34,12 +34,16 @@ public class Revisions {
 		return Comparison.of(Long.signum(offset(revision.getPartition()) - revision.getOffset()));
 	}
 
-	public boolean isPartitionSizeKnown() {
-		return getPartitionSize() > 0;
+	public Stream<Revision> diffOffsetsFrom(Revisions other) {
+		return partitions().filter(p -> this.offsets[p] != other.offsets[p]).mapToObj(this::revisionOfPartition);
 	}
 
 	public int getPartitionSize() {
 		return offsets.length;
+	}
+
+	public boolean isPartitionSizeKnown() {
+		return getPartitionSize() > 0;
 	}
 
 	public long offset(int partition) {
@@ -50,6 +54,10 @@ public class Revisions {
 
 	public int partition(int hash) {
 		return Math.abs(hash) % offsets.length;
+	}
+
+	public IntStream partitions() {
+		return IntStream.range(0, offsets.length).filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET);
 	}
 
 	public void reset(IntStream partitions) {
@@ -64,14 +72,12 @@ public class Revisions {
 		return new Revision(partition, offset(partition));
 	}
 
-	public Stream<Revision> revisionsOfPartitions(IntStream partitions) {
-		return partitions.mapToObj(this::revisionOfPartition);
+	public Stream<Revision> revisions() {
+		return partitions().mapToObj(p -> new Revision(p, offsets[p]));
 	}
 
-	public Stream<Revision> stream() {
-		return IntStream.range(0, offsets.length)
-				.filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET)
-				.mapToObj(p -> new Revision(p, offsets[p]));
+	public Stream<Revision> revisionsOfPartitions(IntStream partitions) {
+		return partitions.mapToObj(this::revisionOfPartition);
 	}
 
 	public void update(Revision revision) {

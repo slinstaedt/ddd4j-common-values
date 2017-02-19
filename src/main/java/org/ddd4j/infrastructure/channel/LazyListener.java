@@ -3,6 +3,7 @@ package org.ddd4j.infrastructure.channel;
 import java.util.function.Function;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.Lazy;
@@ -40,7 +41,7 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> 
 		}
 
 		@Override
-		public int subscribe(ResourceDescriptor topic) {
+		public Promise<Integer> subscribe(ResourceDescriptor topic) {
 			return callbackDelegate.get().subscribe(topic);
 		}
 

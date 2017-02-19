@@ -2,7 +2,6 @@ package org.ddd4j.log;
 
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.RevisionsCallback;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.value.versioned.CommitResult;
