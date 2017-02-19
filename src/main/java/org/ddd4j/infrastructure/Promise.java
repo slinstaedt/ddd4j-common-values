@@ -45,6 +45,11 @@ public interface Promise<T> {
 			}
 
 			@Override
+			public CompletionStage<T> toCompletionStage() {
+				return stage;
+			}
+
+			@Override
 			public Promise<T> withExecutor(Executor executor) {
 				return of(executor, stage);
 			}
@@ -97,12 +102,12 @@ public interface Promise<T> {
 		return handle((t, ex) -> ex != null ? fn.apply(ex) : t);
 	}
 
-	default Promise<T> testAndFail(TPredicate<? super T> predicate) {
-		return whenCompleteSuccessfully(predicate.throwOnFail(RuntimeException::new));
-	}
-
 	default <X> Promise<X> handleSuccess(TFunction<? super T, X> fn) {
 		return handle((t, ex) -> ex != null ? Throwing.unchecked(ex) : fn.apply(t));
+	}
+
+	default T join() {
+		return toCompletionStage().toCompletableFuture().join();
 	}
 
 	default Promise<Void> runAfterBoth(Promise<?> other, Runnable action) {
@@ -115,6 +120,10 @@ public interface Promise<T> {
 
 	default Promise<T> sync() {
 		return withExecutor(Runnable::run);
+	}
+
+	default Promise<T> testAndFail(TPredicate<? super T> predicate) {
+		return whenCompleteSuccessfully(predicate.throwOnFail(RuntimeException::new));
 	}
 
 	default Promise<Void> thenAccept(TConsumer<? super T> action) {

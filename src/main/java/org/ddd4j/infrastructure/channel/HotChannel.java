@@ -1,6 +1,5 @@
 package org.ddd4j.infrastructure.channel;
 
-import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.Throwing.Closeable;
@@ -10,7 +9,7 @@ public interface HotChannel extends Closeable {
 
 	interface Callback extends Closeable {
 
-		Promise<Integer> subscribe(ResourceDescriptor topic);
+		int subscribe(ResourceDescriptor topic);
 
 		void unsubscribe(ResourceDescriptor topic);
 	}

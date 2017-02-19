@@ -12,7 +12,6 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -118,7 +117,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	}
 
 	private int doSubscribe(Consumer<?, ?> consumer, String topic) {
-		Set<String> topics = new HashSet<>(assignments.keySet());
+		List<String> topics = new ArrayList<>(assignments.keySet());
 		topics.add(topic);
 		consumer.subscribe(topics, kafkaRebalanceListener);
 		return doFetchPartitionSize(consumer, topic);
@@ -141,8 +140,8 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	}
 
 	@Override
-	public Promise<Integer> subscribe(ResourceDescriptor topic) {
-		return assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doSubscribe(c, t)));
+	public int subscribe(ResourceDescriptor topic) {
+		return assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doSubscribe(c, t))).join();
 	}
 
 	@Override

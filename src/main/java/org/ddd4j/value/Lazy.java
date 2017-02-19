@@ -1,7 +1,6 @@
 package org.ddd4j.value;
 
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -37,18 +36,31 @@ public class Lazy<T> implements Closeable, Seq<T>, Supplier<T> {
 		destroy(destroyer);
 	}
 
-	public void destroy(Consumer<? super T> destroyer) {
-		reference.updateAndGet(t -> {
-			if (t != null) {
-				destroyer.accept(t);
-			}
-			return null;
-		});
+	public void destroy(TConsumer<? super T> destroyer) {
+		T value = reference.getAndSet(null);
+		if (value != null) {
+			destroyer.accept(value);
+		}
 	}
 
 	@Override
 	public T get() {
-		return reference.updateAndGet(t -> t != null ? t : creator.get());
+		T value = reference.get();
+		if (value == null) {
+			value = reference.updateAndGet(t -> t != null ? t : creator.get());
+		}
+		return value;
+	}
+
+	public void ifPresent(TConsumer<? super T> consumer) {
+		T value = reference.get();
+		if (value != null) {
+			consumer.accept(value);
+		}
+	}
+
+	public boolean isInitialized() {
+		return reference.get() != null;
 	}
 
 	@Override

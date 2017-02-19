@@ -46,6 +46,11 @@ public class Deferred<T> implements Promise<T> {
 	}
 
 	@Override
+	public CompletionStage<T> toCompletionStage() {
+		return future;
+	}
+
+	@Override
 	public Promise<T> withExecutor(Executor executor) {
 		return Promise.of(executor, future);
 	}
