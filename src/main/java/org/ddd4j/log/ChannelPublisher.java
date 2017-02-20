@@ -61,13 +61,13 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 
 			Revision actualRevision = committed.getActual();
 			Revision expectedRevision = expected.revisionOfPartition(actualRevision.getPartition());
-			Comparison expectation = actualRevision.compare(expectedRevision);
-			if (expectation == Comparison.EQUAL) {
+			Comparison actual = actualRevision.compare(expectedRevision);
+			if (actual == Comparison.EQUAL) {
 				subscriber.onNext(committed);
 				// TODO use actual or next?
-				expected.update(actualRevision);
+				expected.update(committed.getNextExpected());
 				requesting.processed();
-			} else if (expectation == Comparison.LARGER) {
+			} else if (actual == Comparison.LARGER) {
 				coldCallback.seek(topic, expectedRevision);
 				// TODO
 			}
