@@ -55,8 +55,9 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 
 	@Override
 	public void publish(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
-		// TODO message resent on channel reuse as hot and cold?
-		producer.get().send(convert(topic, committed));
+		if (lazyListener.isNotBothAssigned()) {
+			producer.get().send(convert(topic, committed));
+		}
 	}
 
 	@Override

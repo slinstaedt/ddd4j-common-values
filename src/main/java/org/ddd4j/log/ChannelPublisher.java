@@ -109,7 +109,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	void onError(Throwable throwable) {
-		forAllSubscriptions(c -> c.onError(throwable));
+		forAllSubscriptions(s -> s.onError(throwable));
 		subscriptions.clear();
 		coldCallback.close();
 		hotRevisions.close();
@@ -122,12 +122,12 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 				coldCallback.unseek(topic, nextExpected.getPartition());
 			}
 		});
-		forAllSubscriptions(c -> c.onNext(committed));
+		forAllSubscriptions(s -> s.onNext(committed));
 	}
 
 	void onNextHot(Committed<ReadBuffer, ReadBuffer> committed) {
 		hotRevisions.ifPresent(r -> r.update(committed.getNextExpected()));
-		forAllSubscriptions(c -> c.onNext(committed));
+		forAllSubscriptions(s -> s.onNext(committed));
 	}
 
 	void saveRevisions(int[] partitions) {

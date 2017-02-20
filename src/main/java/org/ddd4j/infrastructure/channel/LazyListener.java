@@ -80,6 +80,10 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> 
 		return new LazyHotCallback();
 	}
 
+	public boolean isNotBothAssigned() {
+		return coldDelegate.isNull() || hotDelegate.isNull();
+	}
+
 	@Override
 	public void onError(Throwable throwable) {
 		coldDelegate.ifPresent(l -> l.onError(throwable));
