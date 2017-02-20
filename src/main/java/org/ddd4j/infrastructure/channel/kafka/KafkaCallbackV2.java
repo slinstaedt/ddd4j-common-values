@@ -39,7 +39,7 @@ import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
-public class KafkaCallback2 implements ColdCallback, HotCallback, BlockingTask {
+public class KafkaCallbackV2 implements ColdCallback, HotCallback, BlockingTask {
 
 	private class KafkaRebalanceListener implements ConsumerRebalanceListener {
 
@@ -85,7 +85,7 @@ public class KafkaCallback2 implements ColdCallback, HotCallback, BlockingTask {
 	private final ChannelListener channelListener;
 	private final KafkaRebalanceListener kafkaRebalanceListener;
 
-	public KafkaCallback2(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener channelListener,
+	public KafkaCallbackV2(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener channelListener,
 			PartitionRebalanceListener rebalanceListener) {
 		this.client = scheduler.createAgent(consumer);
 		this.channelListener = Require.nonNull(channelListener);
