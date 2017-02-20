@@ -5,7 +5,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -20,27 +19,6 @@ import org.ddd4j.value.versioned.Revisions;
 
 public class Channel {
 
-	public interface ColdCallback extends Closeable {
-
-		void seek(ResourceDescriptor topic, Revision revision);
-
-		default void updateAssignmentAndWait(Map<ResourceDescriptor, Promise<Revisions>> assignments) {
-			Map<ResourceDescriptor, IntStream> values = assignments.entrySet()
-					.stream()
-					.collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().join().partitions()));
-			updateAssignment(values);
-		}
-
-		void updateAssignment(Map<ResourceDescriptor, IntStream> assignments);
-	}
-
-	public interface HotCallback extends Closeable {
-
-		Promise<Integer> partitionSize(ResourceDescriptor topic);
-
-		void updateSubscription(Set<ResourceDescriptor> topics);
-	}
-
 	public interface Callback extends Closeable {
 
 		void seek(ResourceDescriptor topic, Revision revision);
@@ -52,51 +30,20 @@ public class Channel {
 		void unsubscribe(ResourceDescriptor topic);
 	}
 
-	private static class CombinedCallback extends AbstractCallback {
+	public interface ColdCallback extends Closeable {
 
-		private volatile boolean subscribed;
+		void seek(ResourceDescriptor topic, Revision revision);
 
-		CombinedCallback(Listener listener, ColdChannel coldChannel, HotChannel hotChannel) {
-			super(listener, coldChannel, hotChannel);
-			this.subscribed = false;
-		}
+		void updateAssignment(Map<ResourceDescriptor, IntStream> assignments);
 
-		@Override
-		protected void doAssignAndSeek(ResourceDescriptor topic, Revision revision) {
-			if (subscribed) {
-				updateSubscription();
-			} else {
-				updateAssignmentAndWait();
-			}
-			updateSeek(topic, revision);
-		}
-
-		@Override
-		protected Promise<Revisions> doSubscribe(ResourceDescriptor topic) {
-			subscribed = true;
-			return super.doSubscribe(topic);
-		}
-
-		@Override
-		public void unsubscribe(ResourceDescriptor topic) {
-			unsubscribe(topic, () -> subscribed = false);
+		default void updateAssignmentAndWait(Map<ResourceDescriptor, Promise<Revisions>> assignments) {
+			Map<ResourceDescriptor, IntStream> values = assignments.entrySet().stream()
+					.collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().join().partitions()));
+			updateAssignment(values);
 		}
 	}
 
-	private static class SeparatedCallback extends AbstractCallback {
-
-		SeparatedCallback(Listener listener, ColdChannel coldChannel, HotChannel hotChannel) {
-			super(listener, coldChannel, hotChannel);
-		}
-
-		@Override
-		protected void doAssignAndSeek(ResourceDescriptor topic, Revision revision) {
-			updateAssignmentAndWait();
-			updateSeek(topic, revision);
-		}
-	}
-
-	private static abstract class AbstractCallback implements Callback {
+	public static class CombinedCallback implements Callback {
 
 		private class ColdListener implements ColdChannel.Listener {
 
@@ -112,6 +59,30 @@ public class Channel {
 		}
 
 		private class HotListener implements HotChannel.Listener {
+
+			@Override
+			public void onError(Throwable throwable) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
+				// TODO Auto-generated method stub
+
+			}
 		}
 
 		private final Listener listener;
@@ -119,11 +90,14 @@ public class Channel {
 		private final HotCallback hotDelegate;
 		private final Map<ResourceDescriptor, Promise<Revisions>> assignments;
 
-		protected AbstractCallback(Listener listener, ColdChannel coldChannel, HotChannel hotChannel) {
+		private volatile boolean subscribed;
+
+		public CombinedCallback(Listener listener, ColdChannel coldChannel, HotChannel hotChannel) {
 			this.listener = Require.nonNull(listener);
 			this.assignments = new ConcurrentHashMap<>();
-			this.coldDelegate = coldChannel.register(new ColdListener())
-			this.hotDelegate = hotChannel.register(new HotListener());
+			this.coldDelegate = null;// coldChannel.register(new ColdListener());
+			this.hotDelegate = null;// hotChannel.register(new HotListener());
+			this.subscribed = false;
 		}
 
 		@Override
@@ -132,25 +106,21 @@ public class Channel {
 			hotDelegate.closeChecked();
 		}
 
-		protected abstract void doAssignAndSeek(ResourceDescriptor topic, Revision revision);
-
-		protected void updateAssignmentAndWait() {
-			coldDelegate.updateAssignmentAndWait(assignments);
-		}
-
-		protected void updateSubscription() {
-			hotDelegate.updateSubscription(assignments.keySet());
-		}
-
-		protected void updateSeek(ResourceDescriptor topic, Revision revision) {
+		private void doAssignAndSeek(ResourceDescriptor topic, Revision revision) {
+			if (subscribed) {
+				hotDelegate.updateSubscription(assignments.keySet());
+			} else {
+				coldDelegate.updateAssignmentAndWait(assignments);
+			}
 			coldDelegate.seek(topic, revision);
 		}
 
-		protected Promise<Revisions> doFetchPartitionSize(ResourceDescriptor topic) {
+		private Promise<Revisions> doFetchPartitionSize(ResourceDescriptor topic) {
 			return hotDelegate.partitionSize(topic).sync().handleSuccess(Revisions::new);
 		}
 
-		protected Promise<Revisions> doSubscribe(ResourceDescriptor topic) {
+		private Promise<Revisions> doSubscribe(ResourceDescriptor topic) {
+			subscribed = true;
 			Set<ResourceDescriptor> topics = new HashSet<>(assignments.keySet());
 			topics.add(topic);
 			hotDelegate.updateSubscription(topics);
@@ -159,8 +129,7 @@ public class Channel {
 
 		@Override
 		public void seek(ResourceDescriptor topic, Revision revision) {
-			assignments.computeIfAbsent(topic, t -> doFetchPartitionSize(t))
-					.whenCompleteSuccessfully(r -> r.update(revision))
+			assignments.computeIfAbsent(topic, t -> doFetchPartitionSize(t)).whenCompleteSuccessfully(r -> r.update(revision))
 					.whenCompleteSuccessfully(r -> doAssignAndSeek(topic, revision));
 		}
 
@@ -171,26 +140,27 @@ public class Channel {
 
 		@Override
 		public void unseek(ResourceDescriptor topic, int partition) {
-			assignments.get(topic)
-					.testAndFail(r -> r.reset(partition) != Revision.UNKNOWN_OFFSET)
+			assignments.get(topic).testAndFail(r -> r.reset(partition) != Revision.UNKNOWN_OFFSET)
 					.whenCompleteSuccessfully(r -> coldDelegate.updateAssignmentAndWait(assignments))
-					.testAndFail(Revisions::isNonePartitionOffsetKnown)
-					.whenCompleteSuccessfully(r -> assignments.remove(topic, r));
-		}
-
-		protected void unsubscribe(ResourceDescriptor topic, Runnable ifEmpty) {
-			if (assignments.remove(topic) != null) {
-				hotDelegate.updateSubscription(assignments.keySet());
-				if (assignments.isEmpty()) {
-					ifEmpty.run();
-				}
-			}
+					.testAndFail(Revisions::isNonePartitionOffsetKnown).whenCompleteSuccessfully(r -> assignments.remove(topic, r));
 		}
 
 		@Override
 		public void unsubscribe(ResourceDescriptor topic) {
-			unsubscribe(topic, this::hashCode);
+			if (assignments.remove(topic) != null) {
+				hotDelegate.updateSubscription(assignments.keySet());
+				if (assignments.isEmpty()) {
+					subscribed = false;
+				}
+			}
 		}
+	}
+
+	public interface HotCallback extends Closeable {
+
+		Promise<Integer> partitionSize(ResourceDescriptor topic);
+
+		void updateSubscription(Set<ResourceDescriptor> topics);
 	}
 
 	public interface Listener extends PartitionRebalanceListener {
@@ -215,7 +185,7 @@ public class Channel {
 			if (coldChannel == hotChannel) {
 				return new CombinedCallback(listener, coldChannel, hotChannel);
 			} else {
-				return new SeparatedCallback(listener, coldChannel, hotChannel);
+				return null;
 			}
 		} else {
 			throw new IllegalStateException("Channel already registered");

@@ -125,8 +125,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 
 	@Override
 	public Promise<Trigger> scheduleWith(Executor executor, long timeout, TimeUnit unit) {
-		return client.execute(c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
-				.sync()
+		return client.execute(c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout))).sync()
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> channelListener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
 				.whenCompleteExceptionally(channelListener::onError)
 				.handleSuccess(rs -> rs == EMPTY_RECORDS ? Trigger.NOTHING : Trigger.RESCHEDULE);
@@ -134,8 +133,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 
 	@Override
 	public void seek(ResourceDescriptor topic, Revision revision) {
-		assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doFetchPartitionSize(c, t)))
-				.sync()
+		assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doFetchPartitionSize(c, t))).sync()
 				.whenCompleteSuccessfully(size -> client.perform(c -> doAssignAndSeek(c, topic.value(), revision)));
 	}
 
@@ -146,21 +144,13 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 
 	@Override
 	public void unseek(ResourceDescriptor topic, int partition) {
-		// TODO handle partition
 		client.perform(c -> {
-			Set<String> assigned = assignments.keySet();
-			c.assignment().stream().filter(tp -> assigned.contains(tp.topic()) && tp.partition() != partition).collect(toList());
+			List<TopicPartition> partitions = c.assignment().stream()
+					.filter(tp -> !tp.topic().equals(topic.value()) || tp.partition() != partition).collect(toList());
+			c.assign(partitions);
+			Set<String> retained = partitions.stream().map(TopicPartition::topic).collect(toSet());
+			assignments.keySet().retainAll(retained);
 		});
-		if (assignments.remove(topic.value()) != null) {
-			client.perform(c -> {
-				Set<String> assigned = assignments.keySet();
-				List<TopicPartition> partitions = c.assignment()
-						.stream()
-						.filter(tp -> assigned.contains(tp.topic()) && tp.partition() != partition)
-						.collect(toList());
-				c.assign(partitions);
-			});
-		}
 	}
 
 	@Override
