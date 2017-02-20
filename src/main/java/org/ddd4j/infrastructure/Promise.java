@@ -48,11 +48,6 @@ public interface Promise<T> {
 			public CompletionStage<T> toCompletionStage() {
 				return stage;
 			}
-
-			@Override
-			public Promise<T> withExecutor(Executor executor) {
-				return of(executor, stage);
-			}
 		};
 	}
 
@@ -169,5 +164,7 @@ public interface Promise<T> {
 		return whenComplete((t, ex) -> action.accept(t));
 	}
 
-	Promise<T> withExecutor(Executor executor);
+	default Promise<T> withExecutor(Executor executor) {
+		return of(executor, toCompletionStage());
+	}
 }

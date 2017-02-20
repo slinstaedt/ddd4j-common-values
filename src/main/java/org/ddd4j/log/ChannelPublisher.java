@@ -104,7 +104,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	void loadRevisions(int[] partitions) {
-		hotRevisions.ifPresent(r -> r.updateWithPartitions(Arrays.stream(partitions), 0));
+		hotRevisions.ifPresent(r -> Arrays.stream(partitions).forEach(p -> r.updateWithPartition(p, 0)));
 		forAllSubscriptions(s -> s.loadRevisions(partitions));
 	}
 

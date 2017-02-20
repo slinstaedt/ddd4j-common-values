@@ -9,15 +9,14 @@ import static java.util.stream.Collectors.toSet;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
@@ -27,9 +26,9 @@ import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.channel.Channel.ColdCallback;
+import org.ddd4j.infrastructure.channel.Channel.HotCallback;
 import org.ddd4j.infrastructure.channel.ChannelListener;
-import org.ddd4j.infrastructure.channel.ColdChannel;
-import org.ddd4j.infrastructure.channel.HotChannel;
 import org.ddd4j.infrastructure.channel.PartitionRebalanceListener;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.BlockingTask;
@@ -40,7 +39,7 @@ import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
-public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback, BlockingTask {
+public class KafkaCallback2 implements ColdCallback, HotCallback, BlockingTask {
 
 	private class KafkaRebalanceListener implements ConsumerRebalanceListener {
 
@@ -85,14 +84,12 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final ChannelListener channelListener;
 	private final KafkaRebalanceListener kafkaRebalanceListener;
-	private final Map<String, Promise<Integer>> assignments;
 
-	public KafkaCallback(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener channelListener,
+	public KafkaCallback2(Scheduler scheduler, Consumer<byte[], byte[]> consumer, ChannelListener channelListener,
 			PartitionRebalanceListener rebalanceListener) {
 		this.client = scheduler.createAgent(consumer);
 		this.channelListener = Require.nonNull(channelListener);
 		this.kafkaRebalanceListener = new KafkaRebalanceListener(consumer, rebalanceListener);
-		this.assignments = new ConcurrentHashMap<>();
 	}
 
 	@Override
@@ -100,27 +97,9 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 		client.perform(Consumer::close);
 	}
 
-	private void doAssignAndSeek(Consumer<?, ?> consumer, String topic, Revision revision) {
-		Set<String> kafkaSubscriptions = consumer.subscription();
-		if (kafkaSubscriptions.isEmpty()) {
-			List<TopicPartition> partitions = new ArrayList<>(consumer.assignment());
-			partitions.add(new TopicPartition(topic, revision.getPartition()));
-			consumer.assign(partitions);
-		} else if (!kafkaSubscriptions.contains(topic)) {
-			doSubscribe(consumer, topic);
-		}
-		consumer.seek(new TopicPartition(topic, revision.getPartition()), revision.getOffset());
-	}
-
-	private int doFetchPartitionSize(Consumer<?, ?> consumer, String topic) {
-		return consumer.partitionsFor(topic).size();
-	}
-
-	private int doSubscribe(Consumer<?, ?> consumer, String topic) {
-		List<String> topics = new ArrayList<>(assignments.keySet());
-		topics.add(topic);
-		consumer.subscribe(topics, kafkaRebalanceListener);
-		return doFetchPartitionSize(consumer, topic);
+	@Override
+	public Promise<Integer> partitionSize(ResourceDescriptor topic) {
+		return client.execute(c -> c.partitionsFor(topic.value()).size());
 	}
 
 	@Override
@@ -134,39 +113,21 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 
 	@Override
 	public void seek(ResourceDescriptor topic, Revision revision) {
-		assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doFetchPartitionSize(c, t)))
-				.sync()
-				.whenCompleteSuccessfully(size -> client.perform(c -> doAssignAndSeek(c, topic.value(), revision)));
+		client.perform(c -> c.seek(new TopicPartition(topic.value(), revision.getPartition()), revision.getOffset()));
 	}
 
 	@Override
-	public Promise<Integer> subscribe(ResourceDescriptor topic) {
-		return assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doSubscribe(c, t)));
+	public void updateAssignment(Map<ResourceDescriptor, IntStream> assignments) {
+		List<TopicPartition> partitions = assignments.entrySet()
+				.stream()
+				.flatMap(e -> e.getValue().mapToObj(p -> new TopicPartition(e.getKey().value(), p)))
+				.collect(toList());
+		client.perform(c -> c.assign(partitions));
 	}
 
 	@Override
-	public void unseek(ResourceDescriptor topic, int partition) {
-		// TODO handle partition
-		client.perform(c -> {
-			Set<String> assigned = assignments.keySet();
-			c.assignment().stream().filter(tp -> assigned.contains(tp.topic()) && tp.partition() != partition).collect(toList());
-		});
-		if (assignments.remove(topic.value()) != null) {
-			client.perform(c -> {
-				Set<String> assigned = assignments.keySet();
-				List<TopicPartition> partitions = c.assignment()
-						.stream()
-						.filter(tp -> assigned.contains(tp.topic()) && tp.partition() != partition)
-						.collect(toList());
-				c.assign(partitions);
-			});
-		}
-	}
-
-	@Override
-	public void unsubscribe(ResourceDescriptor topic) {
-		if (assignments.remove(topic.value()) != null) {
-			client.perform(c -> c.subscribe(assignments.keySet(), kafkaRebalanceListener));
-		}
+	public void updateSubscription(Set<ResourceDescriptor> topics) {
+		Set<String> subscriptions = topics.stream().map(ResourceDescriptor::value).collect(toSet());
+		client.perform(c -> c.subscribe(subscriptions, kafkaRebalanceListener));
 	}
 }

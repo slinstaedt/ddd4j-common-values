@@ -46,6 +46,14 @@ public class Revisions {
 		return getPartitionSize() > 0;
 	}
 
+	public boolean partitionOffsetKnown(int partition) {
+		return offsets[partition] != Revision.UNKNOWN_OFFSET;
+	}
+
+	public boolean isNonePartitionOffsetKnown() {
+		return partitions().count() == 0;
+	}
+
 	public long offset(int partition) {
 		long offset = offsets[partition];
 		Require.that(offset != Revision.UNKNOWN_OFFSET);
@@ -60,8 +68,12 @@ public class Revisions {
 		return IntStream.range(0, offsets.length).filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET);
 	}
 
+	public long reset(int partition) {
+		return updateWithPartition(partition, Revision.UNKNOWN_OFFSET);
+	}
+
 	public void reset(IntStream partitions) {
-		partitions.forEach(p -> updateWithPartition(p, Revision.UNKNOWN_OFFSET));
+		partitions.forEach(this::reset);
 	}
 
 	public Revision revisionOfHash(int hash) {
@@ -80,24 +92,22 @@ public class Revisions {
 		return partitions.mapToObj(this::revisionOfPartition);
 	}
 
-	public void update(Revision revision) {
-		updateWithPartition(revision.getPartition(), revision.getOffset());
+	public long update(Revision revision) {
+		return updateWithPartition(revision.getPartition(), revision.getOffset());
 	}
 
 	public void update(Stream<Revision> revisions) {
 		revisions.forEachOrdered(this::update);
 	}
 
-	public void updateWithHash(int hash, long nextOffset) {
-		updateWithPartition(partition(hash), nextOffset);
+	public long updateWithHash(int hash, long nextOffset) {
+		return updateWithPartition(partition(hash), nextOffset);
 	}
 
-	public void updateWithPartition(int partition, long nextOffset) {
+	public long updateWithPartition(int partition, long nextOffset) {
 		// TODO Require.that(Long.compareUnsigned(nextOffset, offset(partition)) > 0);
+		long value = offsets[partition];
 		offsets[partition] = nextOffset;
-	}
-
-	public void updateWithPartitions(IntStream partitions, long nextOffset) {
-		partitions.forEach(p -> updateWithPartition(p, nextOffset));
+		return value;
 	}
 }

@@ -71,9 +71,4 @@ public class Task<T, R> implements Future<R>, Promise<R> {
 	public CompletionStage<R> toCompletionStage() {
 		return future;
 	}
-
-	@Override
-	public Promise<R> withExecutor(Executor executor) {
-		return Promise.of(executor, future);
-	}
 }
