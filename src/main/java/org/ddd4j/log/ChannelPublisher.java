@@ -46,6 +46,10 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 			expected.diffOffsetsFrom(against).forEach(r -> coldCallback.seek(topic, r));
 		}
 
+		void earliestRevision(Revisions revisions) {
+			revisions.updateIfEarlier(expected);
+		}
+
 		void loadRevisions(int[] partitions) {
 			expected.update(callback.loadRevisions(Arrays.stream(partitions)));
 		}
@@ -104,8 +108,13 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	void loadRevisions(int[] partitions) {
-		hotRevisions.ifPresent(r -> Arrays.stream(partitions).forEach(p -> r.updateWithPartition(p, 0)));
 		forAllSubscriptions(s -> s.loadRevisions(partitions));
+		hotRevisions.ifPresent(r -> {
+			Revisions earliest = Revisions.create(r.getPartitionSize(), Arrays.stream(partitions), Long.MAX_VALUE);
+			forAllSubscriptions(s -> s.earliestRevision(earliest));
+			r.update(earliest.revisions());
+			earliest.revisions().forEach(rev -> coldCallback.seek(topic, rev));
+		});
 	}
 
 	void onError(Throwable throwable) {

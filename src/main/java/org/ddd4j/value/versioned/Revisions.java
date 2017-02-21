@@ -13,12 +13,22 @@ public class Revisions {
 
 	public static final Revisions NONE = new Revisions(0);
 
+	public static Revisions create(int partitionSize, IntStream partitions, long offset) {
+		Revisions revisions = new Revisions(partitionSize);
+		partitions.forEach(p -> revisions.updateWithPartition(p, offset));
+		return revisions;
+	}
+
 	private final long[] offsets;
 
 	public Revisions(int partitionSize) {
 		Require.that(partitionSize >= 0);
 		this.offsets = new long[partitionSize];
 		Arrays.fill(offsets, Revision.UNKNOWN_OFFSET);
+	}
+
+	public Revisions(Revisions copy) {
+		this(copy.offsets);
 	}
 
 	public Revisions(long[] offsets) {
@@ -42,12 +52,12 @@ public class Revisions {
 		return offsets.length;
 	}
 
-	public boolean isPartitionSizeKnown() {
-		return getPartitionSize() > 0;
+	public boolean hasOffset(int partition) {
+		return offsets[partition] != Revision.UNKNOWN_OFFSET;
 	}
 
-	public boolean partitionOffsetKnown(int partition) {
-		return offsets[partition] != Revision.UNKNOWN_OFFSET;
+	public boolean isPartitionSizeKnown() {
+		return getPartitionSize() > 0;
 	}
 
 	public boolean isNonePartitionOffsetKnown() {
@@ -98,6 +108,10 @@ public class Revisions {
 
 	public void update(Stream<Revision> revisions) {
 		revisions.forEachOrdered(this::update);
+	}
+
+	public void updateIfEarlier(Revisions other) {
+		partitions().filter(p -> this.offset(p) > other.offset(p)).forEach(p -> updateWithPartition(p, other.offset(p)));
 	}
 
 	public long updateWithHash(int hash, long nextOffset) {
