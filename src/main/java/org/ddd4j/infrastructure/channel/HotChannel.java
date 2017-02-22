@@ -18,7 +18,7 @@ public interface HotChannel extends Closeable {
 	interface Listener extends ChannelListener, PartitionRebalanceListener {
 	}
 
-	void publish(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed);
+	void send(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed);
 
 	Callback register(Listener listener);
 }

@@ -54,7 +54,7 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 	}
 
 	@Override
-	public void publish(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+	public void send(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
 		if (lazyListener.isNotBothAssigned()) {
 			producer.get().send(convert(topic, committed));
 		}
@@ -71,7 +71,7 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 	}
 
 	@Override
-	public Promise<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
+	public Promise<CommitResult<ReadBuffer, ReadBuffer>> trySend(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
 		Deferred<CommitResult<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
 		producer.get().send(convert(topic, attempt), (metadata, exception) -> {
 			if (metadata != null) {

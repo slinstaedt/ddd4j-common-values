@@ -8,7 +8,7 @@ import org.ddd4j.io.PooledBytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.log.Log.Committer;
-import org.ddd4j.log.Log.EventChannel;
+import org.ddd4j.log.Log.LogChannel;
 import org.ddd4j.log.Log.Publisher;
 import org.ddd4j.log.SchemaLog.SchemaHandler;
 import org.ddd4j.schema.Schema;
@@ -34,7 +34,7 @@ public class InbandSchemaHandler implements SchemaHandler {
 	}
 
 	@Override
-	public <K, V> Committer<K, V> committer(EventChannel<K, V> channel, ChannelCommitter committer) {
+	public <K, V> Committer<K, V> committer(LogChannel<K, V> channel, ChannelCommitter committer) {
 		return attempt -> schemaCache.acquire(channel.eventSchema(), s -> schemaRevision(s, committer)).thenCompose(schemaRevision -> {
 			try (WriteBuffer buffer = PooledBytes.createBuffer(bytesPool)) {
 				channel.eventSchema().createWriter(buffer).writeAndFlush(attempt.getValue());
@@ -46,7 +46,7 @@ public class InbandSchemaHandler implements SchemaHandler {
 	}
 
 	@Override
-	public <K, V> Publisher<K, V> publisher(EventChannel<K, V> channel, ChannelPublisher publisher) {
+	public <K, V> Publisher<K, V> publisher(LogChannel<K, V> channel, ChannelPublisher publisher) {
 		// TODO Auto-generated method stub
 		return null;
 	}

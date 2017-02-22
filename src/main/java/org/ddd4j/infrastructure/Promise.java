@@ -9,9 +9,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Throwing;
+import org.ddd4j.value.Throwing.Producer;
 import org.ddd4j.value.Throwing.TBiFunction;
 import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.Throwing.TFunction;
@@ -71,6 +73,8 @@ public interface Promise<T> {
 		return of(executor, result);
 	}
 
+	Promise<Void> COMPLETED = completed(null);
+
 	default Promise<Void> acceptEither(Promise<? extends T> other, TConsumer<? super T> action) {
 		return apply((e, s) -> s.acceptEitherAsync(other.toCompletionStage(), action, e));
 	}
@@ -105,8 +109,24 @@ public interface Promise<T> {
 		return toCompletionStage().toCompletableFuture().join();
 	}
 
+	default Promise<?> runAfterAll(Stream<Promise<?>> others) {
+		return others.reduce(this, Promise::runAfterBoth);
+	}
+
+	default Promise<?> runAfterAny(Stream<Promise<?>> others) {
+		return others.reduce(this, Promise::runAfterEither);
+	}
+
+	default Promise<Void> runAfterBoth(Promise<?> other) {
+		return runAfterBoth(other, this::hashCode);
+	}
+
 	default Promise<Void> runAfterBoth(Promise<?> other, Runnable action) {
 		return apply((e, s) -> s.runAfterBothAsync(other.toCompletionStage(), action, e));
+	}
+
+	default Promise<Void> runAfterEither(Promise<?> other) {
+		return runAfterEither(other, this::hashCode);
 	}
 
 	default Promise<Void> runAfterEither(Promise<?> other, Runnable action) {
@@ -139,6 +159,14 @@ public interface Promise<T> {
 
 	default <U> Promise<U> thenCompose(TFunction<? super T, ? extends Promise<U>> fn) {
 		return apply((e, s) -> s.thenComposeAsync(fn.andThen(Promise::toCompletionStage), e));
+	}
+
+	default <V> Promise<V> thenReturn(Producer<V> factory) {
+		return handleSuccess(t -> factory.get());
+	}
+
+	default <V> Promise<V> thenReturnValue(V value) {
+		return handleSuccess(t -> value);
 	}
 
 	default Promise<Void> thenRun(Runnable action) {

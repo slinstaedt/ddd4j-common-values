@@ -5,7 +5,7 @@ import java.lang.reflect.TypeVariable;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.ddd4j.contract.Require;
-import org.ddd4j.io.Input;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 
 public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Type> implements Value<Type<T>>, Serializable {
@@ -69,7 +69,7 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		}
 	}
 
-	public static Type<?> from(Input input) {
+	public static Type<?> from(ReadBuffer buffer) {
 		// TODO
 		throw new UnsupportedOperationException();
 	}
@@ -107,7 +107,8 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 	}
 
 	private <X> X castException(Object o) {
-		return Throwing.unchecked(new ClassCastException("Can not cast: '" + String.valueOf(o) + "' to '" + TypeUtils.toString(getGenericType()) + "'"));
+		return Throwing.unchecked(
+				new ClassCastException("Can not cast: '" + String.valueOf(o) + "' to '" + TypeUtils.toString(getGenericType()) + "'"));
 	}
 
 	public ClassLoader getClassLoader() {
@@ -144,7 +145,8 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 	}
 
 	public <X> Type<? extends X> resolve(Variable<? super T, X> variable) {
-		Type<?> type = new Unknown(TypeUtils.getTypeArguments(getGenericType(), variable.getDeclaration().getRawType()).get(variable.getJavaVariable()));
+		Type<?> type = new Unknown(
+				TypeUtils.getTypeArguments(getGenericType(), variable.getDeclaration().getRawType()).get(variable.getJavaVariable()));
 		return type.asSubType(variable.getBaseType().getRawType());
 	}
 

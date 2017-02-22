@@ -99,7 +99,7 @@ public class FileColdChannel implements ColdChannel {
 	}
 
 	@Override
-	public Promise<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
+	public Promise<CommitResult<ReadBuffer, ReadBuffer>> trySend(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
 		return committer.execute(c -> c.tryCommit(topic, attempt));
 	}
 }

@@ -24,7 +24,7 @@ public class ChannelCommitter implements Committer<ReadBuffer, ReadBuffer> {
 
 	@Override
 	public Promise<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(Uncommitted<ReadBuffer, ReadBuffer> attempt) {
-		Promise<CommitResult<ReadBuffer, ReadBuffer>> promise = coldChannel.tryCommit(topic, attempt);
-		return promise.whenCompleteSuccessfully(r -> r.visitCommitted(c -> hotChannel.publish(topic, c)));
+		Promise<CommitResult<ReadBuffer, ReadBuffer>> promise = coldChannel.trySend(topic, attempt);
+		return promise.whenCompleteSuccessfully(r -> r.visitCommitted(c -> hotChannel.send(topic, c)));
 	}
 }

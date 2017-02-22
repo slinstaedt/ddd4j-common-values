@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdChannel;
 import org.ddd4j.infrastructure.channel.HotChannel;
@@ -42,16 +43,15 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 			unsubscribe(subscriber);
 		}
 
-		private void checkRevisionStateAgainst(Revisions against) {
-			expected.diffOffsetsFrom(against).forEach(r -> coldCallback.seek(topic, r));
-		}
-
 		void earliestRevision(Revisions revisions) {
 			revisions.updateIfEarlier(expected);
 		}
 
-		void loadRevisions(int[] partitions) {
-			expected.update(callback.loadRevisions(Arrays.stream(partitions)));
+		Promise<Void> loadRevisions(int[] partitions) {
+			return callback.loadRevisions(Arrays.stream(partitions))
+					.sync()
+					.whenCompleteSuccessfully(expected::update)
+					.thenReturnValue(null);
 		}
 
 		void onError(Throwable throwable) {
@@ -68,11 +68,10 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 			Comparison actual = actualRevision.compare(expectedRevision);
 			if (actual == Comparison.EQUAL) {
 				subscriber.onNext(committed);
-				// TODO use actual or next?
 				expected.update(committed.getNextExpected());
 				requesting.processed();
 			} else if (actual == Comparison.LARGER) {
-				coldCallback.seek(topic, expectedRevision);
+				seek(expectedRevision);
 				// TODO
 			}
 		}
@@ -80,25 +79,24 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		@Override
 		public void request(long n) {
 			requesting.more(n);
-			hotRevisions.ifPresent(this::checkRevisionStateAgainst);
+			seekIfNecessary(expected);
 		}
 
-		void saveRevisions(int[] partitions) {
-			callback.saveRevisions(expected.revisionsOfPartitions(Arrays.stream(partitions)));
-			expected.reset(Arrays.stream(partitions));
+		Promise<Void> saveRevisions(int[] partitions) {
+			return callback.saveRevisions(expected.revisionsOfPartitions(Arrays.stream(partitions)))
+					.sync()
+					.thenRun(() -> expected.reset(Arrays.stream(partitions)));
 		}
 	}
 
 	private final ResourceDescriptor topic;
 	private final ColdChannel.Callback coldCallback;
-	private final HotChannel.Callback hotCallback;
 	private final Lazy<Revisions> hotRevisions;
 	private final Map<Subscriber<Committed<ReadBuffer, ReadBuffer>>, ChannelSubscription> subscriptions;
 
 	public ChannelPublisher(ResourceDescriptor topic, ColdChannel.Callback coldCallback, HotChannel.Callback hotCallback) {
 		this.topic = Require.nonNull(topic);
 		this.coldCallback = Require.nonNull(coldCallback);
-		this.hotCallback = Require.nonNull(hotCallback);
 		this.hotRevisions = new Lazy<>(() -> new Revisions(hotCallback.subscribe(topic).join()), r -> hotCallback.unsubscribe(topic));
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
@@ -108,13 +106,29 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	void loadRevisions(int[] partitions) {
-		forAllSubscriptions(s -> s.loadRevisions(partitions));
+		subscriptions.values()
+				.stream()
+				.map((s -> s.loadRevisions(partitions)))
+				.reduce(Promise.COMPLETED, Promise::runAfterBoth)
+				.thenReturnValue(partitions)
+				.whenCompleteSuccessfully(this::seekIfNecessary);
+	}
+
+	private void seek(Revision revision) {
+		coldCallback.seek(topic, revision);
+	}
+
+	private void seekIfNecessary(int[] partitions) {
 		hotRevisions.ifPresent(r -> {
 			Revisions earliest = Revisions.create(r.getPartitionSize(), Arrays.stream(partitions), Long.MAX_VALUE);
 			forAllSubscriptions(s -> s.earliestRevision(earliest));
 			r.update(earliest.revisions());
-			earliest.revisions().forEach(rev -> coldCallback.seek(topic, rev));
+			earliest.revisions().forEach(this::seek);
 		});
+	}
+
+	private void seekIfNecessary(Revisions expected) {
+		hotRevisions.ifPresent(r -> expected.diffOffsetsFrom(r).forEach(this::seek));
 	}
 
 	void onError(Throwable throwable) {
@@ -140,7 +154,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	void saveRevisions(int[] partitions) {
-		forAllSubscriptions(s -> s.saveRevisions(partitions));
+		subscriptions.values().stream().map(s -> s.saveRevisions(partitions)).reduce(Promise.COMPLETED, Promise::runAfterBoth).join();
 		hotRevisions.ifPresent(r -> r.reset(Arrays.stream(partitions)));
 	}
 

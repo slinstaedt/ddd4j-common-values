@@ -23,7 +23,7 @@ public interface ColdChannel extends Closeable {
 	interface Listener extends ChannelListener {
 	}
 
-	Promise<CommitResult<ReadBuffer, ReadBuffer>> tryCommit(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt);
+	Promise<CommitResult<ReadBuffer, ReadBuffer>> trySend(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt);
 
 	Callback register(Listener listener);
 }
