@@ -54,13 +54,6 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 	}
 
 	@Override
-	public void send(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
-		if (lazyListener.isNotBothAssigned()) {
-			producer.get().send(convert(topic, committed));
-		}
-	}
-
-	@Override
 	public ColdChannel.Callback register(ColdChannel.Listener listener) {
 		return lazyListener.assign(listener);
 	}
@@ -68,6 +61,13 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 	@Override
 	public HotChannel.Callback register(HotChannel.Listener listener) {
 		return lazyListener.assign(listener);
+	}
+
+	@Override
+	public void send(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+		if (lazyListener.isNotBothAssigned()) {
+			producer.get().send(convert(topic, committed));
+		}
 	}
 
 	@Override

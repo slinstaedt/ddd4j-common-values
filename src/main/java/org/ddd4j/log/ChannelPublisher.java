@@ -8,8 +8,8 @@ import java.util.function.Consumer;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.channel.Channel;
 import org.ddd4j.infrastructure.channel.ColdChannel;
-import org.ddd4j.infrastructure.channel.HotChannel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Publisher;
 import org.ddd4j.value.Lazy;
@@ -90,14 +90,14 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	private final ResourceDescriptor topic;
-	private final ColdChannel.Callback coldCallback;
+	private final ColdChannel.Callback callback;
 	private final Lazy<Revisions> hotRevisions;
 	private final Map<Subscriber<Committed<ReadBuffer, ReadBuffer>>, ChannelSubscription> subscriptions;
 
-	public ChannelPublisher(ResourceDescriptor topic, ColdChannel.Callback coldCallback, HotChannel.Callback hotCallback) {
+	public ChannelPublisher(ResourceDescriptor topic, Channel.Callback callback) {
 		this.topic = Require.nonNull(topic);
-		this.coldCallback = Require.nonNull(coldCallback);
-		this.hotRevisions = new Lazy<>(() -> new Revisions(hotCallback.subscribe(topic).join()), r -> hotCallback.unsubscribe(topic));
+		this.callback = Require.nonNull(callback);
+		this.hotRevisions = new Lazy<>(() -> new Revisions(callback.subscribe(topic).join()), r -> callback.unsubscribe(topic));
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
@@ -115,7 +115,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	private void seek(Revision revision) {
-		coldCallback.seek(topic, revision);
+		callback.seek(topic, revision);
 	}
 
 	private void seekIfNecessary(int[] partitions) {
@@ -134,7 +134,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	void onError(Throwable throwable) {
 		forAllSubscriptions(s -> s.onError(throwable));
 		subscriptions.clear();
-		coldCallback.close();
+		callback.close();
 		hotRevisions.close();
 	}
 
@@ -142,7 +142,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		hotRevisions.ifPresent(r -> {
 			Revision nextExpected = committed.getNextExpected();
 			if (r.compare(nextExpected) == Comparison.EQUAL) {
-				coldCallback.unseek(topic, nextExpected.getPartition());
+				callback.unseek(topic, nextExpected.getPartition());
 			}
 		});
 		forAllSubscriptions(s -> s.onNext(committed));

@@ -1,12 +1,12 @@
 package org.ddd4j.infrastructure.channel;
 
+import java.util.Optional;
+
 public interface ChannelFactory {
 
-	ColdChannel createColdChannel();
+	boolean supports(ChannelFeatures features);
 
-	HotChannel createHotChannel();
+	Optional<ColdChannel> createColdChannel(ChannelFeatures features);
 
-	boolean register(ColdChannel.Listener listener);
-
-	boolean register(HotChannel.Listener listener);
+	Optional<HotChannel> createHotChannel(ChannelFeatures features);
 }

@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.channel.Channel;
 import org.ddd4j.infrastructure.channel.ColdChannel;
 import org.ddd4j.infrastructure.channel.HotChannel;
 import org.ddd4j.io.ReadBuffer;
@@ -48,26 +49,22 @@ public class ChannelLog {
 		}
 	}
 
-	private final ColdChannel coldChannel;
-	private final HotChannel hotChannel;
+	private final Channel channel;
 	private final Map<ResourceDescriptor, ChannelPublisher> subscriptions;
-	private final ColdChannel.Callback coldCallback;
-	private final HotChannel.Callback hotCallback;
+	private final Channel.Callback callback;
 
-	public ChannelLog(ColdChannel coldChannel, HotChannel hotChannel) {
-		this.coldChannel = Require.nonNull(coldChannel);
-		this.hotChannel = Require.nonNull(hotChannel);
+	public ChannelLog(Channel channel) {
+		this.channel = Require.nonNull(channel);
 		this.subscriptions = new ConcurrentHashMap<>();
-		this.coldCallback = coldChannel.register(new ColdListener());
-		this.hotCallback = hotChannel.register(new HotListener());
+		this.callback = channel.register(new ColdListener(), new HotListener());
 	}
 
 	public ChannelCommitter committer(ResourceDescriptor topic) {
-		return new ChannelCommitter(topic, coldChannel, hotChannel);
+		return new ChannelCommitter(topic, channel);
 	}
 
 	public ChannelPublisher publisher(ResourceDescriptor topic) {
-		return subscriptions.computeIfAbsent(topic, t -> new ChannelPublisher(t, coldCallback, hotCallback));
+		return subscriptions.computeIfAbsent(topic, t -> new ChannelPublisher(t, callback));
 	}
 
 	void unsubscribe(ResourceDescriptor topic) {
