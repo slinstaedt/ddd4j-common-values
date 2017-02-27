@@ -1,12 +1,14 @@
 package org.ddd4j.log;
 
+import org.ddd4j.io.ReadBuffer;
+
 public class SchemaLog implements Log {
 
 	public interface SchemaHandler {
 
-		<K, V> Committer<K, V> committer(LogChannel<K, V> channel, ChannelCommitter committer);
+		<K, V> Committer<K, V> committer(LogChannel<K, V> channel, Committer<ReadBuffer, ReadBuffer> committer);
 
-		<K, V> Publisher<K, V> publisher(LogChannel<K, V> channel, ChannelPublisher publisher);
+		<K, V> Publisher<K, V> publisher(LogChannel<K, V> channel, Publisher<ReadBuffer, ReadBuffer> publisher);
 	}
 
 	private ChannelLog delegate;

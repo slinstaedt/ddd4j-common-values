@@ -1,6 +1,7 @@
 package org.ddd4j.log;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -9,7 +10,6 @@ import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.Channel;
-import org.ddd4j.infrastructure.channel.ColdChannel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Publisher;
 import org.ddd4j.value.Lazy;
@@ -89,15 +89,24 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		}
 	}
 
+	public static final ChannelPublisher VOID = new ChannelPublisher();
+
 	private final ResourceDescriptor topic;
-	private final ColdChannel.Callback callback;
-	private final Lazy<Revisions> hotRevisions;
+	private final Channel.Callback callback;
+	private final Lazy<Revisions> latest;
 	private final Map<Subscriber<Committed<ReadBuffer, ReadBuffer>>, ChannelSubscription> subscriptions;
+
+	private ChannelPublisher() {
+		this.topic = null;
+		this.callback = null;
+		this.latest = new Lazy<>(creator);
+		this.subscriptions = Collections.emptyMap();
+	}
 
 	public ChannelPublisher(ResourceDescriptor topic, Channel.Callback callback) {
 		this.topic = Require.nonNull(topic);
 		this.callback = Require.nonNull(callback);
-		this.hotRevisions = new Lazy<>(() -> new Revisions(callback.subscribe(topic).join()), r -> callback.unsubscribe(topic));
+		this.latest = new Lazy<>(() -> new Revisions(callback.subscribe(topic).join()), r -> callback.unsubscribe(topic));
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
@@ -114,12 +123,27 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 				.whenCompleteSuccessfully(this::seekIfNecessary);
 	}
 
+	void onError(Throwable throwable) {
+		forAllSubscriptions(s -> s.onError(throwable));
+		subscriptions.clear();
+		callback.close();
+	}
+
+	void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
+		latest.ifPresent(r -> r.updateIfLater(committed.getNextExpected()));
+		forAllSubscriptions(s -> s.onNext(committed));
+	}
+
+	void saveRevisions(int[] partitions) {
+		subscriptions.values().stream().map(s -> s.saveRevisions(partitions)).reduce(Promise.COMPLETED, Promise::runAfterBoth).join();
+	}
+
 	private void seek(Revision revision) {
 		callback.seek(topic, revision);
 	}
 
 	private void seekIfNecessary(int[] partitions) {
-		hotRevisions.ifPresent(r -> {
+		latest.ifPresent(r -> {
 			Revisions earliest = Revisions.create(r.getPartitionSize(), Arrays.stream(partitions), Long.MAX_VALUE);
 			forAllSubscriptions(s -> s.earliestRevision(earliest));
 			r.update(earliest.revisions());
@@ -128,51 +152,24 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	private void seekIfNecessary(Revisions expected) {
-		hotRevisions.ifPresent(r -> expected.diffOffsetsFrom(r).forEach(this::seek));
-	}
-
-	void onError(Throwable throwable) {
-		forAllSubscriptions(s -> s.onError(throwable));
-		subscriptions.clear();
-		callback.close();
-		hotRevisions.close();
-	}
-
-	void onNextCold(Committed<ReadBuffer, ReadBuffer> committed) {
-		hotRevisions.ifPresent(r -> {
-			Revision nextExpected = committed.getNextExpected();
-			if (r.compare(nextExpected) == Comparison.EQUAL) {
-				callback.unseek(topic, nextExpected.getPartition());
-			}
-		});
-		forAllSubscriptions(s -> s.onNext(committed));
-	}
-
-	void onNextHot(Committed<ReadBuffer, ReadBuffer> committed) {
-		hotRevisions.ifPresent(r -> r.update(committed.getNextExpected()));
-		forAllSubscriptions(s -> s.onNext(committed));
-	}
-
-	void saveRevisions(int[] partitions) {
-		subscriptions.values().stream().map(s -> s.saveRevisions(partitions)).reduce(Promise.COMPLETED, Promise::runAfterBoth).join();
-		hotRevisions.ifPresent(r -> r.reset(Arrays.stream(partitions)));
+		latest.ifPresent(r -> expected.diffOffsetsFrom(r).forEach(this::seek));
 	}
 
 	@Override
 	public void subscribe(Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber, RevisionsCallback callback) {
 		try {
-			int partitionSize = hotRevisions.get().getPartitionSize();
+			int partitionSize = latest.get().getPartitionSize();
 			subscriptions.computeIfAbsent(subscriber, s -> new ChannelSubscription(s, callback, partitionSize));
 		} catch (Exception e) {
 			subscriber.onError(e);
-			hotRevisions.destroy(Revisions::hashCode);
+			latest.destroy(Revisions::hashCode);
 		}
 	}
 
 	private void unsubscribe(Subscriber<Committed<ReadBuffer, ReadBuffer>> subscriber) {
 		subscriptions.remove(subscriber);
 		if (subscriptions.isEmpty()) {
-			hotRevisions.destroy();
+			callback.unsubscribe(topic);
 		}
 	}
 }

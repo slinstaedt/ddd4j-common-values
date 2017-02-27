@@ -7,7 +7,7 @@ import org.ddd4j.value.Value;
 
 public class ResourceDescriptor extends Value.StringBased<ResourceDescriptor> {
 
-	private static final Pattern ALLOWED = Pattern.compile("[\\w]{2-30}");
+	private static final Pattern ALLOWED = Pattern.compile("\\w{2,30}");
 
 	public static ResourceDescriptor of(String value) {
 		return new ResourceDescriptor(value);

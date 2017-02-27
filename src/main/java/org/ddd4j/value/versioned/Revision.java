@@ -25,38 +25,7 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 	@Override
 	public int compareTo(Revision other) {
 		Require.that(this.partition == other.partition);
-		return Long.signum(this.offset - other.offset);
-	}
-
-	public int getPartition() {
-		return partition;
-	}
-
-	public long getOffset() {
-		return offset;
-	}
-
-	public Revision increment(int increment) {
-		return next(offset + increment);
-	}
-
-	public Revision next(long nextOffset) {
-		Require.that(nextOffset > offset);
-		return new Revision(partition, nextOffset);
-	}
-
-	@Override
-	public void serialize(WriteBuffer buffer) {
-		buffer.putInt(partition).putLong(offset);
-	}
-
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + (int) (offset ^ (offset >>> 32));
-		result = prime * result + partition;
-		return result;
+		return Long.compareUnsigned(this.offset, other.offset);
 	}
 
 	@Override
@@ -78,5 +47,36 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 			return false;
 		}
 		return true;
+	}
+
+	public long getOffset() {
+		return offset;
+	}
+
+	public int getPartition() {
+		return partition;
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + (int) (offset ^ (offset >>> 32));
+		result = prime * result + partition;
+		return result;
+	}
+
+	public Revision increment(int increment) {
+		return next(offset + increment);
+	}
+
+	public Revision next(long nextOffset) {
+		Require.that(nextOffset > offset);
+		return new Revision(partition, nextOffset);
+	}
+
+	@Override
+	public void serialize(WriteBuffer buffer) {
+		buffer.putInt(partition).putLong(offset);
 	}
 }

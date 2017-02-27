@@ -6,6 +6,7 @@ import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.ddd4j.infrastructure.channel.ChannelFeatures;
 import org.ddd4j.value.collection.Seq;
 
@@ -15,14 +16,8 @@ import kafka.utils.ZkUtils;
 
 public class KafkaChannelFactory {
 
-	private static final ByteArrayDeserializer DESERIALIZER = new ByteArrayDeserializer();
-
-	private String zookeeperHosts;
-	private int sessionTimeoutInMs;
-	private int connectionTimeoutInMs;
-	private boolean secureConnection;
-	private final int partitionsSize = 2;
-	private final int replicationCount = 3;
+	static final ByteArrayDeserializer DESERIALIZER = new ByteArrayDeserializer();
+	static final ByteArraySerializer SERIALIZER = new ByteArraySerializer();
 
 	static Properties propsFor(Seq<String> servers, int timeout) {
 		Properties props = new Properties();
@@ -33,6 +28,14 @@ public class KafkaChannelFactory {
 		props.setProperty("session.timeout.ms", String.valueOf(timeout));
 		return props;
 	}
+
+	private String zookeeperHosts;
+	private int sessionTimeoutInMs;
+	private int connectionTimeoutInMs;
+	private boolean secureConnection;
+	private final int partitionsSize = 2;
+
+	private final int replicationCount = 3;
 
 	private void createTopic(String topic, ChannelFeatures features) {
 		ZkClient zkClient = null;

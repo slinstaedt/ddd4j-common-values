@@ -6,7 +6,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.scheduler.BlockingTask.Trigger;
+import org.ddd4j.infrastructure.scheduler.BlockingTask.Rescheduler;
 import org.ddd4j.spi.Service;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.Throwing;
@@ -37,11 +37,6 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 		return Promise.ofBlocking(this, future);
 	}
 
-	default void schedulePeriodic(BlockingTask task) {
-		Promise<Trigger> retrigger = task.scheduleWith(this, 1000, TimeUnit.MILLISECONDS);
-		retrigger.handleException(task::handleException).whenCompleteSuccessfully(t -> t.apply(this, task));
-	}
-
 	default void executeBlockingTask(long timeout, TimeUnit unit) {
 		try {
 			unit.sleep(timeout);
@@ -50,8 +45,16 @@ public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvide
 		}
 	}
 
+	default long getBlockingTimeoutInMillis() {
+		return 1000;
+	}
+
 	default int getBurstProcessing() {
 		return Integer.MAX_VALUE;
+	}
+
+	default Rescheduler reschedulerFor(BlockingTask task) {
+		return Rescheduler.create(this, task);
 	}
 
 	default <T> Promise<T> schedule(Producer<T> producer) {

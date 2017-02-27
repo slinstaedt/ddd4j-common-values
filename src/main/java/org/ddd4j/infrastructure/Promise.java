@@ -21,6 +21,9 @@ import org.ddd4j.value.Throwing.TPredicate;
 
 public interface Promise<T> {
 
+	// FIXME memory leak?
+	Promise<Void> COMPLETED = completed(null);
+
 	static <T> Promise<T> completed(T value) {
 		CompletableFuture<T> future = new CompletableFuture<>();
 		future.complete(value);
@@ -73,8 +76,6 @@ public interface Promise<T> {
 		return of(executor, result);
 	}
 
-	Promise<Void> COMPLETED = completed(null);
-
 	default Promise<Void> acceptEither(Promise<? extends T> other, TConsumer<? super T> action) {
 		return apply((e, s) -> s.acceptEitherAsync(other.toCompletionStage(), action, e));
 	}
@@ -102,7 +103,7 @@ public interface Promise<T> {
 	}
 
 	default <X> Promise<X> handleSuccess(TFunction<? super T, X> fn) {
-		return handle((t, ex) -> ex != null ? Throwing.unchecked(ex) : fn.apply(t));
+		return handle((t, ex) -> t != null ? fn.apply(t) : Throwing.unchecked(ex));
 	}
 
 	default T join() {
@@ -185,11 +186,11 @@ public interface Promise<T> {
 	}
 
 	default Promise<T> whenCompleteExceptionally(TConsumer<? super Throwable> action) {
-		return whenComplete((t, ex) -> action.accept(ex));
+		return whenComplete((t, ex) -> action.acceptNonNull(ex));
 	}
 
 	default Promise<T> whenCompleteSuccessfully(TConsumer<? super T> action) {
-		return whenComplete((t, ex) -> action.accept(t));
+		return whenComplete((t, ex) -> action.acceptNonNull(t));
 	}
 
 	default Promise<T> withExecutor(Executor executor) {

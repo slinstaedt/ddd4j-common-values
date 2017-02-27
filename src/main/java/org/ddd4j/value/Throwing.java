@@ -150,6 +150,12 @@ public interface Throwing {
 
 		void acceptChecked(T t) throws Exception;
 
+		default void acceptNonNull(T t) {
+			if (t != null) {
+				accept(t);
+			}
+		}
+
 		default TConsumer<T> andThen(Task action) {
 			return andThen(t -> action.run());
 		}
@@ -249,14 +255,6 @@ public interface Throwing {
 			};
 		}
 
-		default TConsumer<T> throwOnFail(Function<String, Exception> exceptionFactory) {
-			return t -> {
-				if (!testChecked(t)) {
-					throw exceptionFactory.apply("Failed test " + this + " on: " + t);
-				}
-			};
-		}
-
 		default TPredicate<T> returningFalseOnException() {
 			return returningFalseOn(Exception.class);
 		}
@@ -271,6 +269,14 @@ public interface Throwing {
 		}
 
 		boolean testChecked(T t) throws Exception;
+
+		default TConsumer<T> throwOnFail(Function<String, Exception> exceptionFactory) {
+			return t -> {
+				if (!testChecked(t)) {
+					throw exceptionFactory.apply("Failed test " + this + " on: " + t);
+				}
+			};
+		}
 	}
 
 	String EXCEPTION_MESSAGE_TEMPLATE = "Could not invoke this with arguments %s";
@@ -291,6 +297,17 @@ public interface Throwing {
 
 	static <T, R> TFunction<T, R> applied(TFunction<T, R> function) {
 		return Require.nonNull(function);
+	}
+
+	@SafeVarargs
+	static <T> T[] arrayConcat(T[] array, T... append) {
+		if (append.length == 0) {
+			return array;
+		} else {
+			T[] copy = Arrays.copyOf(array, array.length + append.length);
+			System.arraycopy(append, 0, copy, array.length, append.length);
+			return copy;
+		}
 	}
 
 	static <T> TConsumer<T> consumed(TConsumer<T> consumer) {
@@ -317,17 +334,6 @@ public interface Throwing {
 
 	static <X> X unchecked(Throwable exception) {
 		return Throwing.<X, RuntimeException> any(exception);
-	}
-
-	@SafeVarargs
-	static <T> T[] arrayConcat(T[] array, T... append) {
-		if (append.length == 0) {
-			return array;
-		} else {
-			T[] copy = Arrays.copyOf(array, array.length + append.length);
-			System.arraycopy(append, 0, copy, array.length, append.length);
-			return copy;
-		}
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction(Object... args) {

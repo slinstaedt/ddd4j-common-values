@@ -32,7 +32,7 @@ public interface Require<T> extends Function<Object, T> {
 
 	static <T> T nonNull(T object, String message) {
 		if (object == null) {
-			throw new AssertionError(message);
+			throw message != null ? new AssertionError(message) : new AssertionError();
 		}
 		return object;
 	}

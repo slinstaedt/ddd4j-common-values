@@ -27,12 +27,12 @@ public class Revisions {
 		Arrays.fill(offsets, Revision.UNKNOWN_OFFSET);
 	}
 
-	public Revisions(Revisions copy) {
-		this(copy.offsets);
-	}
-
 	public Revisions(long[] offsets) {
 		this.offsets = Arrays.copyOf(offsets, offsets.length);
+	}
+
+	public Revisions(Revisions copy) {
+		this(copy.offsets);
 	}
 
 	public Revisions(Seq<Revision> revisions) {
@@ -41,7 +41,7 @@ public class Revisions {
 	}
 
 	public Comparison compare(Revision revision) {
-		return Comparison.of(Long.signum(offset(revision.getPartition()) - revision.getOffset()));
+		return revisionOfPartition(revision.getPartition()).compare(revision);
 	}
 
 	public Stream<Revision> diffOffsetsFrom(Revisions other) {
@@ -56,12 +56,12 @@ public class Revisions {
 		return offsets[partition] != Revision.UNKNOWN_OFFSET;
 	}
 
-	public boolean isPartitionSizeKnown() {
-		return getPartitionSize() > 0;
-	}
-
 	public boolean isNonePartitionOffsetKnown() {
 		return partitions().count() == 0;
+	}
+
+	public boolean isPartitionSizeKnown() {
+		return getPartitionSize() > 0;
 	}
 
 	public long offset(int partition) {
@@ -95,7 +95,7 @@ public class Revisions {
 	}
 
 	public Stream<Revision> revisions() {
-		return partitions().mapToObj(p -> new Revision(p, offsets[p]));
+		return partitions().mapToObj(this::revisionOfPartition);
 	}
 
 	public Stream<Revision> revisionsOfPartitions(IntStream partitions) {
@@ -114,12 +114,18 @@ public class Revisions {
 		partitions().filter(p -> this.offset(p) > other.offset(p)).forEach(p -> updateWithPartition(p, other.offset(p)));
 	}
 
+	public void updateIfLater(Revision other) {
+		int partition = other.getPartition();
+		if (!hasOffset(partition) || offset(partition) < other.getOffset()) {
+			update(other);
+		}
+	}
+
 	public long updateWithHash(int hash, long nextOffset) {
 		return updateWithPartition(partition(hash), nextOffset);
 	}
 
 	public long updateWithPartition(int partition, long nextOffset) {
-		// TODO Require.that(Long.compareUnsigned(nextOffset, offset(partition)) > 0);
 		long value = offsets[partition];
 		offsets[partition] = nextOffset;
 		return value;

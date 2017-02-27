@@ -19,7 +19,7 @@ import org.ddd4j.value.versioned.Uncommitted;
 
 public class Channel implements Closeable {
 
-	public static class Callback implements ColdChannel.Callback, HotChannel.Callback {
+	public static class Callback implements HotChannel.Callback {
 
 		private final Subscriptions subscriptions;
 		private final ColdChannel.Callback coldCallback;
@@ -38,7 +38,6 @@ public class Channel implements Closeable {
 			hotCallback.closeChecked();
 		}
 
-		@Override
 		public void seek(ResourceDescriptor topic, Revision revision) {
 			coldCallback.seek(topic, revision);
 		}
@@ -46,11 +45,6 @@ public class Channel implements Closeable {
 		@Override
 		public Promise<Integer> subscribe(ResourceDescriptor topic) {
 			return subscriptions.subscribeIfNeeded(topic, t -> hotCallback.subscribe(t).sync().handleSuccess(Revisions::new));
-		}
-
-		@Override
-		public void unseek(ResourceDescriptor topic, int partition) {
-			coldCallback.unseek(topic, partition);
 		}
 
 		@Override
@@ -215,6 +209,7 @@ public class Channel implements Closeable {
 		return new Callback(subscriptions, coldListener.callback(hotListener), hotListener.callback(coldListener));
 	}
 
+	// TODO allow sending with locking?
 	private void send(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
 		hotChannel.send(topic, committed);
 	}

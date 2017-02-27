@@ -107,7 +107,11 @@ public abstract class Agent<T> {
 				task.executeWith(getState());
 			}
 		} finally {
-			scheduled.set(false);
+			if (tasks.isEmpty()) {
+				scheduled.set(false);
+			} else {
+				executor.execute(this::run);
+			}
 		}
 	}
 
