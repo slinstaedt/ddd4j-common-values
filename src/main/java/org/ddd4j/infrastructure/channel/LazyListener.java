@@ -65,7 +65,7 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> 
 
 	public LazyListener(Function<LazyListener<C>, C> delegateFactory) {
 		Require.nonNull(delegateFactory);
-		this.callbackDelegate = new Lazy<>(() -> delegateFactory.apply(this));
+		this.callbackDelegate = new Lazy<>(() -> delegateFactory.apply(this), C::closeChecked);
 		this.coldDelegate = Ref.createThreadsafe();
 		this.hotDelegate = Ref.createThreadsafe();
 	}

@@ -1,6 +1,9 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -12,23 +15,26 @@ import org.ddd4j.infrastructure.channel.ColdChannel;
 import org.ddd4j.infrastructure.channel.ColdChannelTest;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Enclosed.class)
 public class KafkaChannelTest {
 
+	@RunWith(Parameterized.class)
 	public static class Cold extends ColdChannelTest {
 
-		@Override
-		protected ColdChannel createChannel() {
-			return KafkaChannelTest.createColdChannel();
+		@Parameters
+		public static List<? extends ColdChannel> createChannel() {
+			return Arrays.asList(createColdChannel(Executors.newFixedThreadPool(4)), createColdChannel(Executors.newFixedThreadPool(4)));
 		}
 	}
 
 	@SuppressWarnings("resource")
-	static KafkaChannel createColdChannel() {
+	static KafkaChannel createColdChannel(Executor executor) {
 		AtomicLong offset = new AtomicLong(0);
 		MockProducer<byte[], byte[]> producer = new MockProducer<>(true, KafkaChannelFactory.SERIALIZER, KafkaChannelFactory.SERIALIZER);
-		return new KafkaChannel(Runnable::run, () -> producer, () -> {
+		return new KafkaChannel(executor::execute, () -> producer, () -> {
 			MockConsumer<byte[], byte[]> consumer = new MockConsumer<>(OffsetResetStrategy.NONE);
 			Runnable recordCopier = new Runnable() {
 

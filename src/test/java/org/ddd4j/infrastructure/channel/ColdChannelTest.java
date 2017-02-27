@@ -1,6 +1,7 @@
 package org.ddd4j.infrastructure.channel;
 
 import java.nio.ByteBuffer;
+import java.util.stream.IntStream;
 
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdChannel.Callback;
@@ -16,38 +17,24 @@ import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runners.Parameterized.Parameter;
 
 public abstract class ColdChannelTest {
 
 	public static final String TEST_TOPIC = "TEST";
 
-	private ColdChannel testUnit;
+	@Parameter
+	public ColdChannel testUnit;
+
 	private ResourceDescriptor topic;
 	private Revisions revisions;
 
 	@Before
 	public void before() {
-		testUnit = createChannel();
 		topic = ResourceDescriptor.of(TEST_TOPIC);
 		revisions = new Revisions(1);
 
 		revisions.updateWithPartition(0, 0);
-	}
-
-	protected abstract ColdChannel createChannel();
-
-	@Test
-	public void receiveFromTopic() {
-		send("1", revisions);
-		send("2", revisions);
-		send("3", revisions);
-		TestChannelListener listener = new TestChannelListener();
-
-		Callback callback = testUnit.register(listener);
-		callback.seek(topic, new Revision(0, 0));
-
-		listener.failOnErrors();
-		Assert.assertFalse(listener.getMessages().isEmpty());
 	}
 
 	private CommitResult<ReadBuffer, ReadBuffer> send(String message, Revisions expected) {
@@ -65,9 +52,17 @@ public abstract class ColdChannelTest {
 	}
 
 	@Test
-	public void sendToTopic() {
-		send("1", revisions);
-		send("2", revisions);
-		send("3", revisions);
+	public void sendAndReceive() throws InterruptedException {
+		int msgCount = 42;
+		IntStream.rangeClosed(1, msgCount).forEachOrdered(c -> send(String.valueOf(c), revisions));
+		TestChannelListener listener = new TestChannelListener();
+
+		Callback callback = testUnit.register(listener);
+		callback.seek(topic, new Revision(0, 0));
+		Thread.sleep(500);
+		callback.close();
+
+		listener.failOnErrors();
+		Assert.assertEquals(msgCount, listener.getMessages().size());
 	}
 }

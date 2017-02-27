@@ -69,7 +69,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 		}
 	}
 
-	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = new ConsumerRecords<>(Collections.emptyMap());
+	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = ConsumerRecords.empty();
 
 	static Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
 		ReadBuffer key = Bytes.wrap(record.key()).buffered();
@@ -134,7 +134,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 				.sync()
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> channelListener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
 				.whenCompleteExceptionally(channelListener::onError)
-				.handleSuccess(rs -> rs == EMPTY_RECORDS ? Trigger.NOTHING : Trigger.RESCHEDULE);
+				.handleSuccess(rs -> rs.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE);
 	}
 
 	@Override
