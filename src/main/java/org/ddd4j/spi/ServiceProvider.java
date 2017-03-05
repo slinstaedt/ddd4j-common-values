@@ -1,9 +1,6 @@
 package org.ddd4j.spi;
 
-import org.ddd4j.value.collection.Configuration;
+public interface ServiceProvider {
 
-@FunctionalInterface
-public interface ServiceProvider<S extends Service<S, ?>> extends Named {
-
-	S provideService(Configuration configuration, ServiceLocator locator);
+	void bindServices(ServiceBinder binder);
 }

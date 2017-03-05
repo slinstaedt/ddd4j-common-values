@@ -10,21 +10,7 @@ import javax.sql.XADataSource;
 import org.ddd4j.contract.Require;
 import org.ddd4j.spi.Service;
 
-public interface ConnectionFactory extends Service<ConnectionFactory, ConnectionFactoryProvider> {
-
-	class DataSourceConnectionFactory implements ConnectionFactory {
-
-		private final DataSource source;
-
-		public DataSourceConnectionFactory(DataSource source) {
-			this.source = Require.nonNull(source);
-		}
-
-		@Override
-		public Connection createConnection() throws SQLException {
-			return source.getConnection();
-		}
-	}
+public interface ConnectionFactory extends Service<ConnectionFactory> {
 
 	class ConnectionPoolDataSourceConnectionFactory implements ConnectionFactory {
 
@@ -37,6 +23,20 @@ public interface ConnectionFactory extends Service<ConnectionFactory, Connection
 		@Override
 		public Connection createConnection() throws SQLException {
 			return source.getPooledConnection().getConnection();
+		}
+	}
+
+	class DataSourceConnectionFactory implements ConnectionFactory {
+
+		private final DataSource source;
+
+		public DataSourceConnectionFactory(DataSource source) {
+			this.source = Require.nonNull(source);
+		}
+
+		@Override
+		public Connection createConnection() throws SQLException {
+			return source.getConnection();
 		}
 	}
 

@@ -2,20 +2,50 @@ package org.ddd4j.infrastructure.scheduler;
 
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.scheduler.BlockingTask.Rescheduler;
+import org.ddd4j.spi.Key;
 import org.ddd4j.spi.Service;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.Producer;
 import org.ddd4j.value.Throwing.Task;
 import org.ddd4j.value.Type;
+import org.ddd4j.value.collection.Configuration;
 
 @FunctionalInterface
-public interface Scheduler extends Executor, Service<Scheduler, SchedulerProvider> {
+public interface Scheduler extends Executor, Service<Scheduler> {
+
+	enum PoolType {
+		SINGLE_THREADED {
+			@Override
+			public Scheduler create(int size) {
+				return Runnable::run;
+			}
+		},
+		FORK_JOIN_POOL {
+			@Override
+			public Scheduler create(int size) {
+				return Executors.newWorkStealingPool(size)::execute;
+			}
+		},
+		THREAD_POOL {
+			@Override
+			public Scheduler create(int size) {
+				return Executors.newFixedThreadPool(size)::execute;
+			}
+		};
+
+		public abstract Scheduler create(int size);
+	}
+
+	Configuration.Key<PoolType> POOL_TYPE = Configuration.keyOfEnum(PoolType.class, "pool.type", PoolType.SINGLE_THREADED);
+	Configuration.Key<Integer> POOL_SIZE = Configuration.keyOfInteger("pool.size", Runtime.getRuntime().availableProcessors());
+	Key<Scheduler> KEY = Key.of(Scheduler.class, (ctx, conf) -> conf.get(POOL_TYPE).create(conf.get(POOL_SIZE)));
 
 	default <T> Agent<T> createAgent(T initialState) {
 		return Agent.create(this, initialState);

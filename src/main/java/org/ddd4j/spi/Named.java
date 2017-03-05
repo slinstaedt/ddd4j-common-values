@@ -2,7 +2,7 @@ package org.ddd4j.spi;
 
 public interface Named {
 
-	default String getName() {
+	default String name() {
 		return getClass().getTypeName();
 	}
 }
