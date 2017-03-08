@@ -2,12 +2,15 @@ package org.ddd4j.collection;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -88,6 +91,20 @@ public interface Cache<K, V> {
 			}
 
 			@Override
+			void evictAll(K key, Disposer<? super V> disposer) {
+				Queue<V> queue = pool.remove(key);
+				if (queue != null) {
+					Exception[] exceptions = queue.stream()
+							.map(disposer::disposeAndReturn)
+							.filter(Objects::nonNull)
+							.toArray(Exception[]::new);
+					queue.clear();
+					unusedQueues.offer(queue);
+					Arrays.stream(exceptions).forEach(Throwing::unchecked);
+				}
+			}
+
+			@Override
 			NavigableSet<K> keys() {
 				return pool.keySet();
 			}
@@ -139,6 +156,19 @@ public interface Cache<K, V> {
 			}
 
 			@Override
+			void evictAll(K key, Disposer<? super V> disposer) {
+				try {
+					V value = singletons.get(key).get();
+					if (evict(key, value)) {
+						disposer.dispose(value);
+					}
+				} catch (ExecutionException e) {
+				} catch (Exception e) {
+					Throwing.unchecked(e);
+				}
+			}
+
+			@Override
 			NavigableSet<K> keys() {
 				return singletons.keySet();
 			}
@@ -163,6 +193,8 @@ public interface Cache<K, V> {
 		}
 
 		abstract boolean evict(K key, V value);
+
+		abstract void evictAll(K key, Disposer<? super V> disposer);
 
 		abstract NavigableSet<K> keys();
 
@@ -220,12 +252,25 @@ public interface Cache<K, V> {
 		}
 
 		@Override
+		public void evictAll(Disposer<V> disposer) {
+			new HashSet<>(delegate.keys()).forEach(k -> delegate.evictAll(k, disposer));
+		}
+
+		public void evictAll(K key, Disposer<? super V> disposer) {
+			delegate.evictAll(key, disposer);
+		}
+
+		@Override
 		public void release(V value) {
 			delegate.release(value);
 		}
 
 		public ReadThrough<K, V> withFactory(Factory<? super K, ? extends V> factory) {
-			return new ReadThrough<>(this, factory);
+			return new ReadThrough<>(this, factory, Object::getClass);
+		}
+
+		public ReadThrough<K, V> withFactory(Factory<? super K, ? extends V> factory, Disposer<? super V> disposer) {
+			return new ReadThrough<>(this, factory, disposer);
 		}
 
 		@Override
@@ -276,6 +321,11 @@ public interface Cache<K, V> {
 				} else {
 					return false;
 				}
+			}
+
+			@Override
+			void evictAll(K key, Disposer<? super V> disposer) {
+				delegate.evictAll(key, disposer.andThen(v -> semaphore.release()));
 			}
 
 			@Override
@@ -391,6 +441,11 @@ public interface Cache<K, V> {
 				return delegate.evict(key, value);
 			}
 
+			@Override
+			void evictAll(K key, Disposer<? super V> disposer) {
+				delegate.evictAll(key, disposer.andThen(entries::remove));
+			}
+
 			private void evictOverCapacity() {
 				if (entries.size() > maxCapacity) {
 					List<Entry> copy = new ArrayList<>(entries.values());
@@ -499,6 +554,11 @@ public interface Cache<K, V> {
 				}
 			}
 
+			@Override
+			void evictAll(K key, Disposer<? super V> disposer) {
+				delegate.evictAll(key, disposer);
+			}
+
 			public Listening<K, V> evicted(Consumer<? super V> listener) {
 				Require.nonNull(listener);
 				return lifecycle(new Listener<V>() {
@@ -569,6 +629,11 @@ public interface Cache<K, V> {
 			}
 
 			@Override
+			void evictAll(K key, Disposer<? super V> disposer) {
+				delegate.evictAll(key, disposer);
+			}
+
+			@Override
 			NavigableSet<K> keys() {
 				return delegate.keys();
 			}
@@ -610,6 +675,12 @@ public interface Cache<K, V> {
 			}
 
 			@Override
+			void evictAll(K key, Disposer<? super T> disposer) {
+				delegate.evictAll(key, disposer.with(wrapper));
+
+			}
+
+			@Override
 			NavigableSet<K> keys() {
 				return delegate.keys();
 			}
@@ -618,6 +689,35 @@ public interface Cache<K, V> {
 			void release(T value) {
 				delegate.release(unwrapper.apply(value));
 			}
+		}
+	}
+
+	@FunctionalInterface
+	interface Disposer<V> {
+
+		default Disposer<V> andThen(Disposer<? super V> then) {
+			return v -> {
+				try {
+					this.dispose(v);
+				} finally {
+					then.dispose(v);
+				}
+			};
+		}
+
+		void dispose(V value) throws Exception;
+
+		default Exception disposeAndReturn(V value) {
+			try {
+				dispose(value);
+				return null;
+			} catch (Exception e) {
+				return e;
+			}
+		}
+
+		default <T> Disposer<T> with(Function<? super T, ? extends V> wrapper) {
+			return t -> dispose(wrapper.apply(t));
 		}
 	}
 
@@ -702,6 +802,11 @@ public interface Cache<K, V> {
 		}
 
 		@Override
+		public void evictAll(Disposer<V> disposer) {
+			delegate.evictAll(key, disposer);
+		}
+
+		@Override
 		public void release(V value) {
 			delegate.release(value);
 		}
@@ -716,10 +821,12 @@ public interface Cache<K, V> {
 
 		private final Aside<K, V> delegate;
 		private final Factory<? super K, ? extends V> factory;
+		private final Disposer<? super V> disposer;
 
-		ReadThrough(Aside<K, V> delegate, Factory<? super K, ? extends V> factory) {
+		ReadThrough(Aside<K, V> delegate, Factory<? super K, ? extends V> factory, Disposer<? super V> disposer) {
 			this.delegate = Require.nonNull(delegate);
 			this.factory = Require.nonNull(factory);
+			this.disposer = Require.nonNull(disposer);
 		}
 
 		public V acquire(K key) {
@@ -728,6 +835,19 @@ public interface Cache<K, V> {
 
 		public V acquire(K key, long timeoutInMillis) {
 			return delegate.acquire(key, factory, timeoutInMillis);
+		}
+
+		public void evictAll() {
+			evictAll(Object::getClass);
+		}
+
+		@Override
+		public void evictAll(Disposer<V> disposer) {
+			delegate.evictAll(disposer.andThen(this.disposer));
+		}
+
+		public void evictAll(K key, Disposer<? super V> disposer) {
+			delegate.evictAll(key, disposer);
 		}
 
 		public Pool<V> pooledBy(K key) {
@@ -741,7 +861,7 @@ public interface Cache<K, V> {
 
 		@Override
 		public <T> ReadThrough<K, T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
-			return new ReadThrough<>(delegate.wrapEntries(wrapper, unwrapper), factory.andThen(wrapper));
+			return new ReadThrough<>(delegate.wrapEntries(wrapper, unwrapper), factory.andThen(wrapper), disposer.with(unwrapper));
 		}
 	}
 
@@ -769,7 +889,9 @@ public interface Cache<K, V> {
 		return new Shared<K, V>((k1, k2) -> k1.equals(k2) ? 0 : (k1.hashCode() - k2.hashCode()) | 1).lookupValuesWithEqualKeys();
 	}
 
-	<T> Cache<K, T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper);
+	void evictAll(Disposer<V> disposer);
 
 	void release(V value);
+
+	<T> Cache<K, T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper);
 }
