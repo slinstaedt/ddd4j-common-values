@@ -1,8 +1,7 @@
 package org.ddd4j.spi;
 
-import java.util.function.Consumer;
-
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.collection.Configuration;
 
 public class Key<T> implements ServiceFactory<T>, Named {
@@ -26,21 +25,21 @@ public class Key<T> implements ServiceFactory<T>, Named {
 
 	private final String name;
 	private final ServiceFactory<? extends T> creator;
-	private final Consumer<? super T> destructor;
+	private final TConsumer<? super T> destructor;
 
-	public Key(String name, ServiceFactory<? extends T> creator, Consumer<? super T> destructor) {
+	public Key(String name, ServiceFactory<? extends T> creator, TConsumer<? super T> destructor) {
 		this.name = Require.nonEmpty(name);
 		this.creator = Require.nonNull(creator);
 		this.destructor = Require.nonNull(destructor);
 	}
 
 	@Override
-	public T create(Context context, Configuration configuration) {
+	public T create(Context context, Configuration configuration) throws Exception {
 		return creator.create(context, configuration);
 	}
 
-	public void destroy(T service) {
-		destructor.accept(service);
+	public void destroy(T service) throws Exception {
+		destructor.acceptChecked(service);
 	}
 
 	@Override
@@ -48,11 +47,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 		return name;
 	}
 
-	public Key<T> withCreator(ServiceFactory<? extends T> creator) {
-		return new Key<>(name, creator, destructor);
-	}
-
-	public Key<T> withDestructor(Consumer<? super T> destructor) {
+	public Key<T> withDestructor(TConsumer<? super T> destructor) {
 		return new Key<>(name, creator, destructor);
 	}
 }

@@ -39,5 +39,5 @@ public interface ServiceBinder {
 		return (f, t) -> bind(key, f, t);
 	}
 
-	<T> void bind(Key<T> key, ServiceFactory<? extends T> factory, Key<?>... targets);
+	<T> void bind(Key<T> key, ServiceFactory<? extends T> factory, Key<?>... dependencyPath);
 }

@@ -1,6 +1,8 @@
 package org.ddd4j.spi;
 
-public interface Context {
+import org.ddd4j.value.Throwing.Closeable;
+
+public interface Context extends Closeable {
 
 	<T> T get(Key<T> key);
 }
