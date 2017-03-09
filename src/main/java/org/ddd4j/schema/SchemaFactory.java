@@ -4,9 +4,11 @@ import java.io.IOException;
 
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.spi.Service;
+import org.ddd4j.spi.Key;
 
-public interface SchemaFactory extends Service<SchemaFactory, SchemaFactoryProvider> {
+public interface SchemaFactory {
+
+	Key<SchemaFactory> KEY = Key.of(SchemaFactory.class, creator);
 
 	static Class<?> classForName(String className, TFunction<? super ClassNotFoundException, Class<?>> notFound) {
 		try {
