@@ -1,6 +1,7 @@
 package org.ddd4j.spi;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.collection.Configuration;
 
@@ -15,7 +16,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 	}
 
 	public static <T> Key<T> of(String name) {
-		return of(name, (ctx, conf) -> null);
+		return of(name, (ctx, conf) -> Throwing.<T> unchecked(new AssertionError("No factory is bound for: " + name)));
 	}
 
 	public static <T> Key<T> of(String name, ServiceFactory<? extends T> creator) {
@@ -38,6 +39,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 		return creator.create(context, configuration);
 	}
 
+	@Override
 	public void destroy(T service) throws Exception {
 		destructor.acceptChecked(service);
 	}
@@ -47,6 +49,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 		return name;
 	}
 
+	@Override
 	public Key<T> withDestructor(TConsumer<? super T> destructor) {
 		return new Key<>(name, creator, destructor);
 	}

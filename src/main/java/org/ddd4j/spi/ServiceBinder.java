@@ -39,5 +39,9 @@ public interface ServiceBinder {
 		return (f, t) -> bind(key, f, t);
 	}
 
+	default void accept(ServiceProvider provider) {
+		provider.bindServices(this);
+	}
+
 	<T> void bind(Key<T> key, ServiceFactory<? extends T> factory, Key<?>... dependencyPath);
 }
