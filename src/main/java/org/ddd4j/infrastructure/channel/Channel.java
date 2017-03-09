@@ -4,12 +4,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+import org.ddd4j.Throwing.Closeable;
+import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.Throwing.Closeable;
-import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.math.Ordered.Comparison;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;

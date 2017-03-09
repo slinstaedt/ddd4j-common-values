@@ -1,8 +1,9 @@
 package org.ddd4j.spi;
 
-import org.ddd4j.value.Throwing.Closeable;
+public interface Context extends AutoCloseable {
 
-public interface Context extends Closeable {
+	@Override
+	void close();
 
 	<T> T get(Key<T> key);
 }

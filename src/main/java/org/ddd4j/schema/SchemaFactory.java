@@ -2,9 +2,9 @@ package org.ddd4j.schema;
 
 import java.io.IOException;
 
+import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Service;
-import org.ddd4j.value.Throwing.TFunction;
 
 public interface SchemaFactory extends Service<SchemaFactory, SchemaFactoryProvider> {
 

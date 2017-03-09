@@ -7,13 +7,13 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.util.Objects;
 
+import org.ddd4j.Throwing;
 import org.ddd4j.contract.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
-import org.ddd4j.value.Throwing;
 import org.ddd4j.value.Value;
 
 public class ClassBasedSchemaFactory implements SchemaFactory {

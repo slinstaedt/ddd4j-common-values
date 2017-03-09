@@ -1,7 +1,7 @@
 package org.ddd4j.spi;
 
+import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.collection.Configuration;
 
 @FunctionalInterface

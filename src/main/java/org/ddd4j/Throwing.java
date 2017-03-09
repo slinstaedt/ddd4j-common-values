@@ -1,4 +1,4 @@
-package org.ddd4j.value;
+package org.ddd4j;
 
 import java.util.Arrays;
 import java.util.concurrent.Callable;
@@ -8,6 +8,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Either;
+import org.ddd4j.value.Opt;
 
 //TODO remove "T" prefix from all inner types?
 @FunctionalInterface

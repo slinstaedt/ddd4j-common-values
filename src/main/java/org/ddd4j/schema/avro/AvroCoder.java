@@ -9,7 +9,7 @@ import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
-import org.ddd4j.value.Throwing;
+import org.ddd4j.Throwing;
 
 public enum AvroCoder {
 	BINARY {

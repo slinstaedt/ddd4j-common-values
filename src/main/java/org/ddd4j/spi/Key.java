@@ -1,8 +1,8 @@
 package org.ddd4j.spi;
 
+import org.ddd4j.Throwing;
+import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing;
-import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.collection.Configuration;
 
 public class Key<T> implements ServiceFactory<T>, Named {

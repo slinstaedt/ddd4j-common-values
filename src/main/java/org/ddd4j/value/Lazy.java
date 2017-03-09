@@ -4,10 +4,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import org.ddd4j.Throwing.Closeable;
+import org.ddd4j.Throwing.Producer;
+import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing.Closeable;
-import org.ddd4j.value.Throwing.Producer;
-import org.ddd4j.value.Throwing.TConsumer;
 import org.ddd4j.value.collection.Seq;
 
 public class Lazy<T> implements Closeable, Seq<T>, Supplier<T> {

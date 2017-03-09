@@ -9,9 +9,9 @@ import java.util.Properties;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import org.ddd4j.Throwing;
+import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.contract.Require;
-import org.ddd4j.value.Throwing;
-import org.ddd4j.value.Throwing.TFunction;
 import org.ddd4j.value.Value;
 
 public interface Configuration extends Value<Configuration>, Seq<Tpl<String, String>> {

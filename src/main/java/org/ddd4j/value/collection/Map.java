@@ -8,9 +8,9 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
+import org.ddd4j.Throwing;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.Opt;
-import org.ddd4j.value.Throwing;
 
 @FunctionalInterface
 public interface Map<K, V> extends Seq<Tpl<K, V>> {

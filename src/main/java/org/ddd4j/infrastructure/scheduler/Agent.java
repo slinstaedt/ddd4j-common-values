@@ -5,12 +5,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.ddd4j.Throwing;
+import org.ddd4j.Throwing.TConsumer;
+import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.value.Self;
-import org.ddd4j.value.Throwing;
-import org.ddd4j.value.Throwing.TConsumer;
-import org.ddd4j.value.Throwing.TFunction;
 
 public abstract class Agent<T> {
 

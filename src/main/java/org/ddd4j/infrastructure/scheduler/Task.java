@@ -9,9 +9,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 
+import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.value.Throwing.TFunction;
 
 public class Task<T, R> implements Future<R>, Promise<R> {
 

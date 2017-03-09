@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.lang.reflect.TypeVariable;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
+import org.ddd4j.Throwing;
 import org.ddd4j.contract.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;

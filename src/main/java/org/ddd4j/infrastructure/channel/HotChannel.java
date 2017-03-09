@@ -1,9 +1,9 @@
 package org.ddd4j.infrastructure.channel;
 
+import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.Throwing.Closeable;
 import org.ddd4j.value.versioned.Committed;
 
 public interface HotChannel extends Closeable {

@@ -47,7 +47,7 @@ public class Registry implements Context, ServiceBinder {
 	}
 
 	@Override
-	public void closeChecked() throws Exception {
+	public void close() {
 		dependents.values().forEach(Context::close);
 		dependents.clear();
 		services.evictAll(this::destroyService);

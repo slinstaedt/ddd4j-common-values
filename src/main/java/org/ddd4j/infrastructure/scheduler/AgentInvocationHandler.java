@@ -4,7 +4,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
-import org.ddd4j.value.Throwing.TFunction;
+import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.value.Type;
 
 public class AgentInvocationHandler implements InvocationHandler {

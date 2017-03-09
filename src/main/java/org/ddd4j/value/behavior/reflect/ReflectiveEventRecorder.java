@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import org.ddd4j.value.Throwing;
+import org.ddd4j.Throwing;
 
 public class ReflectiveEventRecorder<T> {
 

@@ -6,14 +6,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.ddd4j.Throwing;
+import org.ddd4j.Throwing.Producer;
+import org.ddd4j.Throwing.Task;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.scheduler.BlockingTask.Rescheduler;
 import org.ddd4j.spi.Key;
 import org.ddd4j.spi.Service;
 import org.ddd4j.value.Nothing;
-import org.ddd4j.value.Throwing;
-import org.ddd4j.value.Throwing.Producer;
-import org.ddd4j.value.Throwing.Task;
 import org.ddd4j.value.Type;
 import org.ddd4j.value.collection.Configuration;
 

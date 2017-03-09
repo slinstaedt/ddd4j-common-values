@@ -7,9 +7,9 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Stream;
 
+import org.ddd4j.Throwing;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.value.Throwing;
 import org.ddd4j.value.collection.Seq.Value;
 
 public class Props extends Value.Simple<Configuration, Properties> implements Configuration {
