@@ -5,6 +5,7 @@ import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Configuration;
 
+//TODO rename to ServiceKey?
 public final class Key<T> implements ServiceFactory<T>, Named {
 
 	public static <T> Key<T> of(Class<T> serviceType) {

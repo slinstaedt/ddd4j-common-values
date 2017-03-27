@@ -16,7 +16,7 @@ public interface ContextProvisioning {
 
 	Key<ContextProvisioning> KEY = Key.of(ContextProvisioning.class);
 
-	static ContextProvisioning get() {
+	static ContextProvisioning byJavaServiceLoader() {
 		return new JavaServiceLoader();
 	}
 
