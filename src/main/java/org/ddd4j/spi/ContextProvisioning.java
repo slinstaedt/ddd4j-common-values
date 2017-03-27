@@ -6,26 +6,32 @@ import org.ddd4j.value.collection.Configuration;
 
 public interface ContextProvisioning {
 
-	class JavaServiceLoaderProvisioning implements ContextProvisioning {
+	class JavaServiceLoader implements ContextProvisioning {
 
 		@Override
-		public <T> Iterable<T> loadRegistered(Class<T> type) {
-			return ServiceLoader.load(type, type.getClassLoader());
+		public <T> Iterable<T> loadRegistered(Class<T> type, ClassLoader loader) {
+			return ServiceLoader.load(type, loader);
 		}
 	}
 
 	Key<ContextProvisioning> KEY = Key.of(ContextProvisioning.class);
 
 	static ContextProvisioning get() {
-		return new JavaServiceLoaderProvisioning();
+		return new JavaServiceLoader();
 	}
 
 	default Context buildContext(Configuration configuration) {
+		ClassLoader loader = Thread.currentThread().getContextClassLoader();
 		Registry registry = new Registry(configuration);
-		loadRegistered(ServiceProvider.class).forEach(registry::accept);
 		registry.bind(KEY).toInstance(this);
+		loadRegistered(ServiceProvider.class, loader).forEach(registry::accept);
+		registry.initializeEagerServices();
 		return registry;
 	}
 
-	<T> Iterable<T> loadRegistered(Class<T> registeredType);
+	default <T> Iterable<T> loadRegistered(Class<T> registeredType) {
+		return loadRegistered(registeredType, registeredType.getClassLoader());
+	}
+
+	<T> Iterable<T> loadRegistered(Class<T> registeredType, ClassLoader loader);
 }

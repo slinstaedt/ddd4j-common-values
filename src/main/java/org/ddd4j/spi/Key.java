@@ -5,14 +5,14 @@ import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Configuration;
 
-public class Key<T> implements ServiceFactory<T>, Named {
+public final class Key<T> implements ServiceFactory<T>, Named {
 
 	public static <T> Key<T> of(Class<T> serviceType) {
-		return of(serviceType.getSimpleName());
+		return of(Named.decapitalize(serviceType.getSimpleName()));
 	}
 
 	public static <T> Key<T> of(Class<T> serviceType, ServiceFactory<? extends T> creator) {
-		return of(serviceType.getSimpleName(), creator);
+		return of(Named.decapitalize(serviceType.getSimpleName()), creator);
 	}
 
 	public static <T> Key<T> of(String name) {
@@ -46,6 +46,11 @@ public class Key<T> implements ServiceFactory<T>, Named {
 
 	@Override
 	public String name() {
+		return name;
+	}
+
+	@Override
+	public String toString() {
 		return name;
 	}
 

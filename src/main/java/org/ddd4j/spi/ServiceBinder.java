@@ -44,4 +44,6 @@ public interface ServiceBinder {
 	}
 
 	<T> void bind(Key<T> key, ServiceFactory<? extends T> factory, Key<?>... dependencyPath);
+
+	void initializeEager(Key<?> key);
 }

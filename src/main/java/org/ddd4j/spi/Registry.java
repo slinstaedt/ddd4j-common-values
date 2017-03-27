@@ -1,7 +1,9 @@
 package org.ddd4j.spi;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.ddd4j.collection.Cache;
 import org.ddd4j.contract.Require;
@@ -29,6 +31,7 @@ public class Registry implements Context, ServiceBinder {
 	}
 
 	private final Configuration configuration;
+	private final Set<Key<?>> eager;
 	@SuppressWarnings("rawtypes")
 	private final Cache.Aside<Key, Object> services;
 	private final Map<Key<?>, Registry> dependents;
@@ -36,6 +39,7 @@ public class Registry implements Context, ServiceBinder {
 
 	public Registry(Configuration configuration) {
 		this.configuration = Require.nonNull(configuration);
+		this.eager = new HashSet<>();
 		this.services = Cache.sharedOnEqualKey();
 		this.dependents = new HashMap<>();
 		this.factories = new HashMap<>();
@@ -48,9 +52,9 @@ public class Registry implements Context, ServiceBinder {
 
 	@Override
 	public void close() {
+		services.evictAll(this::destroyService);
 		dependents.values().forEach(Context::close);
 		dependents.clear();
-		services.evictAll(this::destroyService);
 	}
 
 	private <T> T createService(Key<T> key) throws Exception {
@@ -93,8 +97,17 @@ public class Registry implements Context, ServiceBinder {
 		return (T) services.acquire(key, this::createService);
 	}
 
-	boolean hasRegisteredFactory(Key<?> key) {
+	protected boolean hasRegisteredFactory(Key<?> key) {
 		return factories.containsKey(key);
+	}
+
+	@Override
+	public void initializeEager(Key<?> key) {
+		eager.add(Require.nonNull(key));
+	}
+
+	public void initializeEagerServices() {
+		eager.forEach(this::get);
 	}
 
 	public Context newDependentContext() {
