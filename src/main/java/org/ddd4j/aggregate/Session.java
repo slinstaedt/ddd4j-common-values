@@ -3,8 +3,8 @@ package org.ddd4j.aggregate;
 import java.util.Optional;
 import java.util.function.Function;
 
+import org.ddd4j.Require;
 import org.ddd4j.aggregate.Aggregates.Aggregate;
-import org.ddd4j.contract.Require;
 import org.ddd4j.messaging.CorrelationIdentifier;
 import org.ddd4j.value.behavior.Effect.Dispatched;
 import org.ddd4j.value.behavior.Reaction;

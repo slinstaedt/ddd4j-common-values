@@ -4,7 +4,7 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.Function;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;

@@ -7,7 +7,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.Either;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.behavior.Reaction;

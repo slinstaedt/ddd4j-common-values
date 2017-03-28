@@ -11,7 +11,7 @@ import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.Encoder;
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;

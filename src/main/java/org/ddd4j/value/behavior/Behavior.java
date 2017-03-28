@@ -7,10 +7,10 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.ddd4j.aggregate.Aggregates.Aggregate;
+import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.aggregate.Session;
-import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Revisions;
 

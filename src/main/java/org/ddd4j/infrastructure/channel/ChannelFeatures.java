@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.function.Curry;
 import org.ddd4j.value.function.Curry.Query.Ed;

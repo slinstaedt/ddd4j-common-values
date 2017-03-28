@@ -3,7 +3,7 @@ package org.ddd4j.schema.avro;
 import java.security.NoSuchAlgorithmException;
 
 import org.apache.avro.SchemaNormalization;
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.schema.Fingerprint;
 
 public enum AvroFingerprintAlgorithm {

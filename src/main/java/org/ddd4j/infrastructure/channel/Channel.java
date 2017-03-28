@@ -4,9 +4,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+import org.ddd4j.Require;
 import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;

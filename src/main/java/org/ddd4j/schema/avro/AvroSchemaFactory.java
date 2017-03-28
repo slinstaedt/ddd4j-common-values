@@ -4,7 +4,7 @@ import java.io.IOException;
 
 import org.apache.avro.Conversions;
 import org.apache.avro.reflect.ReflectData;
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;

@@ -1,6 +1,6 @@
 package org.ddd4j.scenario.shipment.domain;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.scenario.shipment.api.Location;
 import org.ddd4j.scenario.shipment.api.ShipmentEvent;
 import org.ddd4j.value.behavior.Behavior;

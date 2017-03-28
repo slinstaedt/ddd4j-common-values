@@ -2,7 +2,7 @@ package org.ddd4j.aggregate;
 
 import java.util.Optional;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Committed;

@@ -4,7 +4,7 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.Opt;
 import org.ddd4j.value.collection.Tpl;
 

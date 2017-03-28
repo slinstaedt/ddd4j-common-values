@@ -7,8 +7,8 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.util.Objects;
 
+import org.ddd4j.Require;
 import org.ddd4j.Throwing;
-import org.ddd4j.contract.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;

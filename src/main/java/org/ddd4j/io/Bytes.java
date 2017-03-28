@@ -6,9 +6,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
+import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Cache;
-import org.ddd4j.contract.Require;
 import org.ddd4j.io.ByteOrder.IndexedBytes;
 
 public abstract class Bytes implements IndexedBytes, AutoCloseable {

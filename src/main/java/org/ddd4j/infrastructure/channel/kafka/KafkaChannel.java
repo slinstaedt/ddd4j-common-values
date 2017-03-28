@@ -9,7 +9,7 @@ import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdChannel;

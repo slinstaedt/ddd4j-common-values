@@ -5,8 +5,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.ddd4j.Require;
 import org.ddd4j.collection.Cache;
-import org.ddd4j.contract.Require;
 import org.ddd4j.value.Named;
 import org.ddd4j.value.collection.Configuration;
 

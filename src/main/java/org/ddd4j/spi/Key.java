@@ -1,8 +1,8 @@
 package org.ddd4j.spi;
 
+import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.contract.Require;
 import org.ddd4j.value.Named;
 import org.ddd4j.value.collection.Configuration;
 

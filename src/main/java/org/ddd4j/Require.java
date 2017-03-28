@@ -1,4 +1,4 @@
-package org.ddd4j.contract;
+package org.ddd4j;
 
 import java.util.Collection;
 import java.util.Objects;

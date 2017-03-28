@@ -1,6 +1,6 @@
 package org.ddd4j.log;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 
 public class Requesting {
 

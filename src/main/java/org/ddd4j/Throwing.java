@@ -7,7 +7,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import org.ddd4j.contract.Require;
 import org.ddd4j.value.Either;
 import org.ddd4j.value.Opt;
 

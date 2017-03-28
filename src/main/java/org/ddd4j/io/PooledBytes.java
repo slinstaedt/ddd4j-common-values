@@ -4,8 +4,8 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
+import org.ddd4j.Require;
 import org.ddd4j.collection.Cache;
-import org.ddd4j.contract.Require;
 
 public class PooledBytes extends Bytes {
 

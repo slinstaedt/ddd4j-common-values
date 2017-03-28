@@ -2,7 +2,7 @@ package org.ddd4j.infrastructure;
 
 import java.util.regex.Pattern;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.Value;
 
 public class ResourceDescriptor extends Value.StringBased<ResourceDescriptor> {

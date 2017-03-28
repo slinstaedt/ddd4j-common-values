@@ -2,7 +2,7 @@ package org.ddd4j.scenario.shipment.api;
 
 import java.util.UUID;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 
 public class Location {
 

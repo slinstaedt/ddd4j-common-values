@@ -5,7 +5,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.math.Ordered;
 

@@ -6,8 +6,8 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import org.ddd4j.Require;
 import org.ddd4j.aggregate.Session;
-import org.ddd4j.contract.Require;
 import org.ddd4j.messaging.CorrelationIdentifier;
 import org.ddd4j.value.Nothing;
 

@@ -4,7 +4,7 @@ import java.time.ZonedDateTime;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.collection.Props;
 
 public final class Uncommitted<K, V> implements Recorded<K, V> {

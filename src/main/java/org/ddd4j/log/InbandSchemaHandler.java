@@ -1,7 +1,7 @@
 package org.ddd4j.log;
 
+import org.ddd4j.Require;
 import org.ddd4j.collection.Cache;
-import org.ddd4j.contract.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.PooledBytes;

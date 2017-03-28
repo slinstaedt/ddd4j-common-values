@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.math.Ordered.Comparison;
 

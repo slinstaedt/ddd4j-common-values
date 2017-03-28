@@ -1,6 +1,6 @@
 package org.ddd4j.value.math;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.value.ValueWrapper;
 
 public interface Invertible<T extends Invertible<T>> extends Summable<T> {

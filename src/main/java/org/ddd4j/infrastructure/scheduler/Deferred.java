@@ -5,7 +5,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 
 public class Deferred<T> implements Promise<T> {

@@ -5,7 +5,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 
-import org.ddd4j.contract.Require;
+import org.ddd4j.Require;
 
 public interface WriteBuffer extends RelativeBuffer {
 
