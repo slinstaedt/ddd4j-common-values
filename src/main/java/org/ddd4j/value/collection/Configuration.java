@@ -41,7 +41,7 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 
 				@Override
 				public <C extends Configuration> C toConfig(BiFunction<String, String, C> factory, V value) {
-					return factory.apply(key, value.toString());
+					return factory.apply(key, value != null ? value.toString() : null);
 				}
 
 				@Override
@@ -70,23 +70,6 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 		<C extends Configuration> C toConfig(BiFunction<String, String, C> factory, V value);
 
 		V valueOf(Configuration configuration);
-
-		default Key<V> withDefault(V value) {
-			Require.nonNull(value);
-			return new Key<V>() {
-
-				@Override
-				public <C extends Configuration> C toConfig(BiFunction<String, String, C> factory, V value) {
-					return Key.this.toConfig(factory, value);
-				}
-
-				@Override
-				public V valueOf(Configuration configuration) {
-					V v = Key.this.valueOf(configuration);
-					return v != null ? v : value;
-				}
-			};
-		}
 	}
 
 	String KEY_DELIMITER = ".";
@@ -179,12 +162,13 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 
 			@Override
 			public Optional<String> getString(String key) {
-				return Configuration.this.getString(keyPrefix + KEY_DELIMITER + key);
+				Optional<String> prefixed = Configuration.this.getString(keyPrefix + KEY_DELIMITER + key);
+				return prefixed.isPresent() ? prefixed : Configuration.this.getString(key);
 			}
 
 			@Override
 			public Stream<Tpl<String, String>> stream() {
-				return Configuration.this.stream().map(tpl -> tpl.mapLeft(keyPrefix::concat));
+				return Configuration.this.stream();
 			}
 
 			@Override
