@@ -134,28 +134,6 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 		return Key.ofStringable(key, defaultValue, URL::new);
 	}
 
-	default Configuration fallbackTo(Configuration fallback) {
-		Require.nonNull(fallback);
-		return new Configuration() {
-
-			@Override
-			public Optional<String> getString(String key) {
-				Optional<String> value = Configuration.this.getString(key);
-				return value.isPresent() ? value : fallback.getString(key);
-			}
-
-			@Override
-			public Stream<Tpl<String, String>> stream() {
-				return Configuration.this.stream();
-			}
-
-			@Override
-			public Configuration with(String key, String value) {
-				return Configuration.this.with(key, value).fallbackTo(fallback);
-			}
-		};
-	}
-
 	default <V> V get(Key<V> key) {
 		return key.valueOf(this);
 	}
@@ -173,7 +151,7 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 	}
 
 	default <X> Optional<Class<? extends X>> getClass(Class<X> baseType, String key) {
-		return getString(key).map(Configuration::classForName).map(c -> c.<X>asSubclass(baseType));
+		return getString(key).map(Configuration::classForName).map(c -> c.<X> asSubclass(baseType));
 	}
 
 	default <E extends Enum<E>> Optional<E> getEnum(Class<E> enumType, String key) {

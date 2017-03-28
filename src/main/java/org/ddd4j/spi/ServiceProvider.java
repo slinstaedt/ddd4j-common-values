@@ -2,6 +2,7 @@ package org.ddd4j.spi;
 
 import java.util.function.Consumer;
 
+import org.ddd4j.value.Named;
 import org.ddd4j.value.collection.Configuration;
 
 public interface ServiceProvider {

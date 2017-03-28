@@ -1,4 +1,4 @@
-package org.ddd4j.spi;
+package org.ddd4j.value;
 
 public interface Named {
 
