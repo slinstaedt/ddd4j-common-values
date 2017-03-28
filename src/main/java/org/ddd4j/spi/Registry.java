@@ -82,7 +82,7 @@ public abstract class Registry implements Context, ServiceBinder {
 		@SuppressWarnings("resource")
 		Registry current = this;
 		for (Key<?> target : path) {
-			current = current.specifics.computeIfAbsent(target, t -> new Specific(configuration.prefixed(t.name()), this));
+			current = current.specifics.computeIfAbsent(target, t -> new Specific(configuration.prefixed(t), this));
 		}
 		current.factories.put(key, factory);
 	}

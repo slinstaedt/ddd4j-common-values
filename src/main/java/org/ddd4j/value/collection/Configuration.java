@@ -12,6 +12,7 @@ import java.util.stream.Stream;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.contract.Require;
+import org.ddd4j.value.Named;
 import org.ddd4j.value.Value;
 
 public interface Configuration extends Value<Configuration>, Seq<Tpl<String, String>> {
@@ -167,6 +168,10 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 	}
 
 	Optional<String> getString(String key);
+
+	default Configuration prefixed(Named value) {
+		return prefixed(value.name());
+	}
 
 	default Configuration prefixed(String keyPrefix) {
 		Require.nonEmpty(keyPrefix);
