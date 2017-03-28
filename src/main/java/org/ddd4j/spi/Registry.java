@@ -11,13 +11,17 @@ import org.ddd4j.value.collection.Configuration;
 
 public abstract class Registry implements Context, ServiceBinder {
 
-	private static class Specific extends Registry {
+	private class Specific extends Registry {
 
-		private final Registry parent;
+		private final Key<?> key;
 
-		Specific(Configuration configuration, Registry parent) {
-			super(configuration);
-			this.parent = Require.nonNull(parent);
+		Specific(Key<?> key) {
+			this.key = Require.nonNull(key);
+		}
+
+		@Override
+		protected Configuration config() {
+			return Registry.this.config().prefixed(key);
 		}
 
 		@Override
@@ -25,28 +29,34 @@ public abstract class Registry implements Context, ServiceBinder {
 			if (hasRegisteredFactory(key)) {
 				return super.get(key);
 			} else {
-				return parent.get(key);
+				return Registry.this.get(key);
 			}
 		}
 
 		@Override
 		public void initializeEager(Key<?> key) {
-			parent.initializeEager(key);
+			Registry.this.initializeEager(key);
 		}
 
 		@Override
 		public void start() {
-			parent.start();
+			Registry.this.start();
 		}
 	}
 
 	private static class Root extends Registry {
 
+		private final Configuration configuration;
 		private final Set<Key<?>> eager;
 
 		Root(Configuration configuration) {
-			super(configuration);
+			this.configuration = Require.nonNull(configuration);
 			this.eager = new HashSet<>();
+		}
+
+		@Override
+		protected Configuration config() {
+			return configuration;
 		}
 
 		@Override
@@ -64,14 +74,12 @@ public abstract class Registry implements Context, ServiceBinder {
 		return new Root(configuration);
 	}
 
-	private final Configuration configuration;
 	private final Map<Key<?>, Registry> specifics;
 	private final Map<Key<?>, ServiceFactory<?>> factories;
 	@SuppressWarnings("rawtypes")
 	private final Cache.Aside<Key, Object> instances;
 
-	protected Registry(Configuration configuration) {
-		this.configuration = Require.nonNull(configuration);
+	protected Registry() {
 		this.specifics = new HashMap<>();
 		this.factories = new HashMap<>();
 		this.instances = Cache.sharedOnEqualKey();
@@ -82,7 +90,7 @@ public abstract class Registry implements Context, ServiceBinder {
 		@SuppressWarnings("resource")
 		Registry current = this;
 		for (Key<?> target : path) {
-			current = current.specifics.computeIfAbsent(target, t -> new Specific(configuration.prefixed(t), this));
+			current = current.specifics.computeIfAbsent(target, Specific::new);
 		}
 		current.factories.put(key, factory);
 	}
@@ -93,9 +101,11 @@ public abstract class Registry implements Context, ServiceBinder {
 		specifics.values().forEach(Context::close);
 	}
 
+	protected abstract Configuration config();
+
 	private <T> T createService(Key<T> key) throws Exception {
 		Registry context = specifics.getOrDefault(key, this);
-		Configuration config = configuration.prefixed(key.name());
+		Configuration config = config().prefixed(key);
 		return factory(key).create(context, config);
 	}
 
