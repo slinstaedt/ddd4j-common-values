@@ -4,12 +4,15 @@ import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Schema;
+import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Uncommitted;
 import org.reactivestreams.Subscriber;
 
 public interface Log {
+
+	Key<Log> KEY = Key.of(Log.class);
 
 	interface Committer<K, V> {
 

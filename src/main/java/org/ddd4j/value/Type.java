@@ -81,7 +81,7 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 
 	public static <T> Type<T> ofInstance(T object) {
 		@SuppressWarnings("unchecked")
-		Class<T> javaType = (Class<T>) object.getClass();
+		Class<T> javaType = (Class<T>) Require.nonNull(object).getClass();
 		return new Known<>(javaType);
 	}
 
