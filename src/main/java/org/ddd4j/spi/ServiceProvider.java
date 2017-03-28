@@ -13,7 +13,7 @@ public interface ServiceProvider {
 		default void bindServices(ServiceBinder binder) {
 			binder.initializeEager(Key.of(name(), (ctx, conf) -> {
 				ctx.get(ContextProvisioning.KEY).loadRegistered(type()).forEach(r -> {
-					Class<? extends Named> class1 = r.getClass();
+					r.name();
 				});
 				return new Object();
 			}));
