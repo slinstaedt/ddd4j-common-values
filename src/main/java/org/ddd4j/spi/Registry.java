@@ -9,13 +9,13 @@ import org.ddd4j.collection.Cache;
 import org.ddd4j.contract.Require;
 import org.ddd4j.value.collection.Configuration;
 
-public class Registry implements Context, ServiceBinder {
+public abstract class Registry implements Context, ServiceBinder {
 
-	private static class Dependent extends Registry {
+	private static class Specific extends Registry {
 
 		private final Registry parent;
 
-		Dependent(Configuration configuration, Registry parent) {
+		Specific(Configuration configuration, Registry parent) {
 			super(configuration);
 			this.parent = Require.nonNull(parent);
 		}
@@ -28,61 +28,82 @@ public class Registry implements Context, ServiceBinder {
 				return parent.get(key);
 			}
 		}
+
+		@Override
+		public void initializeEager(Key<?> key) {
+			parent.initializeEager(key);
+		}
+
+		@Override
+		public void start() {
+			parent.start();
+		}
+	}
+
+	private static class Root extends Registry {
+
+		private final Set<Key<?>> eager;
+
+		Root(Configuration configuration) {
+			super(configuration);
+			this.eager = new HashSet<>();
+		}
+
+		@Override
+		public void initializeEager(Key<?> key) {
+			eager.add(Require.nonNull(key));
+		}
+
+		@Override
+		public void start() {
+			eager.forEach(this::get);
+		}
+	}
+
+	public static Registry create(Configuration configuration) {
+		return new Root(configuration);
 	}
 
 	private final Configuration configuration;
-	private final Set<Key<?>> eager;
-	@SuppressWarnings("rawtypes")
-	private final Cache.Aside<Key, Object> services;
-	private final Map<Key<?>, Registry> dependents;
+	private final Map<Key<?>, Registry> specifics;
 	private final Map<Key<?>, ServiceFactory<?>> factories;
+	@SuppressWarnings("rawtypes")
+	private final Cache.Aside<Key, Object> instances;
 
-	public Registry(Configuration configuration) {
+	protected Registry(Configuration configuration) {
 		this.configuration = Require.nonNull(configuration);
-		this.eager = new HashSet<>();
-		this.services = Cache.sharedOnEqualKey();
-		this.dependents = new HashMap<>();
+		this.specifics = new HashMap<>();
 		this.factories = new HashMap<>();
+		this.instances = Cache.sharedOnEqualKey();
 	}
 
 	@Override
 	public <T> void bind(Key<T> key, ServiceFactory<? extends T> factory, Key<?>... path) {
-		dependentOfPath(path).factories.put(key, factory);
+		@SuppressWarnings("resource")
+		Registry current = this;
+		for (Key<?> target : path) {
+			current = current.specifics.computeIfAbsent(target, t -> new Specific(configuration.prefixed(t.name()), this));
+		}
+		current.factories.put(key, factory);
 	}
 
 	@Override
 	public void close() {
-		services.evictAll(this::destroyService);
-		dependents.values().forEach(Context::close);
-		dependents.clear();
+		instances.evictAll(this::destroyService);
+		specifics.values().forEach(Context::close);
 	}
 
 	private <T> T createService(Key<T> key) throws Exception {
-		return factoryFor(key).create(this, configuration.prefixed(key.name()));
-	}
-
-	private Registry dependent(Key<?> target) {
-		return dependents.computeIfAbsent(target, t -> new Dependent(configuration.prefixed(target.name()), this));
-	}
-
-	public Context dependentContext(Key<?> key) {
-		return dependents.getOrDefault(key, this);
-	}
-
-	private Registry dependentOfPath(Key<?>... path) {
-		@SuppressWarnings("resource")
-		Registry current = this;
-		for (Key<?> target : path) {
-			current = current.dependent(target);
-		}
-		return current;
+		Registry context = specifics.getOrDefault(key, this);
+		Configuration config = configuration.prefixed(key.name());
+		return factory(key).create(context, config);
 	}
 
 	private <T> void destroyService(Key<T> key, T service) throws Exception {
-		factoryFor(key).destroy(service);
+		factory(key).destroy(service);
 	}
 
-	private <T> ServiceFactory<T> factoryFor(Key<T> key) {
+	private <T> ServiceFactory<T> factory(Key<T> key) {
 		@SuppressWarnings("unchecked")
 		ServiceFactory<T> factory = (ServiceFactory<T>) factories.get(key);
 		if (factory == null) {
@@ -94,23 +115,12 @@ public class Registry implements Context, ServiceBinder {
 	@Override
 	@SuppressWarnings("unchecked")
 	public <T> T get(Key<T> key) {
-		return (T) services.acquire(key, this::createService);
+		return (T) instances.acquire(key, this::createService);
 	}
 
 	protected boolean hasRegisteredFactory(Key<?> key) {
 		return factories.containsKey(key);
 	}
 
-	@Override
-	public void initializeEager(Key<?> key) {
-		eager.add(Require.nonNull(key));
-	}
-
-	public void initializeEagerServices() {
-		eager.forEach(this::get);
-	}
-
-	public Context newDependentContext() {
-		return new Dependent(configuration, this);
-	}
+	public abstract void start();
 }

@@ -22,10 +22,10 @@ public interface ContextProvisioning {
 
 	default Context buildContext(Configuration configuration) {
 		ClassLoader loader = Thread.currentThread().getContextClassLoader();
-		Registry registry = new Registry(configuration);
+		Registry registry = Registry.create(configuration);
 		registry.bind(KEY).toInstance(this);
 		loadRegistered(ServiceProvider.class, loader).forEach(registry::accept);
-		registry.initializeEagerServices();
+		registry.start();
 		return registry;
 	}
 

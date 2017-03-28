@@ -1,22 +1,26 @@
 package org.ddd4j.spi;
 
-import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.ddd4j.value.collection.Configuration;
 
 public interface ServiceProvider {
 
-	interface Eager extends ServiceProvider, Named {
+	interface Registered<R extends Named> extends ServiceProvider, Named {
 
 		@Override
 		default void bindServices(ServiceBinder binder) {
 			binder.initializeEager(Key.of(name(), (ctx, conf) -> {
-				initialize(ctx, conf);
-				return UUID.randomUUID();
+				ctx.get(ContextProvisioning.KEY).loadRegistered(type()).forEach(r -> {
+					Class<? extends Named> class1 = r.getClass();
+				});
+				return new Object();
 			}));
 		}
 
-		void initialize(Context context, Configuration configuration) throws Exception;
+		Consumer<R> configurer(Context context, Configuration configuration);
+
+		Class<? extends R> type();
 	}
 
 	void bindServices(ServiceBinder binder);

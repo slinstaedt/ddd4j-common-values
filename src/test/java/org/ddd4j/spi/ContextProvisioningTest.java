@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.value.collection.Props;
 import org.junit.Assert;
 import org.junit.Before;
@@ -32,14 +31,6 @@ public class ContextProvisioningTest {
 
 		void with(Object any) {
 			registered.add(any);
-		}
-	}
-
-	static class EagerServiceProvider implements ServiceProvider {
-
-		@Override
-		public void bindServices(ServiceBinder binder) {
-			binder.initializeEager(Scheduler.KEY);
 		}
 	}
 

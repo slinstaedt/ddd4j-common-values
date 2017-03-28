@@ -21,8 +21,7 @@ public final class Key<T> implements ServiceFactory<T>, Named {
 	}
 
 	public static <T> Key<T> of(String name, ServiceFactory<? extends T> creator) {
-		return new Key<>(name, creator, t -> {
-		});
+		return new Key<>(name, creator, Object::getClass);
 	}
 
 	private final String name;
