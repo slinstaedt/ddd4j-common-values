@@ -8,9 +8,8 @@ import javax.sql.DataSource;
 import javax.sql.XADataSource;
 
 import org.ddd4j.Require;
-import org.ddd4j.spi.Service;
 
-public interface ConnectionFactory extends Service<ConnectionFactory> {
+public interface ConnectionFactory {
 
 	class ConnectionPoolDataSourceConnectionFactory implements ConnectionFactory {
 
