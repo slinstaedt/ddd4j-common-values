@@ -23,14 +23,14 @@ public interface ServiceBinder {
 
 		default void toDelegate(Key<? extends T> delegationKey) {
 			Require.nonNull(delegationKey);
-			toFactory((ctx, conf) -> ctx.get(delegationKey));
+			toFactory(ctx -> ctx.get(delegationKey));
 		}
 
 		void toFactory(ServiceFactory<? extends T> factory);
 
 		default void toInstance(T instance) {
 			Require.nonNull(instance);
-			toFactory((ctx, conf) -> instance);
+			toFactory(ctx -> instance);
 		}
 	}
 

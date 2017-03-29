@@ -4,7 +4,6 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.value.Named;
-import org.ddd4j.value.collection.Configuration;
 
 //TODO rename to ServiceKey?
 public final class Key<T> implements ServiceFactory<T>, Named {
@@ -18,7 +17,7 @@ public final class Key<T> implements ServiceFactory<T>, Named {
 	}
 
 	public static <T> Key<T> of(String name) {
-		return of(name, (ctx, conf) -> Throwing.<T> unchecked(new AssertionError("No factory is bound for: " + name)));
+		return of(name, ctx -> Throwing.<T> unchecked(new AssertionError("No factory is bound for: " + name)));
 	}
 
 	public static <T> Key<T> of(String name, ServiceFactory<? extends T> creator) {
@@ -36,8 +35,8 @@ public final class Key<T> implements ServiceFactory<T>, Named {
 	}
 
 	@Override
-	public T create(Context context, Configuration configuration) throws Exception {
-		return creator.create(context, configuration);
+	public T create(Context context) throws Exception {
+		return creator.create(context);
 	}
 
 	@Override

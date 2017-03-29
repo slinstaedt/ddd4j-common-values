@@ -83,20 +83,25 @@ public abstract class Registry implements Context, ServiceBinder {
 		@SuppressWarnings("resource")
 		Registry current = this;
 		for (Key<?> target : path) {
-			current = current.children.compute(target.name(), (n, r) -> {
-				if (r == null) {
-					return new Child(config(target), this);
-				} else {
-					throw new IllegalStateException(n + " already registered.");
-				}
-			});
+			current = current.children.compute(target.name(), this::newChild);
 		}
 		current.factories.put(key, factory);
+	}
+
+	private Registry newChild(String name, Registry existing) {
+		if (existing == null) {
+			return new Child(configuration.prefixed(name), this);
+		} else {
+			throw new IllegalStateException(name + " already registered.");
+		}
 	}
 
 	@Override
 	public Registry child(Named value) {
 		Registry child = children.get(value.name());
+		if (child == null && configuration.getString(value.name()).isPresent()) {
+			child = children.compute(value.name(), this::newChild);
+		}
 		return child != null ? child : new Child(config(value), this);
 	}
 
@@ -110,9 +115,14 @@ public abstract class Registry implements Context, ServiceBinder {
 		return configuration.prefixed(value);
 	}
 
+	@Override
+	public Configuration configuration() {
+		return configuration;
+	}
+
 	private <T> T createService(Key<T> key) throws Exception {
 		Registry child = child(key);
-		return factory(key).create(child, child.configuration);
+		return factory(key).create(child);
 	}
 
 	private <T> void destroyService(Key<T> key, T service) throws Exception {

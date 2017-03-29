@@ -2,12 +2,11 @@ package org.ddd4j.spi;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.value.collection.Configuration;
 
 @FunctionalInterface
 public interface ServiceFactory<T> {
 
-	T create(Context context, Configuration configuration) throws Exception;
+	T create(Context context) throws Exception;
 
 	default void destroy(T service) throws Exception {
 	}
@@ -17,8 +16,8 @@ public interface ServiceFactory<T> {
 		return new ServiceFactory<T>() {
 
 			@Override
-			public T create(Context context, Configuration configuration) throws Exception {
-				return ServiceFactory.this.create(context, configuration);
+			public T create(Context context) throws Exception {
+				return ServiceFactory.this.create(context);
 			}
 
 			@Override

@@ -47,7 +47,7 @@ public interface Scheduler extends Executor {
 
 	Configuration.Key<PoolType> POOL_TYPE = Configuration.keyOfEnum(PoolType.class, "pool.type", PoolType.SINGLE_THREADED);
 	Configuration.Key<Integer> POOL_SIZE = Configuration.keyOfInteger("pool.size", Runtime.getRuntime().availableProcessors());
-	Key<Scheduler> KEY = Key.of(Scheduler.class, (ctx, conf) -> conf.get(POOL_TYPE).create(conf.get(POOL_SIZE)));
+	Key<Scheduler> KEY = Key.of(Scheduler.class, ctx -> ctx.conf(POOL_TYPE).create(ctx.conf(POOL_SIZE)));
 
 	default <T> Agent<T> createAgent(T initialState) {
 		return Agent.create(this, initialState);
