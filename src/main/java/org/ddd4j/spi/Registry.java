@@ -1,11 +1,14 @@
 package org.ddd4j.spi;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.ddd4j.Require;
+import org.ddd4j.Throwing;
 import org.ddd4j.collection.Cache;
 import org.ddd4j.value.Named;
 import org.ddd4j.value.collection.Configuration;
@@ -23,10 +26,10 @@ public abstract class Registry implements Context, ServiceBinder {
 
 		@Override
 		public <T> T get(Key<T> key) {
-			if (hasRegisteredFactory(key)) {
-				return super.get(key);
-			} else {
+			if (registeredFactories(key).isEmpty()) {
 				return parent.get(key);
+			} else {
+				return super.get(key);
 			}
 		}
 
@@ -67,15 +70,19 @@ public abstract class Registry implements Context, ServiceBinder {
 
 	private final Configuration configuration;
 	private final Map<String, Registry> children;
-	private final Map<Key<?>, ServiceFactory<?>> factories;
+	private final Map<Key<?>, Set<ServiceFactory<?>>> registered;
 	@SuppressWarnings("rawtypes")
 	private final Cache.Aside<Key, Object> instances;
 
 	protected Registry(Configuration configuration) {
 		this.configuration = Require.nonNull(configuration);
 		this.children = new HashMap<>();
-		this.factories = new HashMap<>();
+		this.registered = new HashMap<>();
 		this.instances = Cache.sharedOnEqualKey();
+	}
+
+	private Registry addChild(Named value) {
+		return children.computeIfAbsent(value.name(), n -> new Child(configuration.prefixed(n), this));
 	}
 
 	@Override
@@ -83,36 +90,28 @@ public abstract class Registry implements Context, ServiceBinder {
 		@SuppressWarnings("resource")
 		Registry current = this;
 		for (Key<?> target : path) {
-			current = current.children.compute(target.name(), this::newChild);
+			current = current.addChild(target);
 		}
-		current.factories.put(key, factory);
-	}
-
-	private Registry newChild(String name, Registry existing) {
-		if (existing == null) {
-			return new Child(configuration.prefixed(name), this);
-		} else {
-			throw new IllegalStateException(name + " already registered.");
-		}
+		current.registered.computeIfAbsent(key, k -> new HashSet<>()).add(Require.nonNull(factory));
 	}
 
 	@Override
 	public Registry child(Named value) {
 		Registry child = children.get(value.name());
-		if (child == null && configuration.getString(value.name()).isPresent()) {
-			child = children.compute(value.name(), this::newChild);
+		if (child == null) {
+			if (configuration.getString(value.name()).isPresent()) {
+				child = addChild(value);
+			} else {
+				child = new Child(configuration.prefixed(value), this);
+			}
 		}
-		return child != null ? child : new Child(config(value), this);
+		return child;
 	}
 
 	@Override
 	public void close() {
-		instances.evictAll(this::destroyService);
 		children.values().forEach(Context::close);
-	}
-
-	private Configuration config(Named value) {
-		return configuration.prefixed(value);
+		instances.evictAll(this::destroyService);
 	}
 
 	@Override
@@ -130,12 +129,28 @@ public abstract class Registry implements Context, ServiceBinder {
 	}
 
 	private <T> ServiceFactory<T> factory(Key<T> key) {
-		@SuppressWarnings("unchecked")
-		ServiceFactory<T> factory = (ServiceFactory<T>) factories.get(key);
-		if (factory == null) {
-			factory = key;
+		return configuredFactory(key).orElseGet(() -> registeredFactory(key));
+	}
+
+	private <T> Optional<ServiceFactory<T>> configuredFactory(Key<T> key) {
+		return configuration.getString(key.name())
+				.map(s -> s.isEmpty() ? null : s)
+				.map(Throwing.applied(Class::forName))
+				.map(Throwing.applied(Class::newInstance))
+				.map(ServiceFactory.class::cast);
+	}
+
+	private <T> ServiceFactory<T> registeredFactory(Key<T> key) {
+		Set<ServiceFactory<T>> factories = registeredFactories(key);
+		switch (factories.size()) {
+		case 0:
+			return key;
+		case 1:
+			return factories.iterator().next();
+		default:
+			throw new IllegalStateException("Multiple factories found in classpath for " + key
+					+ ". Either strip your classpath or select one implementation via configration.");
 		}
-		return factory;
 	}
 
 	@Override
@@ -144,8 +159,10 @@ public abstract class Registry implements Context, ServiceBinder {
 		return (T) instances.acquire(key, this::createService);
 	}
 
-	protected boolean hasRegisteredFactory(Key<?> key) {
-		return factories.containsKey(key);
+	@SuppressWarnings("unchecked")
+	protected <T> Set<ServiceFactory<T>> registeredFactories(Key<?> key) {
+		Set<?> set = registered.getOrDefault(key, Collections.emptySet());
+		return (Set<ServiceFactory<T>>) set;
 	}
 
 	public abstract void start();

@@ -51,7 +51,7 @@ public class ContextProvisioningTest {
 	@Test
 	public void initEagerContext() {
 		AtomicLong value = new AtomicLong(0);
-		Key<Long> eagerKey = Key.of(Long.class, (ctx, conf) -> value.incrementAndGet());
+		Key<Long> eagerKey = Key.of(Long.class, ctx -> value.incrementAndGet());
 		provisioning.withProvider(b -> b.initializeEager(eagerKey));
 
 		provisioning.buildContext(Props.EMTPY);

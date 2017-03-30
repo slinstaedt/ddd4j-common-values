@@ -74,14 +74,6 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 
 	String KEY_DELIMITER = ".";
 
-	static Class<?> classForName(String className) {
-		try {
-			return Class.forName(className);
-		} catch (ClassNotFoundException e) {
-			return Throwing.unchecked(e);
-		}
-	}
-
 	static Key<Boolean> keyOfBoolean(String key, Boolean defaultValue) {
 		return Key.ofStringable(key, defaultValue, Boolean::valueOf);
 	}
@@ -135,7 +127,7 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 	}
 
 	default <X> Optional<Class<? extends X>> getClass(Class<X> baseType, String key) {
-		return getString(key).map(Configuration::classForName).map(c -> c.<X> asSubclass(baseType));
+		return getString(key).map(Throwing.applied(Class::forName)).map(c -> c.<X> asSubclass(baseType));
 	}
 
 	default <E extends Enum<E>> Optional<E> getEnum(Class<E> enumType, String key) {
