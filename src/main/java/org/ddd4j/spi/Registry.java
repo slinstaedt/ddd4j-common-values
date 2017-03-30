@@ -26,7 +26,7 @@ public abstract class Registry implements Context, ServiceBinder {
 
 		@Override
 		public <T> T get(Key<T> key) {
-			if (registeredFactories(key).isEmpty()) {
+			if (boundFactories(key).isEmpty()) {
 				return parent.get(key);
 			} else {
 				return super.get(key);
@@ -70,14 +70,14 @@ public abstract class Registry implements Context, ServiceBinder {
 
 	private final Configuration configuration;
 	private final Map<String, Registry> children;
-	private final Map<Key<?>, Set<ServiceFactory<?>>> registered;
+	private final Map<Key<?>, Set<ServiceFactory<?>>> bound;
 	@SuppressWarnings("rawtypes")
 	private final Cache.Aside<Key, Object> instances;
 
 	protected Registry(Configuration configuration) {
 		this.configuration = Require.nonNull(configuration);
 		this.children = new HashMap<>();
-		this.registered = new HashMap<>();
+		this.bound = new HashMap<>();
 		this.instances = Cache.sharedOnEqualKey();
 	}
 
@@ -92,7 +92,26 @@ public abstract class Registry implements Context, ServiceBinder {
 		for (Key<?> target : path) {
 			current = current.addChild(target);
 		}
-		current.registered.computeIfAbsent(key, k -> new HashSet<>()).add(Require.nonNull(factory));
+		current.bound.computeIfAbsent(key, k -> new HashSet<>()).add(Require.nonNull(factory));
+	}
+
+	@SuppressWarnings("unchecked")
+	protected <T> Set<ServiceFactory<T>> boundFactories(Key<?> key) {
+		Set<?> set = bound.getOrDefault(key, Collections.emptySet());
+		return (Set<ServiceFactory<T>>) set;
+	}
+
+	private <T> ServiceFactory<T> boundFactory(Key<T> key) {
+		Set<ServiceFactory<T>> factories = boundFactories(key);
+		switch (factories.size()) {
+		case 0:
+			return key;
+		case 1:
+			return factories.iterator().next();
+		default:
+			throw new IllegalStateException("Multiple factories found in classpath for " + key
+					+ ". Either strip your classpath or select one implementation via configration.");
+		}
 	}
 
 	@Override
@@ -119,6 +138,14 @@ public abstract class Registry implements Context, ServiceBinder {
 		return configuration;
 	}
 
+	private <T> Optional<ServiceFactory<T>> configuredFactory(Key<T> key) {
+		return configuration.getString(key.name())
+				.map(s -> s.isEmpty() ? null : s)
+				.map(Throwing.applied(Class::forName))
+				.map(Throwing.applied(Class::newInstance))
+				.map(ServiceFactory.class::cast);
+	}
+
 	private <T> T createService(Key<T> key) throws Exception {
 		Registry child = child(key);
 		return factory(key).create(child);
@@ -129,40 +156,13 @@ public abstract class Registry implements Context, ServiceBinder {
 	}
 
 	private <T> ServiceFactory<T> factory(Key<T> key) {
-		return configuredFactory(key).orElseGet(() -> registeredFactory(key));
-	}
-
-	private <T> Optional<ServiceFactory<T>> configuredFactory(Key<T> key) {
-		return configuration.getString(key.name())
-				.map(s -> s.isEmpty() ? null : s)
-				.map(Throwing.applied(Class::forName))
-				.map(Throwing.applied(Class::newInstance))
-				.map(ServiceFactory.class::cast);
-	}
-
-	private <T> ServiceFactory<T> registeredFactory(Key<T> key) {
-		Set<ServiceFactory<T>> factories = registeredFactories(key);
-		switch (factories.size()) {
-		case 0:
-			return key;
-		case 1:
-			return factories.iterator().next();
-		default:
-			throw new IllegalStateException("Multiple factories found in classpath for " + key
-					+ ". Either strip your classpath or select one implementation via configration.");
-		}
+		return configuredFactory(key).orElseGet(() -> boundFactory(key));
 	}
 
 	@Override
 	@SuppressWarnings("unchecked")
 	public <T> T get(Key<T> key) {
 		return (T) instances.acquire(key, this::createService);
-	}
-
-	@SuppressWarnings("unchecked")
-	protected <T> Set<ServiceFactory<T>> registeredFactories(Key<?> key) {
-		Set<?> set = registered.getOrDefault(key, Collections.emptySet());
-		return (Set<ServiceFactory<T>>) set;
 	}
 
 	public abstract void start();
