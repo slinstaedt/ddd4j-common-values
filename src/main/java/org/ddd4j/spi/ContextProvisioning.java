@@ -24,7 +24,7 @@ public interface ContextProvisioning {
 		ClassLoader loader = Thread.currentThread().getContextClassLoader();
 		Registry registry = Registry.create(configuration);
 		registry.bind(KEY).toInstance(this);
-		loadRegistered(ServiceProvider.class, loader).forEach(registry::accept);
+		loadRegistered(ServiceConfigurer.class, loader).forEach(registry::accept);
 		registry.start();
 		return registry;
 	}

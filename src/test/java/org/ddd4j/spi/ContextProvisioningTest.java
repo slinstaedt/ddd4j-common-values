@@ -25,8 +25,8 @@ public class ContextProvisioningTest {
 			return registered.stream().filter(type::isInstance).map(type::cast).collect(Collectors.toList());
 		}
 
-		void withProvider(ServiceProvider provider) {
-			registered.add(provider);
+		void withConfigurer(ServiceConfigurer configurer) {
+			registered.add(configurer);
 		}
 
 		void with(Object any) {
@@ -52,7 +52,7 @@ public class ContextProvisioningTest {
 	public void initEagerContext() {
 		AtomicLong value = new AtomicLong(0);
 		Key<Long> eagerKey = Key.of(Long.class, ctx -> value.incrementAndGet());
-		provisioning.withProvider(b -> b.initializeEager(eagerKey));
+		provisioning.withConfigurer(b -> b.initializeEager(eagerKey));
 
 		provisioning.buildContext(Props.EMTPY);
 

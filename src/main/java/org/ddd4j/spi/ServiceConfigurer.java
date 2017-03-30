@@ -6,9 +6,9 @@ import org.ddd4j.value.Named;
 import org.ddd4j.value.Type;
 import org.ddd4j.value.Type.Variable;
 
-public interface ServiceProvider {
+public interface ServiceConfigurer {
 
-	interface Registered<R extends Named> extends ServiceProvider, Named {
+	interface Registered<R extends Named> extends ServiceConfigurer, Named {
 
 		@Override
 		default void bindServices(ServiceBinder binder) {

@@ -4,12 +4,12 @@ import java.util.function.Consumer;
 
 import org.ddd4j.log.Log;
 import org.ddd4j.spi.Context;
-import org.ddd4j.spi.ServiceProvider;
+import org.ddd4j.spi.ServiceConfigurer;
 import org.ddd4j.value.Named;
 
 public interface AggregateConfigurer extends Named {
 
-	class AggregateServiceProvider implements ServiceProvider.Registered<AggregateConfigurer> {
+	class AggregateServiceProvider implements ServiceConfigurer.Registered<AggregateConfigurer> {
 
 		@Override
 		public Consumer<AggregateConfigurer> configurer(Context context) {
