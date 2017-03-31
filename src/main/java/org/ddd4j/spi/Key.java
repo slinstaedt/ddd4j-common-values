@@ -17,7 +17,7 @@ public final class Key<T> implements ServiceFactory<T>, Named {
 	}
 
 	public static <T> Key<T> of(String name) {
-		return of(name, ctx -> Throwing.<T> unchecked(new AssertionError("No factory is bound for: " + name)));
+		return of(name, ctx -> Throwing.of(AssertionError::new).throwChecked("No factory is bound for key: " + name));
 	}
 
 	public static <T> Key<T> of(String name, ServiceFactory<? extends T> creator) {

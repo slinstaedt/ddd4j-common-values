@@ -138,6 +138,7 @@ public interface Cache<K, V> {
 						try {
 							futures.put(task.get(), task);
 						} catch (Exception e) {
+							Throwing.unchecked(e);
 						}
 					}
 				}

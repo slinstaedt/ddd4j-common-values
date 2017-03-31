@@ -4,10 +4,8 @@ import java.util.function.Consumer;
 
 import org.ddd4j.log.Log;
 import org.ddd4j.spi.Context;
-import org.ddd4j.spi.ContextProvisioning;
 import org.ddd4j.spi.ServiceConfigurer;
 import org.ddd4j.value.Named;
-import org.ddd4j.value.collection.Props;
 
 public interface AggregateConfigurer extends Named {
 
@@ -20,8 +18,4 @@ public interface AggregateConfigurer extends Named {
 	}
 
 	void configure(Log log);
-
-	public static void main(String[] args) {
-		Context context = ContextProvisioning.byJavaServiceLoader().createContext(Props.EMTPY);
-	}
 }

@@ -11,6 +11,6 @@ public interface Named {
 	}
 
 	default String name() {
-		return decapitalize(getClass().getTypeName());
+		return decapitalize(getClass().getSimpleName());
 	}
 }

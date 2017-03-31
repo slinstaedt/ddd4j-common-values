@@ -287,7 +287,7 @@ public interface Throwing {
 	}
 
 	@SuppressWarnings("unchecked")
-	static <X, E extends Exception> X any(Throwable throwable) throws E {
+	static <X, E extends Throwable> X any(Throwable throwable) throws E {
 		Require.nonNull(throwable);
 		throw (E) throwable;
 	}
@@ -356,7 +356,8 @@ public interface Throwing {
 	Throwable createException(String message);
 
 	default String formatMessage(Object... args) {
-		return Arrays.toString(args);
+		String formatted = Arrays.toString(args);
+		return formatted.substring(1, formatted.length() - 1);
 	}
 
 	default <X> X throwChecked(Object... args) throws Exception {
