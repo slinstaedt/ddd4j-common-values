@@ -20,7 +20,7 @@ public interface ContextProvisioning {
 		return new JavaServiceLoader();
 	}
 
-	default Context buildContext(Configuration configuration) {
+	default Context createContext(Configuration configuration) {
 		ClassLoader loader = Thread.currentThread().getContextClassLoader();
 		Registry registry = Registry.create(configuration);
 		registry.bind(KEY).toInstance(this);

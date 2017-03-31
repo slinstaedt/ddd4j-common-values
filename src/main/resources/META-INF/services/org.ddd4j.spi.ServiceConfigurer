@@ -1,1 +1,1 @@
-org.ddd4j.aggregate.AggregateServiceProvider
+org.ddd4j.aggregate.AggregateConfigurer$AggregateServiceConfigurer

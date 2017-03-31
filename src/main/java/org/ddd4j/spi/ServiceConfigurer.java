@@ -8,7 +8,7 @@ import org.ddd4j.value.Type.Variable;
 
 public interface ServiceConfigurer {
 
-	interface Registered<R extends Named> extends ServiceConfigurer, Named {
+	interface Registered<C extends Named> extends ServiceConfigurer, Named {
 
 		@Override
 		default void bindServices(ServiceBinder binder) {
@@ -18,10 +18,10 @@ public interface ServiceConfigurer {
 			}));
 		}
 
-		Consumer<R> configurer(Context context);
+		Consumer<C> configurer(Context context);
 
-		default Class<? extends R> type() {
-			Variable<Registered<R>, R> var = Type.variable(Registered.class, 0, Named.class);
+		default Class<? extends C> type() {
+			Variable<Registered<C>, C> var = Type.variable(Registered.class, 0, Named.class);
 			return Type.ofInstance(this).resolve(var).getRawType();
 		}
 	}

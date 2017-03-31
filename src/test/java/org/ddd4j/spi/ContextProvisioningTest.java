@@ -43,7 +43,7 @@ public class ContextProvisioningTest {
 
 	@Test
 	public void initSimpleContext() {
-		Context context = provisioning.buildContext(Props.EMTPY);
+		Context context = provisioning.createContext(Props.EMTPY);
 
 		Assert.assertNotNull(context.get(ContextProvisioning.KEY));
 	}
@@ -54,7 +54,7 @@ public class ContextProvisioningTest {
 		Key<Long> eagerKey = Key.of(Long.class, ctx -> value.incrementAndGet());
 		provisioning.withConfigurer(b -> b.initializeEager(eagerKey));
 
-		provisioning.buildContext(Props.EMTPY);
+		provisioning.createContext(Props.EMTPY);
 
 		Assert.assertEquals(1, value.get());
 	}
