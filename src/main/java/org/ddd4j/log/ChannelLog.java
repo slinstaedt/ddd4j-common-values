@@ -8,6 +8,7 @@ import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.Channel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Committer;
+import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
 
 public class ChannelLog {
@@ -36,6 +37,8 @@ public class ChannelLog {
 			subscriptions.getOrDefault(topic, ChannelPublisher.VOID).saveRevisions(partitions);
 		}
 	}
+
+	public static final Key<ChannelLog> KEY = Key.of(ChannelLog.class, ctx -> new ChannelLog(ctx.get(Channel.KEY)));
 
 	private final Channel channel;
 	private final Map<ResourceDescriptor, ChannelPublisher> subscriptions;

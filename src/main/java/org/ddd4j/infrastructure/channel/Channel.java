@@ -10,6 +10,7 @@ import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.spi.Key;
 import org.ddd4j.value.math.Ordered.Comparison;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
@@ -186,6 +187,8 @@ public class Channel implements Closeable {
 			}
 		}
 	}
+
+	public static final Key<Channel> KEY = Key.of(Channel.class);
 
 	private final ColdChannel coldChannel;
 	private final HotChannel hotChannel;
