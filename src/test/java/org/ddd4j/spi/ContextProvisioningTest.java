@@ -1,9 +1,6 @@
 package org.ddd4j.spi;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 import org.ddd4j.value.collection.Props;
 import org.junit.Assert;
@@ -11,28 +8,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class ContextProvisioningTest {
-
-	static class TestProvisioning implements ContextProvisioning {
-
-		private final List<Object> registered;
-
-		TestProvisioning() {
-			this.registered = new ArrayList<>();
-		}
-
-		@Override
-		public <T> Iterable<T> loadRegistered(Class<T> type, ClassLoader loader) {
-			return registered.stream().filter(type::isInstance).map(type::cast).collect(Collectors.toList());
-		}
-
-		void withConfigurer(ServiceConfigurer configurer) {
-			registered.add(configurer);
-		}
-
-		void with(Object any) {
-			registered.add(any);
-		}
-	}
 
 	private TestProvisioning provisioning;
 
