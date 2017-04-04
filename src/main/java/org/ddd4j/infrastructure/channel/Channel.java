@@ -2,6 +2,7 @@ package org.ddd4j.infrastructure.channel;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.ddd4j.Require;
@@ -50,7 +51,7 @@ public class Channel implements Closeable {
 
 		@Override
 		public void unsubscribe(ResourceDescriptor topic) {
-			subscriptions.unsubscribeIfNeeded(topic, () -> hotCallback.unsubscribe(topic));
+			subscriptions.unsubscribeIfNeeded(topic, hotCallback::unsubscribe);
 		}
 	}
 
@@ -66,8 +67,8 @@ public class Channel implements Closeable {
 			this.callback = channel.register(this);
 		}
 
-		ColdChannel.Callback callback(Closeable hotCloser) {
-			this.closer = Require.nonNull(hotCloser);
+		ColdChannel.Callback callback(HotListener hotListener) {
+			this.closer = Require.nonNull(hotListener);
 			return callback;
 		}
 
@@ -104,8 +105,8 @@ public class Channel implements Closeable {
 			this.callback = channel.register(this);
 		}
 
-		HotChannel.Callback callback(Closeable coldCloser) {
-			this.closer = Require.nonNull(coldCloser);
+		HotChannel.Callback callback(ColdListener coldListener) {
+			this.closer = Require.nonNull(coldListener);
 			return callback;
 		}
 
@@ -149,7 +150,7 @@ public class Channel implements Closeable {
 			this.hotRevisions = new ConcurrentHashMap<>();
 		}
 
-		public void clear() {
+		void clear() {
 			hotRevisions.clear();
 		}
 
@@ -181,9 +182,9 @@ public class Channel implements Closeable {
 			return hotRevisions.computeIfAbsent(topic, subscriber).handleSuccess(Revisions::getPartitionSize);
 		}
 
-		void unsubscribeIfNeeded(ResourceDescriptor topic, Runnable unsubscriber) {
+		void unsubscribeIfNeeded(ResourceDescriptor topic, Consumer<ResourceDescriptor> unsubscriber) {
 			if (hotRevisions.remove(topic) != null) {
-				unsubscriber.run();
+				unsubscriber.accept(topic);
 			}
 		}
 	}

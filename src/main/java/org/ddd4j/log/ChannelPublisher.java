@@ -162,7 +162,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 			subscriptions.computeIfAbsent(subscriber, s -> new ChannelSubscription(s, callback, partitionSize));
 		} catch (Exception e) {
 			subscriber.onError(e);
-			latest.destroy(Revisions::hashCode);
+			latest.destroy(Revisions::getClass);
 		}
 	}
 

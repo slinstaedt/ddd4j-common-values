@@ -8,7 +8,7 @@ import org.ddd4j.spi.Key;
 
 public interface SchemaFactory {
 
-	Key<SchemaFactory> KEY = Key.of(SchemaFactory.class, creator);
+	Key<SchemaFactory> KEY = Key.of(SchemaFactory.class);
 
 	static Class<?> classForName(String className, TFunction<? super ClassNotFoundException, Class<?>> notFound) {
 		try {
