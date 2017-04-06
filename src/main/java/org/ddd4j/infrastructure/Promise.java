@@ -1,5 +1,7 @@
 package org.ddd4j.infrastructure;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -108,6 +110,20 @@ public interface Promise<T> {
 
 	default T join() {
 		return toCompletionStage().toCompletableFuture().join();
+	}
+
+	default Promise<T> ordered() {
+		return new Promise<T>() {
+
+			final List<BiFunction<Executor, CompletionStage<T>, CompletionStage<?>>> jobs = new ArrayList<>();
+
+			@Override
+			public <X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
+				jobs.add(Require.nonNull(fn));
+				// TODO Auto-generated method stub
+				return null;
+			}
+		};
 	}
 
 	default Promise<?> runAfterAll(Stream<Promise<?>> others) {

@@ -45,12 +45,13 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 			Supplier<Consumer<byte[], byte[]>> consumerFactory) {
 		this.scheduler = Require.nonNull(scheduler);
 		this.producer = new Lazy<>(producerFactory::get, Producer::close);
-		this.lazyListener = new LazyListener<>(l -> new KafkaCallback(scheduler, consumerFactory.get(), l, l));
+		this.lazyListener = new LazyListener<>(l -> new KafkaCallback(scheduler, consumerFactory.get(), l, l), KafkaCallback::close);
 	}
 
 	@Override
 	public void closeChecked() {
-		producer.destroy();
+		producer.closeChecked();
+		lazyListener.closeChecked();
 	}
 
 	@Override

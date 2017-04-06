@@ -1,8 +1,9 @@
 package org.ddd4j.infrastructure.channel;
 
-import java.util.function.Function;
-
 import org.ddd4j.Require;
+import org.ddd4j.Throwing.Closeable;
+import org.ddd4j.Throwing.TConsumer;
+import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
@@ -11,15 +12,10 @@ import org.ddd4j.value.collection.Ref;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
-public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> implements ChannelListener, PartitionRebalanceListener {
+public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback>
+		implements ChannelListener, PartitionRebalanceListener, Closeable {
 
 	private class LazyColdCallback implements ColdChannel.Callback {
-
-		@Override
-		public void closeChecked() throws Exception {
-			coldDelegate.unset();
-			hotDelegate.ifNotPresent(callbackDelegate::destroy);
-		}
 
 		@Override
 		public void seek(ResourceDescriptor topic, Revision revision) {
@@ -33,12 +29,6 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> 
 	}
 
 	private class LazyHotCallback implements HotChannel.Callback {
-
-		@Override
-		public void closeChecked() throws Exception {
-			hotDelegate.unset();
-			coldDelegate.ifNotPresent(callbackDelegate::destroy);
-		}
 
 		@Override
 		public Promise<Integer> subscribe(ResourceDescriptor topic) {
@@ -63,9 +53,9 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> 
 	private final Ref<ColdChannel.Listener> coldDelegate;
 	private final Ref<HotChannel.Listener> hotDelegate;
 
-	public LazyListener(Function<LazyListener<C>, C> delegateFactory) {
-		Require.nonNull(delegateFactory);
-		this.callbackDelegate = new Lazy<>(() -> delegateFactory.apply(this), C::closeChecked);
+	public LazyListener(TFunction<LazyListener<C>, C> delegateFactory, TConsumer<C> delegateDestructor) {
+		Require.nonNullElements(delegateFactory, delegateDestructor);
+		this.callbackDelegate = new Lazy<>(() -> delegateFactory.apply(this), delegateDestructor);
 		this.coldDelegate = Ref.createThreadsafe();
 		this.hotDelegate = Ref.createThreadsafe();
 	}
@@ -78,6 +68,13 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback> 
 	public HotChannel.Callback assign(HotChannel.Listener listener) {
 		hotDelegate.updateAndGet(l -> ensureNull(l, listener));
 		return new LazyHotCallback();
+	}
+
+	@Override
+	public void closeChecked() {
+		coldDelegate.unset();
+		hotDelegate.unset();
+		callbackDelegate.closeChecked();
 	}
 
 	public boolean isNotBothAssigned() {

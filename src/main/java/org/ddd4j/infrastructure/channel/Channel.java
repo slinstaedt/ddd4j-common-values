@@ -33,13 +33,6 @@ public class Channel implements Closeable {
 			this.hotCallback = Require.nonNull(hotCallback);
 		}
 
-		@Override
-		public void closeChecked() throws Exception {
-			subscriptions.clear();
-			coldCallback.closeChecked();
-			hotCallback.closeChecked();
-		}
-
 		public void seek(ResourceDescriptor topic, Revision revision) {
 			coldCallback.seek(topic, revision);
 		}
@@ -55,7 +48,7 @@ public class Channel implements Closeable {
 		}
 	}
 
-	private static class ColdListener implements ColdChannel.Listener, Closeable {
+	private static class ColdListener implements ColdChannel.Listener {
 
 		private final Subscriptions subscriptions;
 		private final ColdChannel.Callback callback;
@@ -65,16 +58,6 @@ public class Channel implements Closeable {
 		ColdListener(Subscriptions subscriptions, ColdChannel channel) {
 			this.subscriptions = Require.nonNull(subscriptions);
 			this.callback = channel.register(this);
-		}
-
-		ColdChannel.Callback callback(HotListener hotListener) {
-			this.closer = Require.nonNull(hotListener);
-			return callback;
-		}
-
-		@Override
-		public void closeChecked() throws Exception {
-			callback.closeChecked();
 		}
 
 		@Override
@@ -93,7 +76,7 @@ public class Channel implements Closeable {
 		}
 	}
 
-	private static class HotListener implements HotChannel.Listener, Closeable {
+	private static class HotListener implements HotChannel.Listener {
 
 		private final Subscriptions subscriptions;
 		private final HotChannel.Callback callback;
@@ -103,16 +86,6 @@ public class Channel implements Closeable {
 		HotListener(Subscriptions subscriptions, HotChannel channel) {
 			this.subscriptions = Require.nonNull(subscriptions);
 			this.callback = channel.register(this);
-		}
-
-		HotChannel.Callback callback(ColdListener coldListener) {
-			this.closer = Require.nonNull(coldListener);
-			return callback;
-		}
-
-		@Override
-		public void closeChecked() throws Exception {
-			callback.closeChecked();
 		}
 
 		@Override
@@ -148,10 +121,6 @@ public class Channel implements Closeable {
 		Subscriptions(Listener listener) {
 			this.listener = Require.nonNull(listener);
 			this.hotRevisions = new ConcurrentHashMap<>();
-		}
-
-		void clear() {
-			hotRevisions.clear();
 		}
 
 		void closeCallbacksAndDelegate(Closeable otherCallback, Throwable throwable) {
@@ -210,7 +179,7 @@ public class Channel implements Closeable {
 		Subscriptions subscriptions = new Subscriptions(listener);
 		ColdListener coldListener = new ColdListener(subscriptions, coldChannel);
 		HotListener hotListener = new HotListener(subscriptions, hotChannel);
-		return new Callback(subscriptions, coldListener.callback(hotListener), hotListener.callback(coldListener));
+		return new Callback(subscriptions, coldListener.callback, hotListener.callback);
 	}
 
 	// TODO allow sending with locking?

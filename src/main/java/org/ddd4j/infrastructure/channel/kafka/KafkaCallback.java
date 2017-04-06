@@ -97,8 +97,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 		this.rescheduler = scheduler.reschedulerFor(this);
 	}
 
-	@Override
-	public void closeChecked() {
+	void close() {
 		client.perform(Consumer::close);
 	}
 

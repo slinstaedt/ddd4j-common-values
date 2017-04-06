@@ -8,7 +8,7 @@ import org.ddd4j.value.versioned.Committed;
 
 public interface HotChannel extends Closeable {
 
-	interface Callback extends Closeable {
+	interface Callback {
 
 		Promise<Integer> subscribe(ResourceDescriptor topic);
 

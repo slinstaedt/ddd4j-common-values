@@ -10,7 +10,7 @@ import org.ddd4j.value.versioned.Uncommitted;
 
 public interface ColdChannel extends Closeable {
 
-	interface Callback extends Closeable {
+	interface Callback {
 
 		void seek(ResourceDescriptor topic, Revision revision);
 
