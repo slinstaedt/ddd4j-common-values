@@ -57,8 +57,8 @@ public interface Scheduler extends Executor {
 		return AgentInvocationHandler.create(this, type, initialState);
 	}
 
-	default <T> Deferred<T> createDeferredPromise() {
-		return new Deferred<>(this);
+	default <T> Promise.Deferred<T> createDeferredPromise() {
+		return new Promise.Deferred<>(this);
 	}
 
 	default <T> Promise<T> createOutcome(CompletionStage<T> stage) {
@@ -94,7 +94,7 @@ public interface Scheduler extends Executor {
 	}
 
 	default <T> Promise<T> schedule(Producer<T> producer, long delay, TimeUnit unit) {
-		Deferred<T> deferred = new Deferred<>(this);
+		Promise.Deferred<T> deferred = new Promise.Deferred<>(this);
 		execute(() -> {
 			long remaining = unit.toMillis(delay);
 			while (remaining > 0) {

@@ -23,8 +23,56 @@ import org.ddd4j.Throwing.TPredicate;
 
 public interface Promise<T> {
 
-	// FIXME memory leak?
-	Promise<Void> COMPLETED = completed(null);
+	class Deferred<T> implements Promise<T> {
+
+		private final Executor executor;
+		private final CompletableFuture<T> future;
+
+		public Deferred(Executor executor) {
+			this(executor, new CompletableFuture<>());
+		}
+
+		Deferred(Executor executor, CompletableFuture<T> future) {
+			this.executor = Require.nonNull(executor);
+			this.future = Require.nonNull(future);
+		}
+
+		@Override
+		public <X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
+			return of(executor, fn.apply(executor, future));
+		}
+
+		public boolean cancel(boolean mayInterruptIfRunning) {
+			return future.cancel(mayInterruptIfRunning);
+		}
+
+		public void complete(T value, Throwable exception) {
+			if (value != null && exception == null) {
+				completeSuccessfully(value);
+			} else if (exception != null && value == null) {
+				completeExceptionally(exception);
+			} else {
+				throw new IllegalArgumentException("Value: " + value + ", Throwable: " + exception);
+			}
+		}
+
+		public void completeExceptionally(Throwable exception) {
+			future.completeExceptionally(exception);
+		}
+
+		public void completeSuccessfully(T value) {
+			future.complete(value);
+		}
+
+		@Override
+		public CompletionStage<T> toCompletionStage() {
+			return future;
+		}
+	}
+
+	static Promise<Void> completed() {
+		return completed(null);
+	};
 
 	static <T> Promise<T> completed(T value) {
 		CompletableFuture<T> future = new CompletableFuture<>();
@@ -32,14 +80,14 @@ public interface Promise<T> {
 		return of(Runnable::run, future);
 	}
 
+	static <T> Deferred<T> deferred(Executor executor) {
+		return new Deferred<>(executor);
+	}
+
 	static <T> Promise<T> failed(Throwable exception) {
 		CompletableFuture<T> future = new CompletableFuture<>();
 		future.completeExceptionally(exception);
 		return of(Runnable::run, future);
-	}
-
-	static <T> Promise<T> never() {
-		return of(Runnable::run, new CompletableFuture<>());
 	}
 
 	static <T> Promise<T> of(Executor executor, CompletionStage<T> stage) {
@@ -113,15 +161,15 @@ public interface Promise<T> {
 	}
 
 	default Promise<T> ordered() {
+		List<Runnable> jobs = new ArrayList<>();
+		whenComplete((t, ex) -> jobs.forEach(Runnable::run));
 		return new Promise<T>() {
-
-			final List<BiFunction<Executor, CompletionStage<T>, CompletionStage<?>>> jobs = new ArrayList<>();
 
 			@Override
 			public <X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
-				jobs.add(Require.nonNull(fn));
-				// TODO Auto-generated method stub
-				return null;
+				Deferred<X> deferred = deferred(Runnable::run);
+				jobs.add(() -> Promise.this.apply(fn).whenComplete(deferred::complete));
+				return deferred;
 			}
 		};
 	}

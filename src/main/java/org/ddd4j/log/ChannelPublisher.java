@@ -118,7 +118,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		subscriptions.values()
 				.stream()
 				.map((s -> s.loadRevisions(partitions)))
-				.reduce(Promise.COMPLETED, Promise::runAfterBoth)
+				.reduce(Promise.completed(), Promise::runAfterBoth)
 				.thenReturnValue(partitions)
 				.whenCompleteSuccessfully(this::seekIfNecessary);
 	}
@@ -135,7 +135,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 	}
 
 	void saveRevisions(int[] partitions) {
-		subscriptions.values().stream().map(s -> s.saveRevisions(partitions)).reduce(Promise.COMPLETED, Promise::runAfterBoth).join();
+		subscriptions.values().stream().map(s -> s.saveRevisions(partitions)).reduce(Promise.completed(), Promise::runAfterBoth).join();
 	}
 
 	private void seek(Revision revision) {

@@ -15,7 +15,6 @@ import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdChannel;
 import org.ddd4j.infrastructure.channel.HotChannel;
 import org.ddd4j.infrastructure.channel.LazyListener;
-import org.ddd4j.infrastructure.scheduler.Deferred;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.Lazy;
@@ -73,7 +72,7 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 
 	@Override
 	public Promise<CommitResult<ReadBuffer, ReadBuffer>> trySend(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
-		Deferred<CommitResult<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
+		Promise.Deferred<CommitResult<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
 		producer.get().send(convert(topic, attempt), (metadata, exception) -> {
 			if (metadata != null) {
 				Revision nextExpected = new Revision(metadata.partition(), metadata.offset() + 1);
