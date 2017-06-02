@@ -7,6 +7,7 @@ public interface Context extends AutoCloseable {
 
 	Context child(Named value);
 
+	// TODO rename to getConfig?
 	Configuration configuration();
 
 	default <V> V conf(Configuration.Key<V> key) {

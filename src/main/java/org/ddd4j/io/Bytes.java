@@ -472,6 +472,11 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		return new Bytes() {
 
 			@Override
+			public void close() {
+				Bytes.this.close();
+			}
+
+			@Override
 			public byte get(int index) {
 				return Bytes.this.get(offset + index);
 			}

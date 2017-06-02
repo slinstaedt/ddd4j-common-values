@@ -11,8 +11,8 @@ import org.ddd4j.value.behavior.Reaction;
 import org.ddd4j.value.collection.Map;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Recorded;
-import org.ddd4j.value.versioned.Uncommitted;
 import org.ddd4j.value.versioned.Revisions;
+import org.ddd4j.value.versioned.Uncommitted;
 
 public class Session {
 
@@ -38,7 +38,7 @@ public class Session {
 			this.changes = Require.nonNull(changes);
 		}
 
-		public <E, X> Tracked<X> record(E event, Function<Uncommitted<E>, X> handler) {
+		public <E, X> Tracked<X> record(E event, Function<Uncommitted<Identifier, E>, X> handler) {
 			X updatedState = handler.apply(Recorded.uncommitted(identifier, event));
 			return new Tracked<>(identifier, expected, updatedState, changes.appendAny().entry(event));
 		}
