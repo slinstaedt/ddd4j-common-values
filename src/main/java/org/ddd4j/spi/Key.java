@@ -8,11 +8,11 @@ import org.ddd4j.value.Named;
 //TODO rename to ServiceKey?
 public final class Key<T> implements ServiceFactory<T>, Named {
 
-	public static <T> Key<T> of(Class<T> serviceType) {
+	public static <T> Key<T> of(Class<? extends T> serviceType) {
 		return of(Named.decapitalize(serviceType.getSimpleName()));
 	}
 
-	public static <T> Key<T> of(Class<T> serviceType, ServiceFactory<? extends T> creator) {
+	public static <T> Key<T> of(Class<? extends T> serviceType, ServiceFactory<? extends T> creator) {
 		return of(Named.decapitalize(serviceType.getSimpleName()), creator);
 	}
 
