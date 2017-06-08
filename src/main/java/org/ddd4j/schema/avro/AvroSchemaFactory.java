@@ -43,7 +43,7 @@ public class AvroSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public Schema<?> readSchema(ReadBuffer buffer) throws IOException {
+	public Schema<?> readSchema(ReadBuffer buffer) {
 		return AvroSchema.deserialize(this, buffer);
 	}
 

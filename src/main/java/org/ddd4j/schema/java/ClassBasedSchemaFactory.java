@@ -1,6 +1,5 @@
 package org.ddd4j.schema.java;
 
-import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
@@ -80,7 +79,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public Schema<?> readSchema(ReadBuffer buffer) throws IOException {
+	public Schema<?> readSchema(ReadBuffer buffer) {
 		return new JavaSchema<>(SchemaFactory.classForName(buffer.getUTF(), Throwing.rethrow()));
 	}
 }

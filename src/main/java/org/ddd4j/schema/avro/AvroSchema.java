@@ -1,7 +1,5 @@
 package org.ddd4j.schema.avro;
 
-import java.io.IOException;
-
 import org.apache.avro.Schema.Parser;
 import org.apache.avro.SchemaCompatibility;
 import org.apache.avro.SchemaCompatibility.SchemaCompatibilityType;
@@ -21,7 +19,7 @@ import org.ddd4j.value.Value;
 
 public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schema> implements Schema<T> {
 
-	static AvroSchema<?> deserialize(AvroSchemaFactory factory, ReadBuffer buffer) throws IOException {
+	static AvroSchema<?> deserialize(AvroSchemaFactory factory, ReadBuffer buffer) {
 		org.apache.avro.Schema writerSchema = new Parser().parse(buffer.getUTF());
 		Class<?> type = factory.getData().getClass(writerSchema);
 		if (type == null || type == Object.class) {
