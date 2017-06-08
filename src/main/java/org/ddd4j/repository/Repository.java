@@ -2,31 +2,60 @@ package org.ddd4j.repository;
 
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.io.WriteBuffer;
+import org.ddd4j.log.RevisionsCallback;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Uncommitted;
+import org.reactivestreams.Subscriber;
 
-public interface Repository {
+public interface Repository<K, V> {
 
-	interface Reader<K, V> {
+	interface Definition<K, V> {
+
+		ResourceDescriptor getDescriptor();
+
+		void serializeKey(WriteBuffer buffer, K key);
+	}
+
+	interface ChannelPublisher<K, V> {
+
+		interface Factory {
+
+			Key<Factory> KEY = Key.of(Factory.class);
+
+			<K, V> ChannelPublisher<K, V> publisher(Definition<K, V> definition);
+		}
+
+		void subscribe(Subscriber<Committed<K, V>> subscriber, RevisionsCallback callback);
+	}
+
+	interface ChannelReader<K, V> {
+
+		interface Factory {
+
+			Key<Factory> KEY = Key.of(Factory.class);
+
+			<K, V> ChannelReader<K, V> reader(Definition<K, V> definition);
+		}
 
 		Promise<Committed<K, V>> get(K key);
 	}
 
-	interface Writer<K, V> {
+	interface ChannelWriter<K, V> {
+
+		interface Factory {
+
+			Key<Factory> KEY = Key.of(Factory.class);
+
+			<K, V> ChannelWriter<K, V> writer(Definition<K, V> definition);
+		}
 
 		Promise<CommitResult<K, V>> put(Uncommitted<K, V> attempt);
 	}
 
-	interface RepositoryDefinition<K, V> {
+	Promise<Committed<K, V>> get(K key);
 
-		ResourceDescriptor name();
-	}
-
-	Key<Repository> KEY = Key.of(Repository.class);
-
-	<K, V> Reader<K, V> reader(RepositoryDefinition<K, V> definition);
-
-	<K, V> Writer<K, V> writer(RepositoryDefinition<K, V> definition);
+	Promise<CommitResult<K, V>> put(Uncommitted<K, V> attempt);
 }

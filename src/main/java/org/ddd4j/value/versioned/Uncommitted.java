@@ -7,6 +7,7 @@ import java.util.function.ToIntFunction;
 import org.ddd4j.Require;
 import org.ddd4j.value.collection.Props;
 
+//TODO rename to Attempt?
 public final class Uncommitted<K, V> implements Recorded<K, V> {
 
 	private final K key;
@@ -35,7 +36,8 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	}
 
 	public CommitResult<K, V> resulting(CommitResult<?, ?> result) {
-		return result.foldResult(committed -> committed(committed.getActual(), committed.getTimestamp()), conflicting -> conflicts(conflicting.getActual()));
+		return result.foldResult(committed -> committed(committed.getActual(), committed.getTimestamp()),
+				conflicting -> conflicts(conflicting.getActual()));
 	}
 
 	@Override

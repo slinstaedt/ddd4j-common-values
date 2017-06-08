@@ -8,6 +8,22 @@ import org.ddd4j.value.Value;
 
 public class Message implements Value<Message> {
 
+	public interface EncodedMessage {
+
+		public enum SchemaEncodingStrategy {
+
+			PER_MESSAGE, IN_BAND, OUT_OF_BAND;
+
+			public static SchemaEncodingStrategy decode(byte b) {
+				return SchemaEncodingStrategy.values()[b];
+			}
+
+			public byte encode() {
+				return (byte) ordinal();
+			}
+		}
+	}
+
 	public static Message serialize(SchemaFactory factory, WriteBuffer buffer, Object body) {
 		Class<Object> type = Type.ofInstance(body).getRawType();
 		Schema<Object> writerSchema = factory.createSchema(type);
