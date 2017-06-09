@@ -39,7 +39,7 @@ public interface Schema<T> extends Value<Schema<T>> {
 
 	boolean compatibleWith(Schema<?> existing);
 
-	<X> Reader<X> createReader(ReadBuffer buffer, Class<X> reader);
+	<X> Reader<X> createReader(ReadBuffer buffer, Class<X> readerType);
 
 	Writer<T> createWriter(WriteBuffer buffer);
 
