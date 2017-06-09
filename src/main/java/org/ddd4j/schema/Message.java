@@ -39,10 +39,10 @@ public class Message implements Value<Message> {
 		this.body = Require.nonNull(body);
 	}
 
-	public <T> T unwrap(Class<T> targetType) {
+	public <T> T unwrap(Class<T> readerType) {
 		body.mark();
 		try {
-			return writerSchema.createReader(body, targetType).read();
+			return writerSchema.createReader(body, readerType).read();
 		} finally {
 			body.reset();
 		}
