@@ -31,9 +31,9 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public <X> Reader<X> createReader(ReadBuffer buffer, Class<X> targetType) {
+		public <X> Reader<X> createReader(ReadBuffer buffer, Class<X> readerType) {
 			ObjectInput in = Throwing.applied(ObjectInputStream::new).apply(buffer.asInputStream());
-			return Throwing.task(in::readObject).map(targetType::cast)::get;
+			return Throwing.task(in::readObject).map(readerType::cast)::get;
 		}
 
 		@Override

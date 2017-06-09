@@ -44,16 +44,16 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 	}
 
 	@Override
-	public <X> Reader<X> createReader(ReadBuffer buffer, Class<X> targetType) {
+	public <X> Reader<X> createReader(ReadBuffer buffer, Class<X> readerType) {
 		DatumReader<?> reader;
-		if (targetType == Record.class) {
+		if (readerType == Record.class) {
 			reader = new GenericDatumReader<>(writerSchema, writerSchema, factory.getData());
 		} else {
-			org.apache.avro.Schema readerSchema = factory.getData().getSchema(targetType);
+			org.apache.avro.Schema readerSchema = factory.getData().getSchema(readerType);
 			reader = factory.getData().createDatumReader(writerSchema, readerSchema);
 		}
 		Decoder decoder = factory.createDecoder(writerSchema, buffer.asInputStream());
-		return () -> targetType.cast(reader.read(null, decoder));
+		return () -> readerType.cast(reader.read(null, decoder));
 	}
 
 	@Override
