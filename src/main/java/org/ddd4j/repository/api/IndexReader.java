@@ -1,4 +1,4 @@
-package org.ddd4j.repository.capability;
+package org.ddd4j.repository.api;
 
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.repository.RepositoryDefinition;
