@@ -4,23 +4,19 @@ import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Type;
-import org.ddd4j.value.Value;
 
-public class Message implements Value<Message> {
+public class Message {
 
-	public interface EncodedMessage {
+	public enum SchemaEncodingStrategy {
 
-		public enum SchemaEncodingStrategy {
+		PER_MESSAGE, IN_BAND, OUT_OF_BAND;
 
-			PER_MESSAGE, IN_BAND, OUT_OF_BAND;
+		public static SchemaEncodingStrategy decode(byte b) {
+			return SchemaEncodingStrategy.values()[b];
+		}
 
-			public static SchemaEncodingStrategy decode(byte b) {
-				return SchemaEncodingStrategy.values()[b];
-			}
-
-			public byte encode() {
-				return (byte) ordinal();
-			}
+		public byte encode() {
+			return (byte) ordinal();
 		}
 	}
 
@@ -48,7 +44,6 @@ public class Message implements Value<Message> {
 		}
 	}
 
-	@Override
 	public void serialize(WriteBuffer buffer) {
 		writerSchema.serialize(buffer);
 		// TODO buffer.put

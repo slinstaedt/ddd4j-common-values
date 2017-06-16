@@ -11,6 +11,9 @@ import org.ddd4j.io.WriteBuffer;
 
 public interface Value<V extends Value<V>> extends Self<V> {
 
+	abstract class Comlex<V extends Comlex<V>> extends Simple<V, Value<?>[]> {
+	}
+
 	abstract class Simple<V extends Value<V>, T> implements Value<V> {
 
 		private transient IntSupplier hasher;

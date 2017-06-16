@@ -2,6 +2,7 @@ package org.ddd4j.repository.api;
 
 import java.util.stream.IntStream;
 
+import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.repository.RepositoryDefinition;
 import org.ddd4j.spi.Key;
@@ -15,7 +16,7 @@ public interface HotPublisher<K, V> extends org.reactivestreams.Publisher<Commit
 	 */
 	interface Listener {
 
-		Listener NONE = new Listener() {
+		Listener IGNORE = new Listener() {
 
 			@Override
 			public Promise<Void> onPartitionsAssigned(IntStream partitions) {
@@ -33,7 +34,7 @@ public interface HotPublisher<K, V> extends org.reactivestreams.Publisher<Commit
 		Promise<Void> onPartitionsRevoked(IntStream partitions);
 	}
 
-	interface Factory {
+	interface Factory extends Throwing.Closeable {
 
 		Key<Factory> KEY = Key.of(Factory.class);
 
@@ -42,7 +43,7 @@ public interface HotPublisher<K, V> extends org.reactivestreams.Publisher<Commit
 
 	@Override
 	default void subscribe(Subscriber<? super Committed<K, V>> subscriber) {
-		subscribe(subscriber, Listener.NONE);
+		subscribe(subscriber, Listener.IGNORE);
 	}
 
 	void subscribe(Subscriber<? super Committed<K, V>> subscriber, Listener listener);
