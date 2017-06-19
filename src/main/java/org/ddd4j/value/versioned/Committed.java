@@ -2,6 +2,7 @@ package org.ddd4j.value.versioned;
 
 import java.time.ZonedDateTime;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
@@ -9,7 +10,24 @@ import org.ddd4j.Require;
 import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.math.Ordered;
 
-public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Ordered<Committed<K, V>> {
+public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Ordered<Committed<K, V>> {
+
+	public static class Published<K, V> extends Committed<K, V> {
+
+		Published(K key, V value, Revision actual, Revision next, ZonedDateTime timestamp, Props header) {
+			super(key, value, actual, next, timestamp, header);
+		}
+
+		@Override
+		public CommitResult<K, V> onCommitted(Consumer<Committed<K, V>> committed) {
+			return this;
+		}
+
+		@Override
+		public CommitResult<K, V> onCommitted(Runnable committed) {
+			return this;
+		}
+	}
 
 	private final K key;
 	private final V value;
@@ -18,7 +36,7 @@ public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>
 	private final ZonedDateTime timestamp;
 	private final Props header;
 
-	public Committed(K key, V value, Revision actual, Revision next, ZonedDateTime timestamp, Props header) {
+	Committed(K key, V value, Revision actual, Revision next, ZonedDateTime timestamp, Props header) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.actual = Require.nonNull(actual);
@@ -85,5 +103,9 @@ public final class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>
 	@Override
 	public int partition(ToIntFunction<? super K> keyHasher) {
 		return actual.getPartition();
+	}
+
+	public Published<K, V> published() {
+		return new Published<>(key, value, actual, nextExpected, timestamp, header);
 	}
 }

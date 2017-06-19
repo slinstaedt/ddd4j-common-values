@@ -189,6 +189,6 @@ public class Channel implements Closeable {
 
 	public Promise<CommitResult<ReadBuffer, ReadBuffer>> trySend(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
 		Promise<CommitResult<ReadBuffer, ReadBuffer>> promise = coldChannel.trySend(topic, attempt);
-		return promise.whenCompleteSuccessfully(r -> r.visitCommitted(c -> hotChannel.send(topic, c)));
+		return promise.whenCompleteSuccessfully(r -> r.onCommitted(c -> hotChannel.send(topic, c)));
 	}
 }

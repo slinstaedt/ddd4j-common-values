@@ -44,7 +44,7 @@ public abstract class ColdChannelTest {
 
 		CommitResult<ReadBuffer, ReadBuffer> result = testUnit.trySend(topic, uncommitted).join();
 
-		result.visitCommitted(c -> revisions.update(c.getNextExpected()));
+		result.onCommitted(c -> revisions.update(c.getNextExpected()));
 		Assert.assertThat(result, CoreMatchers.instanceOf(Committed.class));
 		Assert.assertThat(result.foldResult(c -> c.getNextExpected(), c -> Revision.UNKNOWN_OFFSET),
 				CoreMatchers.is(revisions.revisionOfPartition(0)));

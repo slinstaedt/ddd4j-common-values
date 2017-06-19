@@ -11,7 +11,7 @@ public interface CommitResult<K, V> {
 
 	K getKey();
 
-	default CommitResult<K, V> visitCommitted(Consumer<Committed<K, V>> committed) {
+	default CommitResult<K, V> onCommitted(Consumer<Committed<K, V>> committed) {
 		return foldResult(c -> {
 			committed.accept(c);
 			return this;
@@ -20,8 +20,8 @@ public interface CommitResult<K, V> {
 		});
 	}
 
-	default CommitResult<K, V> visitCommitted(Runnable committed) {
-		return visitCommitted(c -> {
+	default CommitResult<K, V> onCommitted(Runnable committed) {
+		return onCommitted(c -> {
 			committed.run();
 		});
 	}

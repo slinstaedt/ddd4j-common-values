@@ -8,6 +8,7 @@ import org.ddd4j.value.math.Ordered;
 
 public class Revision implements Value<Revision>, Ordered<Revision> {
 
+	public static final long END_OFFSET = Long.MAX_VALUE;
 	public static final long UNKNOWN_OFFSET = -1;
 
 	private final int partition;
@@ -68,6 +69,10 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 
 	public Revision increment(int increment) {
 		return next(offset + increment);
+	}
+
+	public boolean isEnd() {
+		return offset == END_OFFSET;
 	}
 
 	public Revision next(long nextOffset) {
