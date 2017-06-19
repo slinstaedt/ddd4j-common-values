@@ -3,7 +3,7 @@ package org.ddd4j.spi;
 import org.ddd4j.value.Named;
 import org.ddd4j.value.collection.Configuration;
 
-public interface Context extends AutoCloseable {
+public interface Context {
 
 	Context child(Named value);
 
@@ -14,8 +14,7 @@ public interface Context extends AutoCloseable {
 		return configuration().get(key);
 	}
 
-	@Override
-	void close();
-
 	<T> T get(Key<T> key);
+
+	<T extends Named> T specific(Key<T> key, String name);
 }

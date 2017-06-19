@@ -6,11 +6,11 @@ public interface ServiceBinder {
 
 	interface ScopedBinder<T> extends TargetBinder<T> {
 
-		void bind(ServiceFactory<? extends T> factory, Key<?>... targets);
+		void bind(ServiceFactory<? extends T> factory, Key<?>... path);
 
-		default TargetBinder<T> of(Key<?>... targets) {
-			Require.nonNull(targets);
-			return f -> bind(f, targets);
+		default TargetBinder<T> of(Key<?>... path) {
+			Require.nonNull(path);
+			return f -> bind(f, path);
 		}
 
 		@Override
@@ -36,7 +36,7 @@ public interface ServiceBinder {
 
 	default <T> ScopedBinder<T> bind(Key<T> key) {
 		Require.nonNull(key);
-		return (f, t) -> bind(key, f, t);
+		return (f, p) -> bind(key, f, p);
 	}
 
 	default void accept(ServiceConfigurer configurer) {
