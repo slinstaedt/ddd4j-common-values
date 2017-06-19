@@ -7,8 +7,6 @@ import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
-import org.apache.avro.io.Decoder;
-import org.apache.avro.io.Encoder;
 import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
@@ -44,7 +42,7 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 	}
 
 	@Override
-	public <X> Reader<X> createReader(ReadBuffer buffer, Class<X> readerType) {
+	public <X> Reader<X> createReader(Class<X> readerType) {
 		DatumReader<?> reader;
 		if (readerType == Record.class) {
 			reader = new GenericDatumReader<>(writerSchema, writerSchema, factory.getData());
@@ -52,16 +50,14 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 			org.apache.avro.Schema readerSchema = factory.getData().getSchema(readerType);
 			reader = factory.getData().createDatumReader(writerSchema, readerSchema);
 		}
-		Decoder decoder = factory.createDecoder(writerSchema, buffer.asInputStream());
-		return () -> readerType.cast(reader.read(null, decoder));
+		return buf -> readerType.cast(reader.read(null, factory.createDecoder(writerSchema, buf.asInputStream())));
 	}
 
 	@Override
-	public Writer<T> createWriter(WriteBuffer buffer) {
-		Encoder encoder = factory.createEncoder(writerSchema, buffer.asOutputStream());
+	public Writer<T> createWriter() {
 		@SuppressWarnings("unchecked")
 		DatumWriter<Object> writer = factory.getData().createDatumWriter(writerSchema);
-		return v -> writer.write(v, encoder);
+		return (buf, val) -> writer.write(val, factory.createEncoder(writerSchema, buf.asOutputStream()));
 	}
 
 	@Override

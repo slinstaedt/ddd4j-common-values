@@ -7,23 +7,10 @@ import org.ddd4j.value.Type;
 
 public class Message {
 
-	public enum SchemaEncodingStrategy {
-
-		PER_MESSAGE, IN_BAND, OUT_OF_BAND;
-
-		public static SchemaEncodingStrategy decode(byte b) {
-			return SchemaEncodingStrategy.values()[b];
-		}
-
-		public byte encode() {
-			return (byte) ordinal();
-		}
-	}
-
 	public static Message serialize(SchemaFactory factory, WriteBuffer buffer, Object body) {
 		Class<Object> type = Type.ofInstance(body).getRawType();
 		Schema<Object> writerSchema = factory.createSchema(type);
-		writerSchema.createWriter(buffer).write(body);
+		writerSchema.createWriter().write(buffer, body);
 		return new Message(writerSchema, buffer.flip());
 	}
 
@@ -38,14 +25,9 @@ public class Message {
 	public <T> T unwrap(Class<T> readerType) {
 		body.mark();
 		try {
-			return writerSchema.createReader(body, readerType).read();
+			return writerSchema.createReader(readerType).read(body);
 		} finally {
 			body.reset();
 		}
-	}
-
-	public void serialize(WriteBuffer buffer) {
-		writerSchema.serialize(buffer);
-		// TODO buffer.put
 	}
 }

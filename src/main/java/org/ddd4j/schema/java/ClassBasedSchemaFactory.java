@@ -1,8 +1,6 @@
 package org.ddd4j.schema.java;
 
-import java.io.ObjectInput;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.util.Objects;
 
@@ -31,15 +29,16 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public <X> Reader<X> createReader(ReadBuffer buffer, Class<X> readerType) {
-			ObjectInput in = Throwing.applied(ObjectInputStream::new).apply(buffer.asInputStream());
-			return Throwing.task(in::readObject).map(readerType::cast)::get;
+		public <X> Reader<X> createReader(Class<X> readerType) {
+			return buf -> Throwing.task(Throwing.applied(ObjectInputStream::new).apply(buf.asInputStream())::readObject)
+					.map(readerType::cast)
+					.get();
+
 		}
 
 		@Override
-		public Writer<T> createWriter(WriteBuffer buffer) {
-			ObjectOutput out = Throwing.applied(ObjectOutputStream::new).apply(buffer.asOutputStream());
-			return out::writeObject;
+		public Writer<T> createWriter() {
+			return (buf, val) -> Throwing.applied(ObjectOutputStream::new).apply(buf.asOutputStream()).writeObject(val);
 		}
 
 		@Override

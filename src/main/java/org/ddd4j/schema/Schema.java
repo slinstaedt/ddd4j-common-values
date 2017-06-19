@@ -12,36 +12,36 @@ public interface Schema<T> extends Value<Schema<T>> {
 	@FunctionalInterface
 	interface Reader<T> {
 
-		default T read() {
+		default T read(ReadBuffer buffer) {
 			try {
-				return readChecked();
+				return readChecked(buffer);
 			} catch (IOException e) {
 				return Throwing.unchecked(e);
 			}
 		}
 
-		T readChecked() throws IOException;
+		T readChecked(ReadBuffer buffer) throws IOException;
 	}
 
 	@FunctionalInterface
 	interface Writer<T> {
 
-		default void write(T value) {
+		default void write(WriteBuffer buffer, T value) {
 			try {
-				writeChecked(value);
+				writeChecked(buffer, value);
 			} catch (IOException e) {
 				Throwing.unchecked(e);
 			}
 		}
 
-		void writeChecked(T value) throws IOException;
+		void writeChecked(WriteBuffer buffer, T value) throws IOException;
 	}
 
 	boolean compatibleWith(Schema<?> existing);
 
-	<X> Reader<X> createReader(ReadBuffer buffer, Class<X> readerType);
+	<X> Reader<X> createReader(Class<X> readerType);
 
-	Writer<T> createWriter(WriteBuffer buffer);
+	Writer<T> createWriter();
 
 	boolean equal(Object o1, Object o2);
 
