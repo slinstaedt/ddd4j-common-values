@@ -4,10 +4,16 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
+import java.util.function.Consumer;
 
 import org.ddd4j.Require;
 
 public interface WriteBuffer extends RelativeBuffer {
+
+	default WriteBuffer accept(Consumer<? super WriteBuffer> visitor) {
+		visitor.accept(this);
+		return this;
+	}
 
 	OutputStream asOutputStream();
 
@@ -46,6 +52,11 @@ public interface WriteBuffer extends RelativeBuffer {
 	}
 
 	default WriteBuffer put(ByteBuffer src) {
+		advancePosition(backing().put(position(), remaining(), src));
+		return this;
+	}
+
+	default WriteBuffer put(ReadBuffer src) {
 		advancePosition(backing().put(position(), remaining(), src));
 		return this;
 	}

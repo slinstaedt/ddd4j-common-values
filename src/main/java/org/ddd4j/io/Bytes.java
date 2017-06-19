@@ -8,7 +8,6 @@ import java.nio.channels.WritableByteChannel;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
-import org.ddd4j.collection.Cache;
 import org.ddd4j.io.ByteOrder.IndexedBytes;
 
 public abstract class Bytes implements IndexedBytes, AutoCloseable {
@@ -139,33 +138,6 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		};
 	}
 
-	public static Bytes wrapReleasable(ByteBuffer buffer, Cache<?, ByteBuffer> cache) {
-		Require.nonNullElements(buffer, cache);
-		return new Bytes() {
-
-			@Override
-			public void close() {
-				cache.release(buffer);
-			}
-
-			@Override
-			public byte get(int index) {
-				return buffer.get(index);
-			}
-
-			@Override
-			public int length() {
-				return buffer.capacity();
-			}
-
-			@Override
-			public Bytes put(int index, byte b) {
-				buffer.put(index, b);
-				return this;
-			}
-		};
-	}
-
 	private ByteOrder order;
 
 	public Bytes() {
@@ -203,6 +175,15 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	}
 
 	public int get(int index, int amount, ByteBuffer dst) {
+		amount = Math.min(amount, remaining(index));
+		amount = Math.min(amount, dst.remaining());
+		for (int i = 0; i < amount; i++) {
+			dst.put(get(index++));
+		}
+		return amount;
+	}
+
+	public int get(int index, int amount, WriteBuffer dst) {
 		amount = Math.min(amount, remaining(index));
 		amount = Math.min(amount, dst.remaining());
 		for (int i = 0; i < amount; i++) {
@@ -376,6 +357,15 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		return amount;
 	}
 
+	public int put(int index, int amount, ReadBuffer src) {
+		amount = Math.min(amount, remaining(index));
+		amount = Math.min(amount, src.remaining());
+		for (int i = 0; i < amount; i++) {
+			put(index++, src.get());
+		}
+		return amount;
+	}
+
 	public Bytes putBoolean(int index, boolean value) {
 		return put(index, (byte) (value ? 1 : 0));
 	}
@@ -458,6 +448,26 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 			buf.limit(Math.min(buf.capacity(), Math.min(amount, remaining(index))));
 		}
 		return totalWritten;
+	}
+
+	public Bytes readOnly() {
+		return new Bytes() {
+
+			@Override
+			public Bytes put(int index, byte b) {
+				throw new UnsupportedOperationException("read only");
+			}
+
+			@Override
+			public int length() {
+				return Bytes.this.length();
+			}
+
+			@Override
+			public byte get(int index) {
+				return Bytes.this.get(index);
+			}
+		};
 	}
 
 	private int remaining(int index) {
