@@ -2,7 +2,8 @@ package org.ddd4j.repository.api;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.repository.RepositoryDefinition;
+import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Uncommitted;
@@ -13,7 +14,7 @@ public interface Committer<K, V> {
 
 		Key<Factory> KEY = Key.of(Factory.class);
 
-		<K, V> Committer<K, V> create(RepositoryDefinition<K, V> definition);
+		Committer<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
 	}
 
 	Promise<? extends CommitResult<K, V>> commit(Uncommitted<K, V> attempt);

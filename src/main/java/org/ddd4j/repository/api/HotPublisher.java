@@ -4,7 +4,8 @@ import java.util.stream.IntStream;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.repository.RepositoryDefinition;
+import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
 import org.reactivestreams.Subscriber;
@@ -38,7 +39,7 @@ public interface HotPublisher<K, V> extends org.reactivestreams.Publisher<Commit
 
 		Key<Factory> KEY = Key.of(Factory.class);
 
-		<K, V> HotPublisher<K, V> create(RepositoryDefinition<K, V> definition);
+		HotPublisher<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
 	}
 
 	@Override
