@@ -2,7 +2,6 @@ package org.ddd4j.io;
 
 import java.io.IOException;
 import java.io.UTFDataFormatException;
-import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
@@ -11,6 +10,115 @@ import org.ddd4j.Throwing;
 import org.ddd4j.io.ByteOrder.IndexedBytes;
 
 public abstract class Bytes implements IndexedBytes, AutoCloseable {
+
+	public static class ByteArray extends Bytes {
+
+		private final byte[] bytes;
+		private final int offset;
+		private final int length;
+
+		ByteArray(byte[] bytes) {
+			this(bytes, 0, bytes.length);
+		}
+
+		ByteArray(byte[] bytes, int offset, int length) {
+			this.bytes = Require.nonNull(bytes);
+			this.offset = Require.that(offset, offset >= 0 && offset < bytes.length);
+			this.length = Require.that(length, length <= bytes.length - offset);
+		}
+
+		byte[] backing() {
+			return bytes;
+		}
+
+		@Override
+		public byte get(int index) {
+			return bytes[offset + index];
+		}
+
+		@Override
+		public int length() {
+			return length;
+		}
+
+		@Override
+		public Bytes put(int index, byte b) {
+			bytes[offset + index] = b;
+			return this;
+		}
+	}
+
+	public static class ByteBuffer extends Bytes {
+
+		private final java.nio.ByteBuffer buffer;
+		private final int position;
+		private final int limit;
+
+		ByteBuffer(java.nio.ByteBuffer buffer) {
+			this.buffer = Require.nonNull(buffer);
+			this.position = buffer.position();
+			this.limit = buffer.limit();
+		}
+
+		java.nio.ByteBuffer backing() {
+			return buffer;
+		}
+
+		@Override
+		public byte get(int index) {
+			return buffer.get(position + index);
+		}
+
+		@Override
+		public int get(int index, int amount, java.nio.ByteBuffer dst) {
+			buffer.position(position + index).limit(position + index + Math.min(dst.remaining(), Math.min(amount, length())));
+			dst.put(buffer);
+			buffer.limit(limit);
+			return buffer.position() - index;
+		}
+
+		@Override
+		public int length() {
+			return limit - position;
+		}
+
+		@Override
+		public Bytes put(int index, byte b) {
+			buffer.put(position + index, b);
+			return this;
+		}
+
+		@Override
+		public int put(int index, int amount, java.nio.ByteBuffer src) {
+			buffer.position(position + index).limit(position + index + Math.min(amount, length()));
+			int oldLimit = src.limit();
+			src.limit(Math.min(src.remaining(), buffer.remaining()));
+			buffer.put(src);
+			src.limit(oldLimit);
+			buffer.limit(limit);
+			return buffer.position() - index;
+		}
+
+		@Override
+		public int readFrom(int index, int amount, ReadableByteChannel channel) throws IOException {
+			buffer.position(position + index).limit(position + index + amount);
+			try {
+				return channel.read(buffer);
+			} finally {
+				buffer.limit(limit);
+			}
+		}
+
+		@Override
+		public int writeTo(int index, int amount, WritableByteChannel channel) throws IOException {
+			buffer.position(position + index).limit(position + index + amount);
+			try {
+				return channel.write(buffer);
+			} finally {
+				buffer.limit(limit);
+			}
+		}
+	}
 
 	private static final int HASH_SEED = 0x9747b28c;
 
@@ -49,93 +157,15 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	}
 
 	public static Bytes wrap(byte[] bytes) {
-		return wrap(bytes, 0, bytes.length);
+		return new ByteArray(bytes);
 	}
 
 	public static Bytes wrap(byte[] bytes, int offset, int length) {
-		Require.nonNull(bytes);
-		return new Bytes() {
-
-			@Override
-			public byte get(int index) {
-				return bytes[offset + index];
-			}
-
-			@Override
-			public int length() {
-				return length;
-			}
-
-			@Override
-			public Bytes put(int index, byte b) {
-				bytes[offset + index] = b;
-				return this;
-			}
-		};
+		return new ByteArray(bytes, offset, length);
 	}
 
-	public static Bytes wrap(ByteBuffer buffer) {
-		Require.nonNull(buffer);
-		return new Bytes() {
-
-			private final int position = buffer.position();
-			private final int limit = buffer.limit();
-
-			@Override
-			public byte get(int index) {
-				return buffer.get(position + index);
-			}
-
-			@Override
-			public int get(int index, int amount, ByteBuffer dst) {
-				buffer.position(position + index).limit(position + index + Math.min(dst.remaining(), Math.min(amount, length())));
-				dst.put(buffer);
-				buffer.limit(limit);
-				return buffer.position() - index;
-			}
-
-			@Override
-			public int length() {
-				return limit - position;
-			}
-
-			@Override
-			public Bytes put(int index, byte b) {
-				buffer.put(position + index, b);
-				return this;
-			}
-
-			@Override
-			public int put(int index, int amount, ByteBuffer src) {
-				buffer.position(position + index).limit(position + index + Math.min(amount, length()));
-				int oldLimit = src.limit();
-				src.limit(Math.min(src.remaining(), buffer.remaining()));
-				buffer.put(src);
-				src.limit(oldLimit);
-				buffer.limit(limit);
-				return buffer.position() - index;
-			}
-
-			@Override
-			public int readFrom(int index, int amount, ReadableByteChannel channel) throws IOException {
-				buffer.position(position + index).limit(position + index + amount);
-				try {
-					return channel.read(buffer);
-				} finally {
-					buffer.limit(limit);
-				}
-			}
-
-			@Override
-			public int writeTo(int index, int amount, WritableByteChannel channel) throws IOException {
-				buffer.position(position + index).limit(position + index + amount);
-				try {
-					return channel.write(buffer);
-				} finally {
-					buffer.limit(limit);
-				}
-			}
-		};
+	public static Bytes wrap(java.nio.ByteBuffer buffer) {
+		return new ByteBuffer(buffer);
 	}
 
 	private ByteOrder order;
@@ -174,7 +204,7 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		return this;
 	}
 
-	public int get(int index, int amount, ByteBuffer dst) {
+	public int get(int index, int amount, java.nio.ByteBuffer dst) {
 		amount = Math.min(amount, remaining(index));
 		amount = Math.min(amount, dst.remaining());
 		for (int i = 0; i < amount; i++) {
@@ -348,7 +378,7 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		return this;
 	}
 
-	public int put(int index, int amount, ByteBuffer src) {
+	public int put(int index, int amount, java.nio.ByteBuffer src) {
 		amount = Math.min(amount, remaining(index));
 		amount = Math.min(amount, src.remaining());
 		for (int i = 0; i < amount; i++) {
@@ -436,7 +466,7 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 
 	public int readFrom(int index, int amount, ReadableByteChannel channel) throws IOException {
 		int totalWritten = 0;
-		ByteBuffer buf = ByteBuffer.allocate(1024);
+		java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(1024);
 		buf.limit(Math.min(buf.capacity(), Math.min(amount, remaining(index))));
 		while (buf.hasRemaining() && channel.read(buf) >= 0) {
 			buf.flip();
@@ -512,7 +542,7 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 
 	public int writeTo(int index, int amount, WritableByteChannel channel) throws IOException {
 		int totalRead = 0;
-		ByteBuffer buf = ByteBuffer.allocate(1024);
+		java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(1024);
 		while (remaining(index) > 0 && amount > 0) {
 			int read = get(index, amount, buf);
 			totalRead += read;

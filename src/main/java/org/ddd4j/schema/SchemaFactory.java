@@ -3,8 +3,9 @@ package org.ddd4j.schema;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
+import org.ddd4j.value.Named;
 
-public interface SchemaFactory {
+public interface SchemaFactory extends Named {
 
 	Key<SchemaFactory> KEY = Key.of(SchemaFactory.class);
 

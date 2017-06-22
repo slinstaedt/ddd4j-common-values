@@ -12,8 +12,8 @@ public interface Recorded<K, V> {
 		return new Uncommitted<>(key, value, expected);
 	}
 
-	static Uncommitted<ReadBuffer, ReadBuffer> uncommitted(ReadBuffer buffer, Revisions expected) {
-		return new Uncommitted<>(buffer, buffer, expected);
+	static Uncommitted<ReadBuffer, ReadBuffer> uncommitted(ReadBuffer key, ReadBuffer value, Revisions expected) {
+		return new Uncommitted<>(key, value, expected);
 	}
 
 	<X> X foldRecorded(Function<Uncommitted<K, V>, X> uncommitted, Function<Committed<K, V>, X> committed);

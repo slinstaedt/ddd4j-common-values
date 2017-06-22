@@ -8,6 +8,7 @@ import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;
+import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Uncommitted;
 
 public interface Writer<K, V> extends Committer<K, V> {
@@ -17,6 +18,10 @@ public interface Writer<K, V> extends Committer<K, V> {
 		Key<Factory> KEY = Key.of(Factory.class);
 
 		Writer<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
+	}
+
+	default Promise<Committed<K, V>> put(K key, V value) {
+		return put(Recorded.uncommitted(key, value, Revisions.NONE));
 	}
 
 	Promise<Committed<K, V>> put(Recorded<K, V> attempt);

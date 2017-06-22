@@ -152,7 +152,7 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		@Override
-		public <T extends Named> T specific(Key<T> key, String name) {
+		public <T extends Named> Optional<T> specific(Key<T> key, String name) {
 			return parent.specific(key, name);
 		}
 	}
@@ -174,14 +174,15 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public <T extends Named> T specific(Key<T> key, String name) {
+		public <T extends Named> Optional<T> specific(Key<T> key, String name) {
 			Context child = child(key);
-			return (T) named
+			T service = (T) named
 					.acquire(key,
 							k -> boundFactories(key).stream()
 									.map(f -> f.createUnchecked(child))
 									.collect(Collectors.toMap(Named::name, Function.identity())))
 					.get(name);
+			return Optional.ofNullable(service);
 		}
 
 		@Override
@@ -217,7 +218,7 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		@Override
-		public <T extends Named> T specific(Key<T> key, String name) {
+		public <T extends Named> Optional<T> specific(Key<T> key, String name) {
 			return parent.specific(key, name);
 		}
 	}
