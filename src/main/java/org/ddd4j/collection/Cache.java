@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -249,7 +250,7 @@ public interface Cache<K, V> {
 		}
 
 		public V acquire(K key, Factory<? super K, ? extends V> factory, long timeoutInMillis) {
-			K effectiveKey = keyLookup.findOrDefault(delegate.keys(), key);
+			K effectiveKey = keyLookup.find(delegate.keys(), key).orElse(keyAdapter.apply(key));
 			return delegate.acquire(effectiveKey, () -> Tpl.of(key, factory.newInstance(key)), timeoutInMillis);
 		}
 
@@ -766,9 +767,8 @@ public interface Cache<K, V> {
 
 		<K> K apply(NavigableSet<K> keys, K key);
 
-		default <K> K findOrDefault(NavigableSet<K> keys, K key) {
-			K found = apply(keys, key);
-			return found != null ? found : key;
+		default <K> Optional<K> find(NavigableSet<K> keys, K key) {
+			return Optional.ofNullable(apply(keys, key));
 		}
 	}
 
