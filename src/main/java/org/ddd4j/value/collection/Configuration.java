@@ -14,6 +14,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.value.Value;
 
+//TODO move to package "configuration"?
 public interface Configuration extends Value<Configuration>, Seq<Tpl<String, String>> {
 
 	interface Key<V> {
