@@ -24,5 +24,7 @@ public interface Recorded<K, V> {
 
 	V getValue();
 
+	<X, Y> Recorded<X, Y> map(Function<? super K, ? extends X> keyMapper, Function<? super V, ? extends Y> valueMapper);
+
 	int partition(ToIntFunction<? super K> keyHasher);
 }

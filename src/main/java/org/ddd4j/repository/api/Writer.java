@@ -1,5 +1,7 @@
 package org.ddd4j.repository.api;
 
+import java.util.function.Function;
+
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
@@ -29,5 +31,10 @@ public interface Writer<K, V> extends Committer<K, V> {
 	@Override
 	default Promise<? extends CommitResult<K, V>> commit(Uncommitted<K, V> attempt) {
 		return put(attempt);
+	}
+
+	@Override
+	default <X, Y> Writer<X, Y> map(Function<? super X, K> key, Function<? super Y, V> value) {
+		return r -> put(r.map(key, value)).thenApply(c -> c.with(r.getKey(), r.getValue()));
 	}
 }

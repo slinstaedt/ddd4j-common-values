@@ -25,4 +25,6 @@ public interface CommitResult<K, V> {
 			committed.run();
 		});
 	}
+
+	<X, Y> CommitResult<X, Y> with(X key, Y value);
 }

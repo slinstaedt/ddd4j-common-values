@@ -61,6 +61,11 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	}
 
 	@Override
+	public <X, Y> Uncommitted<X, Y> map(Function<? super K, ? extends X> keyMapper, Function<? super V, ? extends Y> valueMapper) {
+		return new Uncommitted<>(keyMapper.apply(key), valueMapper.apply(value), actualExpected, header);
+	}
+
+	@Override
 	public int partition(ToIntFunction<? super K> keyHasher) {
 		int hash = keyHasher.applyAsInt(getKey());
 		return actualExpected.partition(hash);
