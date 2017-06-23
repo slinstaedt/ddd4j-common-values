@@ -40,10 +40,10 @@ import org.ddd4j.collection.Cache.Access.Exclusive;
 import org.ddd4j.collection.Cache.Access.Shared;
 import org.ddd4j.collection.Cache.Decorating.Blocking;
 import org.ddd4j.collection.Cache.Decorating.Evicting;
-import org.ddd4j.collection.Cache.Decorating.Evicting.EvictStrategy;
 import org.ddd4j.collection.Cache.Decorating.Listening;
 import org.ddd4j.collection.Cache.Decorating.Retrying;
 import org.ddd4j.collection.Cache.Decorating.Wrapped;
+import org.ddd4j.value.collection.Configuration;
 import org.ddd4j.value.collection.Tpl;
 
 public interface Cache<K, V> {
@@ -123,7 +123,7 @@ public interface Cache<K, V> {
 			private final ConcurrentMap<V, Future<? extends V>> futures;
 
 			Shared(Comparator<? super K> comparator) {
-				this.singletons = new ConcurrentSkipListMap<>(comparator);
+				this.singletons = new ConcurrentSkipListMap<>(Require.nonNull(comparator));
 				this.futures = new ConcurrentHashMap<>();
 			}
 
@@ -401,20 +401,6 @@ public interface Cache<K, V> {
 					lastReleased = System.currentTimeMillis();
 					counter++;
 					delegate.release(value);
-				}
-			}
-
-			public enum EvictStrategy {
-				ANY(null), //
-				LAST_ACQUIRED(Evicting<?, ?>.Entry::lastAcquired), //
-				LAST_RELEASED(Evicting<?, ?>.Entry::lastReleased), //
-				LEAST_ACCESSED(Evicting<?, ?>.Entry::leastAccessed), //
-				OLDEST(Evicting<?, ?>.Entry::created);
-
-				private final ToLongFunction<Evicting<?, ?>.Entry> property;
-
-				EvictStrategy(ToLongFunction<Evicting<?, ?>.Entry> property) {
-					this.property = property;
 				}
 			}
 
@@ -724,6 +710,20 @@ public interface Cache<K, V> {
 		}
 	}
 
+	enum EvictStrategy {
+		ANY(null), //
+		LAST_ACQUIRED(Evicting<?, ?>.Entry::lastAcquired), //
+		LAST_RELEASED(Evicting<?, ?>.Entry::lastReleased), //
+		LEAST_ACCESSED(Evicting<?, ?>.Entry::leastAccessed), //
+		OLDEST(Evicting<?, ?>.Entry::created);
+
+		private final ToLongFunction<Evicting<?, ?>.Entry> property;
+
+		EvictStrategy(ToLongFunction<Evicting<?, ?>.Entry> property) {
+			this.property = property;
+		}
+	}
+
 	@FunctionalInterface
 	interface Factory<K, V> {
 
@@ -900,6 +900,8 @@ public interface Cache<K, V> {
 		}
 	}
 
+	Configuration.Key<Integer> MAX_CAPACITY = Configuration.keyOfInteger("maxCapacity", 100);
+
 	static <K extends Comparable<K>, V> Exclusive<K, V> exclusive(Function<? super V, ? extends K> keyedBy) {
 		return new Exclusive<>(Comparable::compareTo, keyedBy);
 	}
@@ -921,7 +923,12 @@ public interface Cache<K, V> {
 	}
 
 	static <K, V> Aside<K, V> sharedOnEqualKey() {
-		return new Shared<K, V>((k1, k2) -> k1.equals(k2) ? 0 : (k1.hashCode() - k2.hashCode()) | 1).lookupValuesWithEqualKeys();
+		return sharedOnEqualKey(Function.identity());
+	}
+
+	static <K, V> Aside<K, V> sharedOnEqualKey(Function<Access<K, V>, Access<K, V>> configurer) {
+		return configurer.apply(new Shared<K, V>((k1, k2) -> k1.equals(k2) ? 0 : (k1.hashCode() - k2.hashCode()) | 1))
+				.lookupValuesWithEqualKeys();
 	}
 
 	void evictAll(Disposer<K, V> disposer);
