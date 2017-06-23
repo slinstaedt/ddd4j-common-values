@@ -30,11 +30,6 @@ public class SchemaEntry<T> extends Value.Simple<SchemaEntry<T>, Fingerprint> {
 		this.schema = Require.nonNull(schema);
 	}
 
-	public Recorded<ReadBuffer, ReadBuffer> asRecorded(WriteBuffer buffer) {
-		schema.serialize(buffer);
-		return Recorded.uncommitted(value().asBuffer(), buffer.flip(), Revisions.NONE);
-	}
-
 	public Fingerprint getFinterprint() {
 		return schema.getFingerprint();
 	}
@@ -50,8 +45,11 @@ public class SchemaEntry<T> extends Value.Simple<SchemaEntry<T>, Fingerprint> {
 	@Override
 	public void serialize(WriteBuffer buffer) {
 		buffer.putUTF(schemaFactoryName);
-		getFinterprint().serialize(buffer);
-		schema.serialize(buffer);
+		buffer.accept(schema::serialize);
+	}
+
+	public Recorded<ReadBuffer, ReadBuffer> toRecorded(WriteBuffer buffer) {
+		return Recorded.uncommitted(value().asBuffer(), buffer.accept(this::serialize).flip(), Revisions.NONE);
 	}
 
 	@Override
