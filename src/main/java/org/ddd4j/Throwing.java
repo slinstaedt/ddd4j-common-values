@@ -2,6 +2,7 @@ package org.ddd4j;
 
 import java.util.Arrays;
 import java.util.concurrent.Callable;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -99,6 +100,28 @@ public interface Throwing {
 			} catch (Exception e) {
 				Throwing.unchecked(e);
 			}
+		}
+	}
+
+	@FunctionalInterface
+	interface TBiConsumer<T, U> extends BiConsumer<T, U> {
+
+		@Override
+		default void accept(T t, U u) {
+			try {
+				acceptChecked(t, u);
+			} catch (Exception e) {
+				Throwing.unchecked(e);
+			}
+		}
+
+		void acceptChecked(T t, U u) throws Exception;
+
+		default TBiConsumer<T, U> andThen(TBiConsumer<? super T, ? super U> consumer) {
+			return (t, u) -> {
+				accept(t, u);
+				consumer.accept(t, u);
+			};
 		}
 	}
 

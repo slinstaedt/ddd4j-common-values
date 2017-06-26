@@ -58,7 +58,7 @@ public interface Scheduler extends Executor {
 	}
 
 	default <T> Promise.Deferred<T> createDeferredPromise() {
-		return new Promise.Deferred<>(this);
+		return Promise.deferred(this);
 	}
 
 	default <T> Promise<T> createOutcome(CompletionStage<T> stage) {

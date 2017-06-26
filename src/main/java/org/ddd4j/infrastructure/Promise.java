@@ -1,11 +1,12 @@
 package org.ddd4j.infrastructure;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -16,6 +17,7 @@ import java.util.stream.Stream;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.Producer;
+import org.ddd4j.Throwing.TBiConsumer;
 import org.ddd4j.Throwing.TBiFunction;
 import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.Throwing.TFunction;
@@ -47,12 +49,10 @@ public interface Promise<T> {
 		}
 
 		public void complete(T value, Throwable exception) {
-			if (value != null && exception == null) {
-				completeSuccessfully(value);
-			} else if (exception != null && value == null) {
+			if (exception != null) {
 				completeExceptionally(exception);
 			} else {
-				throw new IllegalArgumentException("Value: " + value + ", Throwable: " + exception);
+				completeSuccessfully(value);
 			}
 		}
 
@@ -68,6 +68,59 @@ public interface Promise<T> {
 		public CompletionStage<T> toCompletionStage() {
 			return future;
 		}
+	}
+
+	class Ordered<T> implements Promise<T> {
+
+		private volatile Promise<T> current;
+		private T result;
+		private Throwable exception;
+
+		public Ordered(Promise<T> trigger) {
+			current = Require.nonNull(trigger).whenComplete(this::setOutcome);
+		}
+
+		private void setOutcome(T result, Throwable exception) {
+			this.result = result;
+			this.exception = exception;
+		}
+
+		private T getOutcome() {
+			return exception != null ? Throwing.unchecked(exception) : result;
+		}
+
+		@Override
+		public synchronized <X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
+			Promise<X> promise = current.apply(fn);
+			current = promise.handle((x, ex) -> getOutcome());
+			return promise;
+		}
+
+		@Override
+		public CompletionStage<T> toCompletionStage() {
+			return current.toCompletionStage();
+		}
+	}
+
+	static void main(String... args) throws InterruptedException {
+		Random random = new Random();
+		ExecutorService executor = Executors.newCachedThreadPool();
+
+		Deferred<String> deferred = Promise.deferred(executor);
+		Promise<String> ordered = deferred.ordered();
+		ordered.whenComplete((s, x) -> System.out.println("start"));
+		for (int i = 0; i < 10; i++) {
+			int c = i;
+			ordered.whenComplete((s, x) -> {
+				Thread.sleep(random.nextInt(500));
+				System.out.println(c + ": " + s);
+			});
+		}
+		deferred.complete("XXX", new Exception());
+		ordered.whenComplete((s, x) -> System.out.println("end"));
+		deferred.whenComplete((s, x) -> System.out.println("starting..."));
+
+		System.out.println("Executor shutdown");
 	}
 
 	static Promise<Void> completed() {
@@ -163,17 +216,7 @@ public interface Promise<T> {
 	}
 
 	default Promise<T> ordered() {
-		List<Runnable> jobs = new ArrayList<>();
-		whenComplete((t, ex) -> jobs.forEach(Runnable::run));
-		return new Promise<T>() {
-
-			@Override
-			public <X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
-				Deferred<X> deferred = deferred(Runnable::run);
-				jobs.add(() -> Promise.this.apply(fn).whenComplete(deferred::complete));
-				return deferred;
-			}
-		};
+		return new Ordered<>(this);
 	}
 
 	default Promise<?> runAfterAll(Stream<Promise<?>> others) {
@@ -205,7 +248,7 @@ public interface Promise<T> {
 	}
 
 	default Promise<T> testAndFail(TPredicate<? super T> predicate) {
-		return whenCompleteSuccessfully(predicate.throwOnFail(RuntimeException::new));
+		return whenCompleteSuccessfully(predicate.throwOnFail(IllegalArgumentException::new));
 	}
 
 	default Promise<Void> thenAccept(TConsumer<? super T> action) {
@@ -247,7 +290,7 @@ public interface Promise<T> {
 		return future;
 	}
 
-	default Promise<T> whenComplete(BiConsumer<? super T, ? super Throwable> action) {
+	default Promise<T> whenComplete(TBiConsumer<? super T, ? super Throwable> action) {
 		return apply((e, s) -> s.whenCompleteAsync(action, e));
 	}
 

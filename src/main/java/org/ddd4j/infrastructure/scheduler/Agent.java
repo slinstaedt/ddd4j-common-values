@@ -70,7 +70,7 @@ public abstract class Agent<T> {
 	}
 
 	/**
-	 * Will return a {@link Promise}, that runs in the {@link Scheduler}'s thread.
+	 * Will return a {@link Promise}, that runs with the {@link Scheduler}'s thread.
 	 *
 	 * @param task
 	 * @return
@@ -90,7 +90,7 @@ public abstract class Agent<T> {
 	protected abstract T getState();
 
 	/**
-	 * Will return a {@link Promise}, that runs in the {@link Agent}'s thread.
+	 * Will return a {@link Promise}, that runs with the {@link Agent}'s thread.
 	 *
 	 * @param action
 	 * @return
