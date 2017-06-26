@@ -11,6 +11,10 @@ public interface Context {
 	interface NamedService<T extends Named> {
 
 		Optional<T> with(String name);
+
+		default T withOrFail(String name) {
+			return with(name).orElseThrow(AssertionError::new);
+		}
 	}
 
 	Context child(Named value);

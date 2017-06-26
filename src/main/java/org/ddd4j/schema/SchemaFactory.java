@@ -20,9 +20,5 @@ public interface SchemaFactory extends Named {
 	// TODO use Type here?
 	<T> Schema<T> createSchema(Class<T> type);
 
-	default Fingerprint readFingerprint(ReadBuffer buffer) {
-		return Fingerprint.deserialize(buffer);
-	}
-
 	Schema<?> readSchema(ReadBuffer buffer);
 }

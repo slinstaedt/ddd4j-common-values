@@ -17,7 +17,7 @@ public class SchemaEntry<T> extends Value.Simple<SchemaEntry<T>, Fingerprint> {
 
 	public static SchemaEntry<?> deserialize(Context context, ReadBuffer buffer) {
 		String schemaFactoryName = buffer.getUTF();
-		SchemaFactory factory = context.specific(SchemaFactory.KEY, schemaFactoryName).orElseThrow(AssertionError::new);
+		SchemaFactory factory = context.specific(SchemaFactory.KEY).withOrFail(schemaFactoryName);
 		Schema<?> schema = factory.readSchema(buffer);
 		return new SchemaEntry<>(schemaFactoryName, schema);
 	}
