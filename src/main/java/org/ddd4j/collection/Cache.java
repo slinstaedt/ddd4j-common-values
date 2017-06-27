@@ -13,7 +13,6 @@ import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
@@ -44,9 +43,31 @@ import org.ddd4j.collection.Cache.Decorating.Listening;
 import org.ddd4j.collection.Cache.Decorating.Retrying;
 import org.ddd4j.collection.Cache.Decorating.Wrapped;
 import org.ddd4j.value.collection.Configuration;
-import org.ddd4j.value.collection.Tpl;
 
 public interface Cache<K, V> {
+
+	class Entry<K, V> {
+
+		private final K key;
+		private final V value;
+
+		public Entry(K key, V value) {
+			this.key = Require.nonNull(key);
+			this.value = Require.nonNull(value);
+		}
+
+		public K getKey() {
+			return key;
+		}
+
+		public V getValue() {
+			return value;
+		}
+
+		<X> Entry<K, X> mapValue(Function<? super V, ? extends X> mapper) {
+			return new Entry<>(key, mapper.apply(value));
+		}
+	}
 
 	abstract class Access<K, V> {
 
@@ -63,7 +84,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Entry<K, V>> factory, long timeoutInMillis) {
 				V value = null;
 				Queue<V> queue = pool.get(key);
 				if (queue != null) {
@@ -72,7 +93,7 @@ public interface Cache<K, V> {
 						unusedQueues.offer(queue);
 					}
 				}
-				return value != null ? value : factory.get().getRight();
+				return value != null ? value : factory.get().getValue();
 			}
 
 			private Queue<V> enqueue(Queue<V> queue, V value) {
@@ -128,10 +149,10 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Entry<K, V>> factory, long timeoutInMillis) {
 				Future<? extends V> f = singletons.get(key);
 				if (f == null) {
-					FutureTask<? extends V> task = new FutureTask<>(factory.map(Tpl::getRight));
+					FutureTask<? extends V> task = new FutureTask<>(factory.map(Entry::getValue));
 					f = singletons.putIfAbsent(key, task);
 					if (f == null) {
 						f = task;
@@ -181,7 +202,7 @@ public interface Cache<K, V> {
 			}
 		}
 
-		abstract V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis);
+		abstract V acquire(K key, Producer<Entry<K, V>> factory, long timeoutInMillis);
 
 		public Access<K, V> blockOn(int capacity, boolean fair) {
 			return new Blocking<>(this, capacity, fair);
@@ -235,6 +256,9 @@ public interface Cache<K, V> {
 
 	class Aside<K, V> implements Cache<K, V> {
 
+		private static <K, V> void ignore(K key, V value) {
+		}
+
 		private final Access<K, V> delegate;
 		private final KeyLookup keyLookup;
 		private final UnaryOperator<K> keyAdapter;
@@ -251,7 +275,7 @@ public interface Cache<K, V> {
 
 		public V acquire(K key, Factory<? super K, ? extends V> factory, long timeoutInMillis) {
 			K effectiveKey = keyLookup.find(delegate.keys(), key).orElse(keyAdapter.apply(key));
-			return delegate.acquire(effectiveKey, () -> Tpl.of(key, factory.newInstance(key)), timeoutInMillis);
+			return delegate.acquire(effectiveKey, () -> new Entry<>(key, factory.create(key)), timeoutInMillis);
 		}
 
 		@Override
@@ -269,8 +293,7 @@ public interface Cache<K, V> {
 		}
 
 		public ReadThrough<K, V> withFactory(Factory<? super K, ? extends V> factory) {
-			return new ReadThrough<>(this, factory, (k, v) -> {
-			});
+			return new ReadThrough<>(this, factory, Aside::ignore);
 		}
 
 		public ReadThrough<K, V> withFactory(Factory<? super K, ? extends V> factory, Disposer<? super K, ? super V> disposer) {
@@ -296,7 +319,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Entry<K, V>> factory, long timeoutInMillis) {
 				final long started = System.currentTimeMillis();
 				V value = null;
 				long waitInMillis;
@@ -346,7 +369,7 @@ public interface Cache<K, V> {
 
 		public static class Evicting<K, V> extends Decorating<K, V> {
 
-			private class Entry {
+			private class EvictEntry {
 
 				private final K key;
 				private final V value;
@@ -356,7 +379,7 @@ public interface Cache<K, V> {
 				private int counter;
 				private boolean evictable;
 
-				Entry(K key, V value) {
+				EvictEntry(K key, V value) {
 					this.key = Require.nonNull(key);
 					this.value = Require.nonNull(value);
 					this.created = System.currentTimeMillis();
@@ -409,7 +432,7 @@ public interface Cache<K, V> {
 			private final int minCapacity;
 			private final int maxCapacity;
 			private final long threshold;
-			private final Map<V, Entry> entries;
+			private final Map<V, EvictEntry> entries;
 
 			Evicting(Access<K, V> delegate, EvictStrategy strategy, int minCapacity, int maxCapacity, long threshold) {
 				this.delegate = Require.nonNull(delegate);
@@ -421,7 +444,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Entry<K, V>> factory, long timeoutInMillis) {
 				return entries.get(delegate.acquire(key, () -> registerEntry(factory), timeoutInMillis)).acquire();
 			}
 
@@ -438,24 +461,24 @@ public interface Cache<K, V> {
 
 			private void evictOverCapacity() {
 				if (entries.size() > maxCapacity) {
-					List<Entry> copy = new ArrayList<>(entries.values());
-					ToLongFunction<Evicting<?, ?>.Entry> prop = strategy.property;
+					List<EvictEntry> copy = new ArrayList<>(entries.values());
+					ToLongFunction<Evicting<?, ?>.EvictEntry> prop = strategy.property;
 					if (prop != null) {
 						copy.sort((e1, e2) -> Long.compareUnsigned(prop.applyAsLong(e1), prop.applyAsLong(e2)));
 					}
-					Predicate<Entry> predicate = Entry::isEvictable;
-					copy.stream().filter(predicate).limit(copy.size() - maxCapacity).forEach(Entry::evict);
+					Predicate<EvictEntry> predicate = EvictEntry::isEvictable;
+					copy.stream().filter(predicate).limit(copy.size() - maxCapacity).forEach(EvictEntry::evict);
 				}
 			}
 
 			private void evictOverThreshold() {
-				ToLongFunction<Evicting<?, ?>.Entry> prop = strategy.property;
+				ToLongFunction<Evicting<?, ?>.EvictEntry> prop = strategy.property;
 				if (entries.size() > minCapacity && prop != null) {
-					List<Entry> copy = new ArrayList<>(entries.values());
+					List<EvictEntry> copy = new ArrayList<>(entries.values());
 					long now = System.currentTimeMillis();
-					Predicate<Entry> predicate = Entry::isEvictable;
+					Predicate<EvictEntry> predicate = EvictEntry::isEvictable;
 					predicate = predicate.and(e -> now - prop.applyAsLong(e) > threshold);
-					copy.stream().filter(predicate).limit(copy.size() - minCapacity).forEach(Entry::evict);
+					copy.stream().filter(predicate).limit(copy.size() - minCapacity).forEach(EvictEntry::evict);
 				}
 			}
 
@@ -464,15 +487,15 @@ public interface Cache<K, V> {
 				return delegate.keys();
 			}
 
-			private Tpl<K, V> registerEntry(Producer<Tpl<K, V>> factory) {
-				Tpl<K, V> tpl = factory.get();
-				entries.put(tpl.getRight(), new Entry(tpl.getLeft(), tpl.getRight()));
+			private Entry<K, V> registerEntry(Producer<Entry<K, V>> factory) {
+				Entry<K, V> tpl = factory.get();
+				entries.put(tpl.getValue(), new EvictEntry(tpl.getKey(), tpl.getValue()));
 				return tpl;
 			}
 
 			@Override
 			void release(V value) {
-				Entry entry = entries.get(value);
+				EvictEntry entry = entries.get(value);
 				if (entry != null) {
 					entry.release();
 				}
@@ -517,7 +540,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Producer<Tpl<K, V>> factory, long timeoutInMillis) {
+			V acquire(K key, Producer<Entry<K, V>> factory, long timeoutInMillis) {
 				V value = delegate.acquire(key, factory, timeoutInMillis);
 				listeners.forEach(l -> l.onAcquired(value));
 				return value;
@@ -600,7 +623,7 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			V acquire(K key, Producer<Tpl<K, V>> factory, long ignoredTimeout) {
+			V acquire(K key, Producer<Entry<K, V>> factory, long ignoredTimeout) {
 				final long started = System.currentTimeMillis();
 				V value = null;
 				int tryCount = 0;
@@ -655,8 +678,8 @@ public interface Cache<K, V> {
 			}
 
 			@Override
-			T acquire(K key, Producer<Tpl<K, T>> factory, long timeoutInMillis) {
-				return wrapper.apply(delegate.acquire(key, factory.map(tpl -> tpl.mapRight(unwrapper)), timeoutInMillis));
+			T acquire(K key, Producer<Entry<K, T>> factory, long timeoutInMillis) {
+				return wrapper.apply(delegate.acquire(key, factory.map(tpl -> tpl.mapValue(unwrapper)), timeoutInMillis));
 			}
 
 			@Override
@@ -712,14 +735,14 @@ public interface Cache<K, V> {
 
 	enum EvictStrategy {
 		ANY(null), //
-		LAST_ACQUIRED(Evicting<?, ?>.Entry::lastAcquired), //
-		LAST_RELEASED(Evicting<?, ?>.Entry::lastReleased), //
-		LEAST_ACCESSED(Evicting<?, ?>.Entry::leastAccessed), //
-		OLDEST(Evicting<?, ?>.Entry::created);
+		LAST_ACQUIRED(Evicting<?, ?>.EvictEntry::lastAcquired), //
+		LAST_RELEASED(Evicting<?, ?>.EvictEntry::lastReleased), //
+		LEAST_ACCESSED(Evicting<?, ?>.EvictEntry::leastAccessed), //
+		OLDEST(Evicting<?, ?>.EvictEntry::created);
 
-		private final ToLongFunction<Evicting<?, ?>.Entry> property;
+		private final ToLongFunction<Evicting<?, ?>.EvictEntry> property;
 
-		EvictStrategy(ToLongFunction<Evicting<?, ?>.Entry> property) {
+		EvictStrategy(ToLongFunction<Evicting<?, ?>.EvictEntry> property) {
 			this.property = property;
 		}
 	}
@@ -728,14 +751,10 @@ public interface Cache<K, V> {
 	interface Factory<K, V> {
 
 		default <T> Factory<K, T> andThen(Function<? super V, ? extends T> mapper) {
-			return k -> mapper.apply(newInstance(k));
+			return k -> mapper.apply(create(k));
 		}
 
-		default Callable<V> callableFor(K key) {
-			return () -> newInstance(key);
-		}
-
-		V newInstance(K key) throws Exception;
+		V create(K key) throws Exception;
 	}
 
 	interface KeyLookup {
@@ -872,8 +891,7 @@ public interface Cache<K, V> {
 		}
 
 		public void evictAll() {
-			evictAll((k, v) -> {
-			});
+			evictAll(Aside::ignore);
 		}
 
 		@Override
