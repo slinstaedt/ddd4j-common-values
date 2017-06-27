@@ -133,7 +133,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 				.sync()
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> channelListener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
 				.whenCompleteExceptionally(channelListener::onError)
-				.handleSuccess(rs -> rs.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE);
+				.thenApply(rs -> rs.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE);
 	}
 
 	@Override

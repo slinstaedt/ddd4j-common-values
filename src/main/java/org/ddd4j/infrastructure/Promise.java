@@ -201,16 +201,6 @@ public interface Promise<T> {
 		return apply((e, s) -> s.handleAsync(fn, e));
 	}
 
-	@Deprecated
-	default Promise<T> handleException(TFunction<? super Throwable, T> fn) {
-		return handle((t, ex) -> ex != null ? fn.apply(ex) : t);
-	}
-
-	@Deprecated
-	default <X> Promise<X> handleSuccess(TFunction<? super T, X> fn) {
-		return handle((t, ex) -> t != null ? fn.apply(t) : Throwing.unchecked(ex));
-	}
-
 	default T join() {
 		return toCompletionStage().toCompletableFuture().join();
 	}

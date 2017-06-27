@@ -23,7 +23,7 @@ public interface BlockingTask {
 					if (scheduled.compareAndSet(false, true)) {
 						task.scheduleWith(scheduler, scheduler.getBlockingTimeoutInMillis(), TimeUnit.MILLISECONDS)
 								.whenComplete((t, e) -> scheduled.set(false))
-								.handleException(task::handleException)
+								.exceptionally(task::handleException)
 								.whenCompleteSuccessfully(t -> t.handle(this));
 					}
 				}

@@ -39,7 +39,7 @@ public class Channel implements Closeable {
 
 		@Override
 		public Promise<Integer> subscribe(ResourceDescriptor topic) {
-			return subscriptions.subscribeIfNeeded(topic, t -> hotCallback.subscribe(t).sync().handleSuccess(Revisions::new));
+			return subscriptions.subscribeIfNeeded(topic, t -> hotCallback.subscribe(t).sync().thenApply(Revisions::new));
 		}
 
 		@Override
@@ -148,7 +148,7 @@ public class Channel implements Closeable {
 		}
 
 		Promise<Integer> subscribeIfNeeded(ResourceDescriptor topic, Function<ResourceDescriptor, Promise<Revisions>> subscriber) {
-			return hotRevisions.computeIfAbsent(topic, subscriber).handleSuccess(Revisions::getPartitionSize);
+			return hotRevisions.computeIfAbsent(topic, subscriber).thenApply(Revisions::getPartitionSize);
 		}
 
 		void unsubscribeIfNeeded(ResourceDescriptor topic, Consumer<ResourceDescriptor> unsubscriber) {
