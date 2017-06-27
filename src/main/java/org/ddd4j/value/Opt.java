@@ -25,7 +25,7 @@ public interface Opt<T> {
 		private final T value;
 
 		public Some(T value) {
-			this.value = value;
+			this.value = Require.nonNull(value);
 		}
 
 		@Override
@@ -48,21 +48,40 @@ public interface Opt<T> {
 		}
 	};
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("rawtypes")
+	Opt NULL = new Opt() {
+
+		@Override
+		@SuppressWarnings("unchecked")
+		public Object applyNullable(Function nullable, Supplier empty) {
+			return nullable.apply(null);
+		}
+	};
+
 	static <T> Opt<T> none() {
+		return ofNone();
+	}
+
+	@SuppressWarnings("unchecked")
+	static <T> Opt<T> ofNone() {
 		return NONE;
+	}
+
+	static <T> Opt<T> ofNullable(T element) {
+		return element != null ? of(element) : ofNull();
 	}
 
 	static <T> Opt<T> of(T element) {
 		return new Some<>(element);
 	}
 
+	@SuppressWarnings("unchecked")
 	static <T> Opt<T> ofNull() {
-		return of(null);
+		return NULL;
 	}
 
 	static <T> Supplier<Opt<T>> wrap(Supplier<? extends T> supplier) {
-		return () -> of(supplier.get());
+		return () -> ofNullable(supplier.get());
 	}
 
 	default <X> X apply(Function<? super T, ? extends X> nonNull, Supplier<? extends X> nill, Supplier<? extends X> empty) {
@@ -144,7 +163,8 @@ public interface Opt<T> {
 	}
 
 	default T getNonNull() {
-		return apply(Function.identity(), Throwing.of(NullPointerException::new).asSupplier(), Throwing.of(NoSuchElementException::new).asSupplier());
+		return apply(Function.identity(), Throwing.of(NullPointerException::new).asSupplier(),
+				Throwing.of(NoSuchElementException::new).asSupplier());
 	}
 
 	default T getNullable() {
@@ -182,7 +202,7 @@ public interface Opt<T> {
 	}
 
 	default <X> Opt<X> map(Function<? super T, ? extends X> nonNull, Supplier<? extends X> nill) {
-		return flatMap(nonNull.andThen(Opt::of), wrap(nill));
+		return flatMap(nonNull.andThen(Opt::<X> of), wrap(nill));
 	}
 
 	default <X> Opt<X> map(Function<? super T, ? extends X> nonNull, Supplier<? extends X> nill, Supplier<? extends X> empty) {
@@ -190,24 +210,24 @@ public interface Opt<T> {
 	}
 
 	default <X> Opt<X> mapNonNull(Function<? super T, ? extends X> nonNull) {
-		return flatMapNonNull(nonNull.andThen(Opt::of));
+		return flatMapNonNull(nonNull.andThen(Opt::<X> of));
 	}
 
 	default <X> Opt<X> mapNullable(Function<? super T, ? extends X> nullable) {
-		return flatMapNullable(nullable.andThen(Opt::of));
+		return flatMapNullable(nullable.andThen(Opt::<X> ofNullable));
 	}
 
 	default <X> Opt<X> mapNullable(Function<? super T, ? extends X> nullable, Opt<X> empty) {
 		Require.nonNull(empty);
-		return flatMapNullable(nullable.andThen(Opt::of), () -> empty);
+		return flatMapNullable(nullable.andThen(Opt::ofNullable), () -> empty);
 	}
 
 	default <X> Opt<X> mapNullable(Function<? super T, ? extends X> nullable, Supplier<? extends X> empty) {
-		return flatMapNullable(nullable.andThen(Opt::of), wrap(empty));
+		return flatMapNullable(nullable.andThen(Opt::<X> ofNullable), wrap(empty));
 	}
 
 	default <X> Optional<X> mapOptional(Function<? super T, ? extends X> nonNull) {
-		return flatMapOptional(nonNull.andThen(Optional::of));
+		return flatMapOptional(nonNull.andThen(Optional::<X> of));
 	}
 
 	default T orElse(T other) {
@@ -223,7 +243,7 @@ public interface Opt<T> {
 	}
 
 	default Opt<T> orElseMapGet(Supplier<Opt<T>> other) {
-		return flatMapNullable(Opt::of, other);
+		return flatMapNullable(Opt::ofNullable, other);
 	}
 
 	default boolean test(Predicate<? super T> predicate, boolean ifNull) {
