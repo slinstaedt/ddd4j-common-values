@@ -1,5 +1,6 @@
 package org.ddd4j.repository.api;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import org.ddd4j.Throwing;
@@ -18,13 +19,13 @@ public interface Reader<K, V> {
 		Reader<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
 	}
 
-	Promise<Committed<K, V>> get(K key);
+	Promise<Optional<Committed<K, V>>> get(K key);
 
-	default Promise<V> getValue(K key) {
-		return get(key).thenApply(Committed::getValue);
+	default Promise<Optional<V>> getValue(K key) {
+		return get(key).thenApply(o -> o.map(Committed::getValue));
 	}
 
 	default <X, Y> Reader<X, Y> map(Function<? super X, ? extends K> key, Function<? super V, ? extends Y> value) {
-		return k -> this.get(key.apply(k)).thenApply(c -> c.mapValue(k, value));
+		return k -> get(key.apply(k)).thenApply(o -> o.map(c -> c.mapValue(k, value)));
 	}
 }

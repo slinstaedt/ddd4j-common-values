@@ -245,6 +245,11 @@ public interface Throwing {
 
 		R applyChecked(T t) throws Exception;
 
+		@Override
+		default <V> TFunction<T, V> andThen(Function<? super R, ? extends V> after) {
+			return Function.super.andThen(after)::apply;
+		}
+
 		default Function<T, Either<R, Exception>> asEither() {
 			return t -> {
 				try {

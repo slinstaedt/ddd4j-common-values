@@ -5,10 +5,18 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.ddd4j.Require;
+import org.ddd4j.io.Bytes.ByteArray;
+import org.ddd4j.spi.Key;
 
 public interface WriteBuffer extends RelativeBuffer {
+
+	Key<Supplier<WriteBuffer>> FACTORY = Key.of("pooledBufferFactory", ctx -> {
+		Supplier<PooledBytes<ByteArray>> factory = ctx.get(PooledBytes.FACTORY);
+		return () -> factory.get().buffered();
+	});
 
 	default WriteBuffer accept(Consumer<? super WriteBuffer> visitor) {
 		visitor.accept(this);

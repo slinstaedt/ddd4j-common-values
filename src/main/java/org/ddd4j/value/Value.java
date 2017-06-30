@@ -7,6 +7,7 @@ import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 import org.ddd4j.Require;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 
 public interface Value<V extends Value<V>> extends Self<V> {
@@ -148,5 +149,16 @@ public interface Value<V extends Value<V>> extends Self<V> {
 
 	default void serialize(WriteBuffer buffer) {
 		throw new UnsupportedOperationException();
+	}
+
+	default ReadBuffer serialized(Supplier<WriteBuffer> factory) {
+		WriteBuffer buffer = factory.get();
+		try {
+			serialize(buffer);
+			return buffer.flip();
+		} catch (Throwable e) {
+			buffer.close();
+			throw e;
+		}
 	}
 }
