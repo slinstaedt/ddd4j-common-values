@@ -1,12 +1,13 @@
 package org.ddd4j.repository;
 
+import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.ddd4j.Require;
 import org.ddd4j.collection.Cache;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.io.PooledBytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.repository.api.Reader;
@@ -63,7 +64,7 @@ public enum SchemaCodec {
 		@Override
 		public <T> Encoder<T> encoder(Context context, Class<T> type) {
 			SchemaEntry<T> entry = SchemaEntry.create(context.get(SchemaFactory.KEY), type);
-			WriteBuffer buffer = context.get(PooledBytes.FACTORY).get().buffered();
+			WriteBuffer buffer = context.get(WriteBuffer.FACTORY).get();
 			Promise<Void> promise = context.get(Writer.Factory.KEY)
 					.create(SCHEMA_REPOSITORY)
 					.put(entry.toRecorded(buffer))
@@ -108,13 +109,21 @@ public enum SchemaCodec {
 
 	public static final Key<Factory> KEY = Key.of(Factory.class, Factory::new);
 	private static final ResourceDescriptor SCHEMA_REPOSITORY = ResourceDescriptor.of("schemata");
-	private static final Key<Cache.ReadThrough<Fingerprint, Promise<SchemaEntry<?>>>> ENTRY_CACHE = Key.of("schemaEntryCache", ctx -> {
-		Reader<Fingerprint, SchemaEntry<?>> repository = ctx.get(Reader.Factory.KEY).create(SCHEMA_REPOSITORY).map(Fingerprint::asBuffer,
+	private static final Key<Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>>> ENTRY_CACHE = Key.of("schemaEntryCache", ctx -> {
+		Supplier<WriteBuffer> bufferFactory = ctx.get(WriteBuffer.FACTORY);
+		Reader<Fingerprint, SchemaEntry<?>> reader = ctx.get(Reader.Factory.KEY).create(SCHEMA_REPOSITORY).map(Fingerprint::asBuffer,
 				b -> SchemaEntry.deserialize(ctx, b));
+		Writer<Fingerprint, SchemaEntry<?>> writer = ctx.get(Writer.Factory.KEY).create(SCHEMA_REPOSITORY).map(Fingerprint::asBuffer,
+				// TODO buffer leakage
+				e -> e.serialized(bufferFactory));
 		return Cache
 				.<Fingerprint, Promise<SchemaEntry<?>>> sharedOnEqualKey(
 						a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(ctx.conf(Cache.MAX_CAPACITY)))
-				.withFactory(fp -> repository.getValue(fp).ordered());
+				.writeThrough(fp -> {
+					// TODO
+					Promise<Optional<SchemaEntry<?>>> promise = reader.getValue(fp);
+					return promise.ordered();
+				}, null);
 	});
 
 	static SchemaCodec decodeType(byte b) {
