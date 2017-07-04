@@ -8,7 +8,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <cucumber.version>1.2.4</cucumber.version>
         <lucene.version>6.4.0</lucene.version>
-        <kafka.version>0.10.2.1</kafka.version>
+        <kafka.version>0.11.0.0</kafka.version>
     </properties>
     <build>
         <plugins>
