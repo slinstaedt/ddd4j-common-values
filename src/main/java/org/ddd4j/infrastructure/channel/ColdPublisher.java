@@ -1,4 +1,4 @@
-package org.ddd4j.repository.api;
+package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.ResourceDescriptor;

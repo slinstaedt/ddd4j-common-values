@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel;
+package org.ddd4j.infrastructure.channel.old;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.channel.old.ColdChannel;
+import org.ddd4j.infrastructure.channel.old.HotChannel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 

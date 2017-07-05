@@ -4,7 +4,8 @@ import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
 
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.ColdChannel.Callback;
+import org.ddd4j.infrastructure.channel.old.ColdChannel;
+import org.ddd4j.infrastructure.channel.old.ColdChannel.Callback;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;

@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel.kafka;
+package org.ddd4j.infrastructure.channel.old.kafka;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.groupingBy;
@@ -27,10 +27,10 @@ import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.ChannelListener;
-import org.ddd4j.infrastructure.channel.ColdChannel;
-import org.ddd4j.infrastructure.channel.HotChannel;
-import org.ddd4j.infrastructure.channel.PartitionRebalanceListener;
+import org.ddd4j.infrastructure.channel.old.ChannelListener;
+import org.ddd4j.infrastructure.channel.old.ColdChannel;
+import org.ddd4j.infrastructure.channel.old.HotChannel;
+import org.ddd4j.infrastructure.channel.old.PartitionRebalanceListener;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.BlockingTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;

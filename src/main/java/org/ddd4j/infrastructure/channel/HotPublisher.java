@@ -1,4 +1,4 @@
-package org.ddd4j.repository.api;
+package org.ddd4j.infrastructure.channel;
 
 import java.util.stream.IntStream;
 

@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.Channel;
+import org.ddd4j.infrastructure.channel.old.Channel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Committer;
 import org.ddd4j.spi.Key;

@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel.kafka;
+package org.ddd4j.infrastructure.channel.old.kafka;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -12,9 +12,9 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.ColdChannel;
-import org.ddd4j.infrastructure.channel.HotChannel;
-import org.ddd4j.infrastructure.channel.LazyListener;
+import org.ddd4j.infrastructure.channel.old.ColdChannel;
+import org.ddd4j.infrastructure.channel.old.HotChannel;
+import org.ddd4j.infrastructure.channel.old.LazyListener;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.Lazy;

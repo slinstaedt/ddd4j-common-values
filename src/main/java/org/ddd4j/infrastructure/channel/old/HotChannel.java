@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel;
+package org.ddd4j.infrastructure.channel.old;
 
 import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.infrastructure.Promise;

@@ -6,9 +6,9 @@ import java.util.stream.Stream;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.ColdPublisher;
+import org.ddd4j.infrastructure.channel.HotPublisher;
 import org.ddd4j.log.Requesting;
-import org.ddd4j.repository.api.ColdPublisher;
-import org.ddd4j.repository.api.HotPublisher;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;

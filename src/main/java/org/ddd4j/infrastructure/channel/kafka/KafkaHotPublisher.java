@@ -1,11 +1,11 @@
-package org.ddd4j.repository.kafka;
+package org.ddd4j.infrastructure.channel.kafka;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.channel.HotPublisher;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.repository.api.HotPublisher;
 import org.ddd4j.value.versioned.Committed;
 import org.reactivestreams.Subscriber;
 
