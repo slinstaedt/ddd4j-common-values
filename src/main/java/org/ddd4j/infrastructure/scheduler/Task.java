@@ -26,8 +26,8 @@ public class Task<T, R> implements Future<R>, Promise<R> {
 	}
 
 	@Override
-	public <X> X apply(BiFunction<Executor, CompletionStage<R>, X> fn) {
-		return fn.apply(executor, future);
+	public <X> Promise<X> apply(BiFunction<Executor, CompletionStage<R>, CompletionStage<X>> fn) {
+		return Promise.of(executor, fn.apply(executor, future));
 	}
 
 	@Override
