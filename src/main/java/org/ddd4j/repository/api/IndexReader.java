@@ -4,6 +4,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.repository.RepositoryDefinition;
 import org.ddd4j.spi.Key;
+import org.ddd4j.value.Value;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.indexed.Indexed;
 import org.ddd4j.value.indexed.Indexer;
@@ -16,7 +17,7 @@ public interface IndexReader<K, V> extends Indexed, Reader<K, V> {
 
 		Key<Factory> KEY = Key.of(Factory.class);
 
-		<K, V> IndexReader<K, V> create(RepositoryDefinition<K, V> definition, Indexer<? super V> indexer);
+		<K extends Value<K>, V> IndexReader<K, V> create(RepositoryDefinition<K, V> definition, Indexer<? super V> indexer);
 	}
 
 	Promise<Seq<Committed<K, V>>> perform(Query<V> query);
