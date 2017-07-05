@@ -1,5 +1,6 @@
 package org.ddd4j.repository.api;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.ddd4j.Throwing;
@@ -20,13 +21,11 @@ public interface Writer<K, V> extends Committer<K, V> {
 		Key<Factory> KEY = Key.of(Factory.class);
 
 		Writer<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
-	}
 
-	default Promise<Committed<K, V>> put(K key, V value) {
-		return put(Recorded.uncommitted(key, value, Revisions.NONE));
+		default Writer<ReadBuffer, ReadBuffer> createClosingBuffers(ResourceDescriptor descriptor) {
+			return create(descriptor).whenComplete(ReadBuffer::close, ReadBuffer::close);
+		}
 	}
-
-	Promise<Committed<K, V>> put(Recorded<K, V> attempt);
 
 	@Override
 	default Promise<? extends CommitResult<K, V>> commit(Uncommitted<K, V> attempt) {
@@ -36,5 +35,19 @@ public interface Writer<K, V> extends Committer<K, V> {
 	@Override
 	default <X, Y> Writer<X, Y> map(Function<? super X, K> key, Function<? super Y, V> value) {
 		return r -> put(r.map(key, value)).thenApply(c -> c.with(r.getKey(), r.getValue()));
+	}
+
+	default Promise<Committed<K, V>> put(K key, V value) {
+		return put(Recorded.uncommitted(key, value, Revisions.NONE));
+	}
+
+	Promise<Committed<K, V>> put(Recorded<K, V> attempt);
+
+	@Override
+	default Writer<K, V> whenComplete(Consumer<? super K> key, Consumer<? super V> value) {
+		return a -> put(a).thenRun(() -> {
+			key.accept(a.getKey());
+			value.accept(a.getValue());
+		});
 	}
 }

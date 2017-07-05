@@ -25,7 +25,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -36,9 +35,7 @@ import java.util.function.UnaryOperator;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.Producer;
-import org.ddd4j.Throwing.TBiConsumer;
 import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.collection.Cache.Access.Exclusive;
 import org.ddd4j.collection.Cache.Access.Shared;
 import org.ddd4j.collection.Cache.Decorating.Blocking;
@@ -295,14 +292,6 @@ public interface Cache<K, V> {
 			delegate.evictAll(key, disposer);
 		}
 
-		public ReadThrough<K, V> readThrough(Factory<? super K, ? extends V> reader) {
-			return new ReadThrough<>(this, reader, Aside::ignore);
-		}
-
-		public ReadThrough<K, V> readThrough(Factory<? super K, ? extends V> readwer, Disposer<? super K, ? super V> disposer) {
-			return new ReadThrough<>(this, readwer, disposer);
-		}
-
 		public void release(V value) {
 			delegate.release(value);
 		}
@@ -320,13 +309,8 @@ public interface Cache<K, V> {
 			return new Aside<>(delegate.wrapEntries(wrapper, unwrapper), keyLookup, keyAdapter);
 		}
 
-		public WriteThrough<K, V> writeThrough(TFunction<? super K, Optional<V>> reader, TBiConsumer<? super K, ? super V> writer) {
-			return new WriteThrough<>(this, reader, writer, Aside::ignore);
-		}
-
-		public WriteThrough<K, V> writeThrough(TFunction<? super K, Optional<V>> reader, TBiConsumer<? super K, ? super V> writer,
-				Disposer<? super K, ? super V> disposer) {
-			return new WriteThrough<>(this, reader, writer, disposer);
+		public WriteThrough<K, V> writeThrough(Reader<? super K, ? extends V> reader, Writer<? super K, V> writer) {
+			return new WriteThrough<>(this, reader, writer);
 		}
 	}
 
@@ -778,8 +762,6 @@ public interface Cache<K, V> {
 			return k -> mapper.apply(create(k));
 		}
 
-		V create(K key) throws Exception;
-
 		default Supplier<V> asSupplier(K key) {
 			return () -> {
 				try {
@@ -789,6 +771,8 @@ public interface Cache<K, V> {
 				}
 			};
 		}
+
+		V create(K key) throws Exception;
 	}
 
 	interface KeyLookup {
@@ -946,19 +930,41 @@ public interface Cache<K, V> {
 		}
 	}
 
+	@FunctionalInterface
+	interface Reader<K, V> {
+
+		default <T> Reader<K, T> andThen(Function<? super V, ? extends T> mapper) {
+			return k -> mapper.apply(read(k));
+		}
+
+		V read(K key) throws Exception;
+	}
+
+	@FunctionalInterface
+	interface Writer<K, V> {
+
+		default <T> Writer<K, T> andThen(Function<? super T, ? extends V> mapper) {
+			return (k, n, o, u) -> updateIfNecessary(k, mapper.apply(n), o.map(mapper), u);
+		}
+
+		void updateIfNecessary(K key, V newValue, Optional<V> oldValue, Runnable cacheUpdater) throws Exception;
+	}
+
 	class WriteThrough<K, V> implements Cache<K, V> {
 
-		private final Aside<K, V> delegate;
-		private final Function<? super K, Optional<V>> reader;
-		private final BiConsumer<? super K, ? super V> writer;
-		private final Disposer<? super K, ? super V> disposer;
+		private class Holder {
 
-		WriteThrough(Aside<K, V> delegate, Function<? super K, Optional<V>> reader, BiConsumer<? super K, ? super V> writer,
-				Disposer<? super K, ? super V> disposer) {
+			V value;
+		}
+
+		private final Aside<K, V> delegate;
+		private final Reader<? super K, ? extends V> reader;
+		private final Writer<? super K, V> writer;
+
+		WriteThrough(Aside<K, V> delegate, Reader<? super K, ? extends V> reader, Writer<? super K, V> writer) {
 			this.delegate = Require.nonNull(delegate);
 			this.reader = Require.nonNull(reader);
 			this.writer = Require.nonNull(writer);
-			this.disposer = Require.nonNull(disposer);
 		}
 
 		public V get(K key) {
@@ -966,35 +972,36 @@ public interface Cache<K, V> {
 		}
 
 		public V get(K key, long timeoutInMillis) {
-			return delegate.acquire(key, k -> reader.apply(k).orElseThrow(IllegalArgumentException::new), timeoutInMillis);
+			return delegate.acquire(key, reader::read, timeoutInMillis);
 		}
 
 		@Override
 		public void evictAll(Disposer<K, V> disposer) {
-			delegate.evictAll(disposer.andThen(this.disposer));
+			delegate.evictAll(disposer);
 		}
 
-		public boolean put(K key, V value) {
-			V old = null;
+		public V put(K key, V newValue) {
+			Holder holder = new Holder();
 			try {
-				old = get(key);
-			} catch (IllegalArgumentException e) {
-				// ignore
+				holder.value = get(key);
+			} catch (Exception e) {
+				holder.value = null;
 			}
-			if (!value.equals(old)) {
-				delegate.evictAll(key);
-				delegate.acquire(key, k -> value);
-				writer.accept(key, value);
-				return true;
-			} else {
-				return false;
+			try {
+				writer.updateIfNecessary(key, newValue, Optional.ofNullable(holder.value), () -> {
+					delegate.evictAll(key);
+					delegate.acquire(key, k -> newValue);
+					holder.value = newValue;
+				});
+			} catch (Exception e) {
+				Throwing.unchecked(e);
 			}
+			return Require.nonNull(holder.value);
 		}
 
 		@Override
 		public <T> WriteThrough<K, T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
-			return new WriteThrough<>(delegate.wrapEntries(wrapper, unwrapper), reader.andThen(o -> o.map(wrapper)),
-					(k, t) -> writer.accept(k, unwrapper.apply(t)), disposer.with(unwrapper));
+			return new WriteThrough<>(delegate.wrapEntries(wrapper, unwrapper), reader.andThen(wrapper), writer.andThen(unwrapper));
 		}
 	}
 
@@ -1006,10 +1013,6 @@ public interface Cache<K, V> {
 
 	static <K, V> Exclusive<K, V> exclusive(Function<? super V, ? extends K> keyedBy, Comparator<K> keyComparator) {
 		return new Exclusive<>(keyComparator, keyedBy);
-	}
-
-	static <V> Exclusive<Integer, V> exclusiveOnIdentity() {
-		return new Exclusive<>(Comparable::compareTo, Object::hashCode);
 	}
 
 	static <K extends Comparable<K>, V> Shared<K, V> shared() {

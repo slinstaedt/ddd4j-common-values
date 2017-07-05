@@ -2,6 +2,15 @@ package org.ddd4j.value;
 
 public interface Named {
 
+	static String decapitalize(Class<?> type) {
+		String result = decapitalize(type.getSimpleName());
+		while (type.getEnclosingClass() != null) {
+			type = type.getEnclosingClass();
+			result = decapitalize(type.getSimpleName()) + "." + result;
+		}
+		return result;
+	}
+
 	static String decapitalize(String name) {
 		if (name.isEmpty() || Character.isLowerCase(name.charAt(0))) {
 			return name;

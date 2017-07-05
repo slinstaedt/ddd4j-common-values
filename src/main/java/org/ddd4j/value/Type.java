@@ -145,7 +145,7 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		return new Unknown(TypeUtils.getTypeArguments(getGenericType(), variable.getGenericDeclaration()).get(variable));
 	}
 
-	public <X> Type<? extends X> resolve(Variable<? super T, X> variable) {
+	public <X> Type<X> resolve(Variable<? super T, X> variable) {
 		Type<?> type = new Unknown(
 				TypeUtils.getTypeArguments(getGenericType(), variable.getDeclaration().getRawType()).get(variable.getJavaVariable()));
 		return type.asSubType(variable.getBaseType().getRawType());

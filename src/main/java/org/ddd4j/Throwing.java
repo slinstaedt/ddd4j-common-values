@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -302,6 +303,43 @@ public interface Throwing {
 		default TConsumer<T> throwOnFail(Function<String, Exception> exceptionFactory) {
 			return t -> {
 				if (!testChecked(t)) {
+					throw exceptionFactory.apply("Failed test " + this + " on: " + t);
+				}
+			};
+		}
+	}
+
+	@FunctionalInterface
+	interface TBiPredicate<T, U> extends BiPredicate<T, U> {
+
+		default TBiPredicate<T, U> returningFalseOn(Class<? extends Exception> exceptionType) {
+			return (t, u) -> {
+				try {
+					return testChecked(t, u);
+				} catch (Exception e) {
+					return exceptionType.isInstance(e) ? false : Throwing.unchecked(e);
+				}
+			};
+		}
+
+		default TBiPredicate<T, U> returningFalseOnException() {
+			return returningFalseOn(Exception.class);
+		}
+
+		@Override
+		default boolean test(T t, U u) {
+			try {
+				return testChecked(t, u);
+			} catch (Exception e) {
+				return Throwing.unchecked(e);
+			}
+		}
+
+		boolean testChecked(T t, U u) throws Exception;
+
+		default TBiConsumer<T, U> throwOnFail(Function<String, Exception> exceptionFactory) {
+			return (t, u) -> {
+				if (!testChecked(t, u)) {
 					throw exceptionFactory.apply("Failed test " + this + " on: " + t);
 				}
 			};

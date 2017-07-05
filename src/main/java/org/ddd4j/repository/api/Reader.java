@@ -25,6 +25,10 @@ public interface Reader<K, V> {
 		return get(key).thenApply(o -> o.map(Committed::getValue));
 	}
 
+	default Promise<V> getValueFailOnMissing(K key) {
+		return getValue(key).testAndFail(Optional::isPresent).thenApply(Optional::get);
+	}
+
 	default <X, Y> Reader<X, Y> map(Function<? super X, ? extends K> key, Function<? super V, ? extends Y> value) {
 		return k -> get(key.apply(k)).thenApply(o -> o.map(c -> c.mapValue(k, value)));
 	}

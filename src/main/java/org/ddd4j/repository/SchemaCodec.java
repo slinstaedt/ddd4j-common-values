@@ -1,10 +1,10 @@
 package org.ddd4j.repository;
 
-import java.util.Optional;
-import java.util.function.Consumer;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import org.ddd4j.Require;
+import org.ddd4j.Throwing;
 import org.ddd4j.collection.Cache;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
@@ -19,15 +19,34 @@ import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Context.NamedService;
 import org.ddd4j.spi.Key;
+import org.ddd4j.value.collection.Configuration;
+import org.ddd4j.value.versioned.Revision;
 
 public enum SchemaCodec {
 
+	OUT_OF_BAND {
+
+		@Override
+		public <T> Decoder<T> decoder(Context context, Class<T> type) {
+			Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_REPO);
+			return (buf, rev) -> cache.get(Fingerprint.deserialize(buf)).thenApply(e -> e.getSchema().createReader(type).read(buf));
+		}
+
+		@Override
+		public <T> Encoder<T> encoder(Context context, Class<T> type) {
+			SchemaEntry<T> entry = SchemaEntry.create(context.get(SchemaFactory.KEY), type);
+			Fingerprint fp = entry.getFingerprint();
+			Promise<?> promise = context.get(SCHEMA_REPO).put(fp, Promise.completed(entry));
+			Schema.Writer<T> writer = entry.getSchema().createWriter();
+			return (buf, val) -> promise.thenReturnValue(buf.put(encodeType()).accept(fp::serialize).accept(b -> writer.write(b, val)));
+		}
+	},
 	PER_MESSAGE {
 
 		@Override
 		public <T> Decoder<T> decoder(Context context, Class<T> type) {
 			NamedService<SchemaFactory> factory = context.specific(SchemaFactory.KEY);
-			return buf -> Promise.completed(factory.withOrFail(buf.getUTF()).readSchema(buf).createReader(type).read(buf));
+			return (buf, rev) -> Promise.completed(factory.withOrFail(buf.getUTF()).readSchema(buf).createReader(type).read(buf));
 		}
 
 		@Override
@@ -43,41 +62,24 @@ public enum SchemaCodec {
 
 		@Override
 		public <T> Decoder<T> decoder(Context context, Class<T> type) {
-			// TODO Auto-generated method stub
-			return null;
+			Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_OFFSETS);
+			return (buf, rev) -> cache.get(rev).thenApply(e -> e.getSchema().createReader(type).read(buf));
 		}
 
 		@Override
 		public <T> Encoder<T> encoder(Context context, Class<T> type) {
-			// TODO Auto-generated method stub
-			return null;
-		}
-	},
-	OUT_OF_BAND {
-
-		@Override
-		public <T> Decoder<T> decoder(Context context, Class<T> type) {
-			Cache.ReadThrough<Fingerprint, Promise<SchemaEntry<?>>> cache = context.get(ENTRY_CACHE);
-			return buf -> cache.acquire(Fingerprint.deserialize(buf)).thenApply(e -> e.getSchema().createReader(type).read(buf));
-		}
-
-		@Override
-		public <T> Encoder<T> encoder(Context context, Class<T> type) {
+			Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_OFFSETS);
 			SchemaEntry<T> entry = SchemaEntry.create(context.get(SchemaFactory.KEY), type);
-			WriteBuffer buffer = context.get(WriteBuffer.FACTORY).get();
-			Promise<Void> promise = context.get(Writer.Factory.KEY)
-					.create(SCHEMA_REPOSITORY)
-					.put(entry.toRecorded(buffer))
-					.thenRun(buffer::close);
-			Consumer<WriteBuffer> fingerprint = entry.getSchema().getFingerprint()::serialize;
+			// TODO Auto-generated method stub
+			Promise<?> promise = null;
 			Schema.Writer<T> writer = entry.getSchema().createWriter();
-			return (buf, val) -> promise.thenReturnValue(buf.put(encodeType()).accept(fingerprint).accept(b -> writer.write(b, val)));
+			return (buf, val) -> promise.thenReturnValue(buf.put(encodeType()).accept(b -> writer.write(b, val)));
 		}
 	};
 
 	public interface Decoder<T> {
 
-		Promise<T> decode(ReadBuffer buffer);
+		Promise<T> decode(ReadBuffer buffer, Revision revision);
 	}
 
 	public interface Encoder<T> {
@@ -87,6 +89,8 @@ public enum SchemaCodec {
 
 	public static class Factory {
 
+		public static final Key<Factory> KEY = Key.of(Factory.class, Factory::new);
+
 		private final Context context;
 
 		Factory(Context context) {
@@ -95,35 +99,36 @@ public enum SchemaCodec {
 
 		public <T> Decoder<T> decoder(Class<T> readerType) {
 			Require.nonNull(readerType);
-			return buf -> decodeType(buf.get()).decoder(context, readerType).decode(buf);
+			return (buf, rev) -> decodeType(buf.get()).decoder(context, readerType).decode(buf, rev);
 		}
 
 		public <T> Encoder<T> encoder(Class<T> writerType) {
 			Require.nonNull(writerType);
-			return context.configuration()
-					.getEnum(SchemaCodec.class, "schemaEncodingStrategy")
-					.orElse(SchemaCodec.OUT_OF_BAND)
-					.encoder(context, writerType);
+			return context.conf(SCHEMA_ENCODER).encoder(context, writerType);
 		}
 	}
 
-	public static final Key<Factory> KEY = Key.of(Factory.class, Factory::new);
-	private static final ResourceDescriptor SCHEMA_REPOSITORY = ResourceDescriptor.of("schemata");
-	private static final Key<Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>>> ENTRY_CACHE = Key.of("schemaEntryCache", ctx -> {
+	private static final Configuration.Key<SchemaCodec> SCHEMA_ENCODER = Configuration.keyOfEnum(SchemaCodec.class, "schemaEncoder",
+			SchemaCodec.OUT_OF_BAND);
+	private static final Key<Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>>> SCHEMA_REPO = Key.of("schemaRepository", ctx -> {
+		ResourceDescriptor schemaRepositoryDescriptor = ResourceDescriptor.of("schemata");
 		Supplier<WriteBuffer> bufferFactory = ctx.get(WriteBuffer.FACTORY);
-		Reader<Fingerprint, SchemaEntry<?>> reader = ctx.get(Reader.Factory.KEY).create(SCHEMA_REPOSITORY).map(Fingerprint::asBuffer,
-				b -> SchemaEntry.deserialize(ctx, b));
-		Writer<Fingerprint, SchemaEntry<?>> writer = ctx.get(Writer.Factory.KEY).create(SCHEMA_REPOSITORY).map(Fingerprint::asBuffer,
-				// TODO buffer leakage
-				e -> e.serialized(bufferFactory));
+		Reader<Fingerprint, SchemaEntry<?>> reader = ctx.get(Reader.Factory.KEY)
+				.create(schemaRepositoryDescriptor)
+				.map(Fingerprint::asBuffer, b -> SchemaEntry.deserialize(ctx, b));
+		Writer<Fingerprint, SchemaEntry<?>> writer = ctx.get(Writer.Factory.KEY)
+				.createClosingBuffers(schemaRepositoryDescriptor)
+				.map(Fingerprint::asBuffer, e -> e.serialized(bufferFactory));
+		Throwing.TBiPredicate<SchemaEntry<?>, SchemaEntry<?>> notEqual = (e1, e2) -> !Objects.equals(e1, e2);
 		return Cache
 				.<Fingerprint, Promise<SchemaEntry<?>>> sharedOnEqualKey(
 						a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(ctx.conf(Cache.MAX_CAPACITY)))
-				.writeThrough(fp -> {
-					// TODO
-					Promise<Optional<SchemaEntry<?>>> promise = reader.getValue(fp);
-					return promise.ordered();
-				}, null);
+				.writeThrough(fp -> reader.getValueFailOnMissing(fp).ordered(),
+						(fp, n, o, u) -> (o.isPresent() ? o.get().testAndFail(n, notEqual) : n).thenRun(u)
+								.whenCompleteSuccessfully(e -> writer.put(fp, e)));
+	});
+	private static final Key<Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>>> SCHEMA_OFFSETS = Key.of("schemaOffsetsCache", ctx -> {
+		throw new UnsupportedOperationException();
 	});
 
 	static SchemaCodec decodeType(byte b) {

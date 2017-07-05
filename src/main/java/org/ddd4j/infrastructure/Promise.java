@@ -19,6 +19,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.Producer;
 import org.ddd4j.Throwing.TBiConsumer;
 import org.ddd4j.Throwing.TBiFunction;
+import org.ddd4j.Throwing.TBiPredicate;
 import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.Throwing.TPredicate;
@@ -241,6 +242,15 @@ public interface Promise<T> {
 		return whenCompleteSuccessfully(predicate.throwOnFail(IllegalArgumentException::new));
 	}
 
+	default <U> Promise<T> testAndFail(Promise<U> other, TBiPredicate<? super T, ? super U> predicate) {
+		return thenCombine(other, (t, u) -> {
+			if (!predicate.test(t, u)) {
+				throw new IllegalArgumentException("T: " + t + ", U:" + u);
+			}
+			return t;
+		});
+	}
+
 	default Promise<Void> thenAccept(TConsumer<? super T> action) {
 		return apply((e, s) -> s.thenAcceptAsync(action, e));
 	}
@@ -269,8 +279,11 @@ public interface Promise<T> {
 		return thenApply(t -> value);
 	}
 
-	default Promise<Void> thenRun(Runnable action) {
-		return apply((e, s) -> s.thenRunAsync(action, e));
+	default Promise<T> thenRun(Runnable action) {
+		return apply((e, s) -> s.thenApplyAsync(t -> {
+			action.run();
+			return t;
+		}, e));
 	}
 
 	default CompletionStage<T> toCompletionStage() {

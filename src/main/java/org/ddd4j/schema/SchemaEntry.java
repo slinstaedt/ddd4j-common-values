@@ -30,7 +30,7 @@ public class SchemaEntry<T> extends Value.Simple<SchemaEntry<T>, Fingerprint> {
 		this.schema = Require.nonNull(schema);
 	}
 
-	public Fingerprint getFinterprint() {
+	public Fingerprint getFingerprint() {
 		return schema.getFingerprint();
 	}
 
