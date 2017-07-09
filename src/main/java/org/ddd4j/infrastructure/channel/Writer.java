@@ -18,14 +18,14 @@ public interface Writer<K, V> extends Committer<K, V> {
 
 	interface Factory extends Throwing.Closeable {
 
-		Key<Factory> KEY = Key.of(Factory.class);
-
 		Writer<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
 
 		default Writer<ReadBuffer, ReadBuffer> createClosingBuffers(ResourceDescriptor descriptor) {
 			return create(descriptor).whenComplete(ReadBuffer::close, ReadBuffer::close);
 		}
 	}
+
+	Key<Factory> FACTORY = Key.of(Factory.class);
 
 	@Override
 	default Promise<? extends CommitResult<K, V>> commit(Uncommitted<K, V> attempt) {

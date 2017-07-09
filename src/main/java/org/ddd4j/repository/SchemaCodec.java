@@ -113,10 +113,9 @@ public enum SchemaCodec {
 	private static final Key<Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>>> SCHEMA_REPO = Key.of("schemaRepository", ctx -> {
 		ResourceDescriptor schemaRepositoryDescriptor = ResourceDescriptor.of("schemata");
 		Supplier<WriteBuffer> bufferFactory = ctx.get(WriteBuffer.FACTORY);
-		Reader<Fingerprint, SchemaEntry<?>> reader = ctx.get(Reader.Factory.KEY)
-				.create(schemaRepositoryDescriptor)
-				.map(Fingerprint::asBuffer, b -> SchemaEntry.deserialize(ctx, b));
-		Writer<Fingerprint, SchemaEntry<?>> writer = ctx.get(Writer.Factory.KEY)
+		Reader<Fingerprint, SchemaEntry<?>> reader = ctx.get(Reader.FACTORY).create(schemaRepositoryDescriptor).map(Fingerprint::asBuffer,
+				b -> SchemaEntry.deserialize(ctx, b));
+		Writer<Fingerprint, SchemaEntry<?>> writer = ctx.get(Writer.FACTORY)
 				.createClosingBuffers(schemaRepositoryDescriptor)
 				.map(Fingerprint::asBuffer, e -> e.serialized(bufferFactory));
 		Throwing.TBiPredicate<SchemaEntry<?>, SchemaEntry<?>> notEqual = (e1, e2) -> !Objects.equals(e1, e2);

@@ -11,8 +11,8 @@ public interface IndexWriter<K, V> extends Indexed, Writer<K, V> {
 
 	interface Factory extends Throwing.Closeable {
 
-		Key<Factory> KEY = Key.of(Factory.class);
-
 		<K extends Value<K>, V> IndexWriter<K, V> create(RepositoryDefinition<K, V> definition, Indexer<? super V> indexer);
 	}
+
+	Key<Factory> FACTORY = Key.of(Factory.class);
 }

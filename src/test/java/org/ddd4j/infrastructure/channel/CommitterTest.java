@@ -5,7 +5,6 @@ import java.time.ZonedDateTime;
 import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.channel.Committer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.repository.RepositoryDefinition;
 import org.ddd4j.repository.SchemaCodec;
@@ -29,10 +28,10 @@ public class CommitterTest {
 
 	@Test
 	public void testSimpleCommit() {
-		provisioning.withConfigurer(b -> b.bind(Committer.Factory.KEY)
+		provisioning.withConfigurer(b -> b.bind(Committer.FACTORY)
 				.toInstance(d -> a -> Promise.completed(a.committed(new Revision(0, 0), ZonedDateTime.now()))));
 		Context context = provisioning.createContext(Props.EMTPY);
-		Committer<Identifier, String> committer = context.get(Committer.Factory.KEY).create(new RepositoryDefinition<Identifier, String>() {
+		Committer<Identifier, String> committer = context.get(Committer.FACTORY).create(new RepositoryDefinition<Identifier, String>() {
 
 			@Override
 			public ResourceDescriptor getDescriptor() {

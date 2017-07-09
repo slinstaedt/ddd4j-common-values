@@ -8,14 +8,14 @@ import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 import org.reactivestreams.Subscriber;
 
-public interface ColdPublisher<K, V> extends Throwing.Closeable {
+public interface ColdPublisher<K, V> {
 
-	interface Factory {
-
-		Key<Factory> KEY = Key.of(Factory.class);
+	interface Factory extends Throwing.Closeable {
 
 		ColdPublisher<ReadBuffer, ReadBuffer> create();
 	}
 
-	void subscribe(Subscriber<Committed<K, V>> subscriber, ResourceDescriptor descriptor, Revision... startRevisions);
+	Key<Factory> FACTORY = Key.of(Factory.class);
+
+	void subscribe(Subscriber<? super Committed<K, V>> subscriber, ResourceDescriptor descriptor, Revision... startRevisions);
 }

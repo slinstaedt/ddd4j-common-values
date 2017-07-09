@@ -1,51 +1,36 @@
 package org.ddd4j.infrastructure.channel;
 
-import java.util.stream.IntStream;
-
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
-import org.reactivestreams.Subscriber;
 
-public interface HotPublisher<K, V> extends org.reactivestreams.Publisher<Committed<K, V>> {
+public interface HotPublisher extends Throwing.Closeable {
 
 	/**
 	 * Listener for partition rebalance events.
 	 */
 	interface Listener {
 
-		Listener IGNORE = new Listener() {
+		void onError(Throwable throwable);
 
-			@Override
-			public Promise<Void> onPartitionsAssigned(IntStream partitions) {
-				return Promise.completed();
-			}
+		void onNext(ResourceDescriptor resource, Committed<ReadBuffer, ReadBuffer> committed);
 
-			@Override
-			public Promise<Void> onPartitionsRevoked(IntStream partitions) {
-				return Promise.completed();
-			}
-		};
+		void onPartitionsAssigned(ResourceDescriptor resource, int[] partitions);
 
-		Promise<Void> onPartitionsAssigned(IntStream partitions);
-
-		Promise<Void> onPartitionsRevoked(IntStream partitions);
+		void onPartitionsRevoked(ResourceDescriptor resource, int[] partitions);
 	}
 
 	interface Factory extends Throwing.Closeable {
 
-		Key<Factory> KEY = Key.of(Factory.class);
-
-		HotPublisher<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
+		HotPublisher register(Listener listener);
 	}
 
-	@Override
-	default void subscribe(Subscriber<? super Committed<K, V>> subscriber) {
-		subscribe(subscriber, Listener.IGNORE);
-	}
+	Key<Factory> FACTORY = Key.of(Factory.class);
 
-	void subscribe(Subscriber<? super Committed<K, V>> subscriber, Listener listener);
+	Promise<Integer> subscribe(ResourceDescriptor resource);
+
+	void unsubscribe(ResourceDescriptor resource);
 }

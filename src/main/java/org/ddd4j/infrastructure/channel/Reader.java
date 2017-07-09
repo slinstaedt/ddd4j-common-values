@@ -14,10 +14,10 @@ public interface Reader<K, V> {
 
 	interface Factory extends Throwing.Closeable {
 
-		Key<Factory> KEY = Key.of(Factory.class);
-
 		Reader<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
 	}
+
+	Key<Factory> FACTORY = Key.of(Factory.class);
 
 	Promise<Optional<Committed<K, V>>> get(K key);
 

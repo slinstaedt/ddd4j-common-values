@@ -1,13 +1,13 @@
 package org.ddd4j.repository;
 
 import java.util.Map;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.ColdPublisher;
 import org.ddd4j.infrastructure.channel.HotPublisher;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Requesting;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
@@ -15,22 +15,22 @@ import org.ddd4j.value.versioned.Revision;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public class Publisher<K, V> implements HotPublisher.Listener {
+public class Publisher<K, V> implements org.reactivestreams.Publisher<Committed<K, V>> {
 
-	interface Callback {
+	public interface RevisionCallback {
 
-		Promise<Stream<Revision>> loadRevisions(IntStream partitions);
+		Promise<Revision[]> loadRevisions(int[] partitions);
 
-		Promise<Void> saveRevisions(Stream<Revision> revisions);
+		Promise<Void> saveRevisions(Revision[] revisions);
 	}
 
-	private class PublisherSubscription implements Subscription {
+	private class Listener implements Subscription, HotPublisher.Listener {
 
 		private final Subscriber<? super Committed<K, V>> subscriber;
-		private final Callback callback;
+		private final RevisionCallback callback;
 		private final Requesting requesting;
 
-		public PublisherSubscription(Subscriber<? super Committed<K, V>> subscriber, Callback callback) {
+		public Listener(Subscriber<? super Committed<K, V>> subscriber, RevisionCallback callback) {
 			this.subscriber = Require.nonNull(subscriber);
 			this.callback = Require.nonNull(callback);
 			this.requesting = new Requesting();
@@ -45,37 +45,61 @@ public class Publisher<K, V> implements HotPublisher.Listener {
 		public void cancel() {
 			cancelSubscription(subscriber);
 		}
+
+		@Override
+		public void onError(Throwable throwable) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void onNext(ResourceDescriptor resource, Committed<ReadBuffer, ReadBuffer> committed) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void onPartitionsAssigned(ResourceDescriptor resource, int[] partitions) {
+			callback.loadRevisions(partitions).whenCompleteSuccessfully(r -> cold.subscribe(subscriber, descriptor, r));
+		}
+
+		@Override
+		public void onPartitionsRevoked(ResourceDescriptor resource, int[] partitions) {
+			// TODO Auto-generated method stub
+
+		}
 	}
 
 	interface Factory {
 
 		Key<Factory> KEY = Key.of(Factory.class);
 
-		<K, V> Publisher<K, V> create(RepositoryDefinition<K, V> definition);
+		Publisher<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
 	}
 
+	private ResourceDescriptor descriptor;
 	private ColdPublisher<K, V> cold;
 	private HotPublisher<K, V> hot;
-	private Map<Subscriber<? super Committed<K, V>>, ?> subscriptions;
+	private Map<Subscriber<? super Committed<K, V>>, Listener> subscriptions;
 
-	public void subscribe(Subscriber<? super Committed<K, V>> subscriber, Callback callback) {
-		subscriptions.putIfAbsent(subscriber, new PublisherSubscription(subscriber, callback));
-		hot.subscribe(subscriber, this);
-	}
-
-	private void cancelSubscription(Subscriber<? super Committed<K, V>> subscriber) {
-
+	public Publisher() {
 	}
 
 	@Override
-	public Promise<Void> onPartitionsAssigned(IntStream partitions) {
-		// TODO Auto-generated method stub
-		return null;
+	public void subscribe(Subscriber<? super Committed<K, V>> subscriber) {
+		subscribe(subscriber, null); // TODO
 	}
 
-	@Override
-	public Promise<Void> onPartitionsRevoked(IntStream partitions) {
-		// TODO Auto-generated method stub
-		return null;
+	public void subscribe(Subscriber<? super Committed<K, V>> subscriber, RevisionCallback callback) {
+		subscriptions.computeIfAbsent(subscriber, s -> {
+			Listener subscription = new Listener(s, callback);
+			hot.subscribe(subscriber, subscription);
+			s.onSubscribe(subscription);
+			return subscription;
+		});
+	}
+
+	private boolean cancelSubscription(Subscriber<? super Committed<K, V>> subscriber) {
+		return subscriptions.remove(subscriber) != null;
 	}
 }

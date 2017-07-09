@@ -21,8 +21,6 @@ public interface Committer<K, V> {
 
 	interface Factory extends Throwing.Closeable {
 
-		Key<Factory> KEY = Key.of(Factory.class);
-
 		@Override
 		default void closeChecked() throws Exception {
 		}
@@ -37,6 +35,8 @@ public interface Committer<K, V> {
 
 		Committer<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
 	}
+
+	Key<Factory> FACTORY = Key.of(Factory.class);
 
 	Promise<? extends CommitResult<K, V>> commit(Uncommitted<K, V> attempt);
 
