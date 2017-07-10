@@ -86,7 +86,7 @@ public interface Scheduler extends Executor {
 	}
 
 	default Rescheduler reschedulerFor(BlockingTask task) {
-		return Rescheduler.create(this, task);
+		return new Rescheduler(this, task);
 	}
 
 	default <T> Promise<T> schedule(Producer<T> producer) {

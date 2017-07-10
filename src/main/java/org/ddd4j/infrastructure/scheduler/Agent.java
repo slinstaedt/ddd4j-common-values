@@ -115,7 +115,7 @@ public abstract class Agent<T> {
 		}
 	}
 
-	protected <R> Task<T, R> scheduleIfNeeded(Task<T, R> task) {
+	protected final <R> Task<T, R> scheduleIfNeeded(Task<T, R> task) {
 		tasks.offer(task);
 		if (scheduled.compareAndSet(false, true)) {
 			executor.execute(this::run);
