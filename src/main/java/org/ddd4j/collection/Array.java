@@ -53,14 +53,13 @@ public class Array<E> implements Iterable<E> {
 		return elements.iterator();
 	}
 
-	public Array<E> set(int index, E element) {
+	public E set(int index, E element) {
 		elements.ensureCapacity(index);
 		int missing = index - elements.size();
 		for (int i = 0; i < missing; i++) {
 			elements.add(null);
 		}
-		elements.set(index, element);
-		return this;
+		return elements.set(index, element);
 	}
 
 	public int size() {
@@ -82,10 +81,5 @@ public class Array<E> implements Iterable<E> {
 	@Override
 	public String toString() {
 		return elements.toString();
-	}
-
-	public Array<E> trimToSize() {
-		elements.trimToSize();
-		return this;
 	}
 }

@@ -6,12 +6,70 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.ddd4j.Require;
 
 public class RingBuffer<E> implements Iterable<E>, Iterator<E> {
+
+	protected interface Holder<E> {
+
+		class Array<E> implements Holder<E> {
+
+			private final E[] elements;
+			private final int offset;
+			private final int length;
+			private int current;
+
+			public Array(E[] elements, int offset, int length) {
+				this.elements = elements;
+				this.offset = offset;
+				this.length = length;
+				this.current = 0;
+			}
+
+			@Override
+			public boolean acceptsMore(E element) {
+				elements[offset + current++] = element;
+				return current == length;
+			}
+
+			@Override
+			public void reinit() {
+				current = 0;
+			}
+
+			public int size() {
+				return current;
+			}
+		}
+
+		class Single<E> implements Holder<E> {
+
+			private E element;
+
+			@Override
+			public boolean acceptsMore(E element) {
+				this.element = element;
+				return false;
+			}
+
+			public <X extends Throwable> E getOrThrow(Supplier<X> exception) throws X {
+				if (element != null) {
+					return element;
+				} else {
+					throw exception.get();
+				}
+			}
+		}
+
+		boolean acceptsMore(E element);
+
+		default void reinit() {
+		}
+	}
 
 	private static final int EMPTY = -1;
 
@@ -30,17 +88,29 @@ public class RingBuffer<E> implements Iterable<E>, Iterator<E> {
 	}
 
 	public E get() throws NoSuchElementException {
-		int index = getIndex.getAndUpdate(current -> {
-			if (current == EMPTY) {
-				throw new NoSuchElementException();
+		return get(new Holder.Single<>()).getOrThrow(NoSuchElementException::new);
+	}
+
+	public int get(E[] target) {
+		return get(new Holder.Array<>(target, 0, target.length)).size();
+	}
+
+	public int get(E[] target, int offset, int length) {
+		return get(new Holder.Array<>(target, offset, length)).size();
+	}
+
+	protected <H extends Holder<? super E>> H get(H holder) {
+		getIndex.getAndUpdate(i -> {
+			holder.reinit();
+			while (i != EMPTY && i != putIndex.get() && holder.acceptsMore(elements[i])) {
+				i = nextIndex(i);
 			}
-			int next = nextIndex(current);
-			if (next == putIndex.get()) {
-				next = EMPTY;
+			if (i == putIndex.get()) {
+				i = EMPTY;
 			}
-			return next;
+			return i;
 		});
-		return elements[index];
+		return holder;
 	}
 
 	public long getOffsetEnd() {
@@ -74,8 +144,8 @@ public class RingBuffer<E> implements Iterable<E>, Iterator<E> {
 		return get();
 	}
 
-	private int nextIndex(int index) {
-		return (index + 1) % elements.length;
+	private int nextIndex(int current) {
+		return (current + 1) % elements.length;
 	}
 
 	public void put(E element) {
