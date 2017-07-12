@@ -38,21 +38,13 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 
 	public static class Factory implements HotSource.Factory {
 
-		Consumer<byte[], byte[]> consumer;
-		private Agent<Consumer<byte[], byte[]>> client;
-
 		public Factory(Context context) {
-
 			// TODO Auto-generated constructor stub
 		}
 
 		@Override
-		public void closeChecked() throws Exception {
-			client.perform(Consumer::close);
-		}
-
-		@Override
 		public HotSource createHotSource(Callback callback) {
+			Consumer<byte[], byte[]> consumer = null;
 			new KafkaRebalanceListener(consumer, callback);
 			return new KafkaHotSource();
 		}
@@ -68,7 +60,7 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 			this.callback = Require.nonNull(callback);
 		}
 
-		public void onError(Throwable throwable) {
+		void onError(Throwable throwable) {
 			callback.onError(throwable);
 		}
 
@@ -140,6 +132,7 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 
 	@Override
 	public void closeChecked() throws Exception {
+		client.perform(Consumer::close);
 	}
 
 	@Override
