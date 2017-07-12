@@ -6,7 +6,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -105,7 +105,7 @@ public interface Promise<T> {
 
 	static void main(String... args) throws InterruptedException {
 		Random random = new Random();
-		ExecutorService executor = Executors.newCachedThreadPool();
+		ExecutorService executor = ForkJoinPool.commonPool();
 
 		Deferred<String> deferred = Promise.deferred(executor);
 		Promise<String> ordered = deferred.ordered();
@@ -122,6 +122,8 @@ public interface Promise<T> {
 		deferred.whenComplete((s, x) -> System.out.println("starting..."));
 
 		System.out.println("Executor shutdown");
+		executor.awaitTermination(20, TimeUnit.SECONDS);
+
 	}
 
 	static Promise<Void> completed() {
@@ -202,6 +204,16 @@ public interface Promise<T> {
 		return apply((e, s) -> s.handleAsync(fn, e));
 	}
 
+	default <U> Promise<U> handle(TFunction<? super T, ? extends U> success, TFunction<? super Throwable, ? extends U> exception) {
+		return handle((t, ex) -> {
+			if (ex != null) {
+				return exception.apply(ex);
+			} else {
+				return success.apply(t);
+			}
+		});
+	}
+
 	default T join() {
 		return toCompletionStage().toCompletableFuture().join();
 	}
@@ -238,17 +250,12 @@ public interface Promise<T> {
 		return withExecutor(Runnable::run);
 	}
 
-	default Promise<T> testAndFail(TPredicate<? super T> predicate) {
+	default Promise<T> checkOrFail(TPredicate<? super T> predicate) {
 		return whenCompleteSuccessfully(predicate.throwOnFail(IllegalArgumentException::new));
 	}
 
-	default <U> Promise<T> testAndFail(Promise<U> other, TBiPredicate<? super T, ? super U> predicate) {
-		return thenCombine(other, (t, u) -> {
-			if (!predicate.test(t, u)) {
-				throw new IllegalArgumentException("T: " + t + ", U:" + u);
-			}
-			return t;
-		});
+	default <U> Promise<Void> checkOrFailOnBoth(Promise<? extends U> other, TBiPredicate<? super T, ? super U> predicate) {
+		return thenAcceptBoth(other, predicate.throwOnFail(IllegalArgumentException::new));
 	}
 
 	default Promise<Void> thenAccept(TConsumer<? super T> action) {
@@ -295,6 +302,16 @@ public interface Promise<T> {
 
 	default Promise<T> whenComplete(TBiConsumer<? super T, ? super Throwable> action) {
 		return apply((e, s) -> s.whenCompleteAsync(action, e));
+	}
+
+	default Promise<T> whenComplete(TConsumer<? super T> success, TConsumer<? super Throwable> exception) {
+		return whenComplete((t, ex) -> {
+			if (ex != null) {
+				exception.acceptNonNull(ex);
+			} else {
+				success.acceptNonNull(t);
+			}
+		});
 	}
 
 	default Promise<T> whenCompleteExceptionally(TConsumer<? super Throwable> action) {

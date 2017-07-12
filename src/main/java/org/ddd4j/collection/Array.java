@@ -10,11 +10,11 @@ public class Array<E> implements Iterable<E> {
 	private final ArrayList<E> elements;
 
 	public Array() {
-		this(10);
+		this(-1);
 	}
 
 	public Array(int initialCapacity) {
-		this.elements = new ArrayList<>(initialCapacity);
+		this.elements = initialCapacity >= 0 ? new ArrayList<>(initialCapacity) : new ArrayList<>();
 	}
 
 	public Array<E> add(E element) {

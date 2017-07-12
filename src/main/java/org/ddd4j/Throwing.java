@@ -340,7 +340,7 @@ public interface Throwing {
 		default TBiConsumer<T, U> throwOnFail(Function<String, Exception> exceptionFactory) {
 			return (t, u) -> {
 				if (!testChecked(t, u)) {
-					throw exceptionFactory.apply("Failed test " + this + " on: " + t);
+					throw exceptionFactory.apply("Failed test " + this + " on t=" + t + " , u=" + u);
 				}
 			};
 		}
@@ -400,7 +400,7 @@ public interface Throwing {
 	}
 
 	static <X> X unchecked(Throwable exception) {
-		return Throwing.<X, RuntimeException> any(exception);
+		return Throwing.<X, RuntimeException>any(exception);
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction(Object... args) {

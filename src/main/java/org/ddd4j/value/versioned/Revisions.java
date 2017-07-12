@@ -9,7 +9,7 @@ import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.math.Ordered.Comparison;
 
 //TODO move to log package
-public class Revisions {
+public class Revisions implements Seq<Revision> {
 
 	public static final Revisions NONE = new Revisions(0);
 
@@ -94,7 +94,8 @@ public class Revisions {
 		return new Revision(partition, offset(partition));
 	}
 
-	public Stream<Revision> revisions() {
+	@Override
+	public Stream<Revision> stream() {
 		return partitions().mapToObj(this::revisionOfPartition);
 	}
 

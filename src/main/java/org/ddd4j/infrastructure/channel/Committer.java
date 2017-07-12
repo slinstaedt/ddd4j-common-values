@@ -4,7 +4,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
@@ -19,11 +18,7 @@ import org.ddd4j.value.versioned.Uncommitted;
 
 public interface Committer<K, V> {
 
-	interface Factory extends Throwing.Closeable {
-
-		@Override
-		default void closeChecked() throws Exception {
-		}
+	interface Factory extends DataAccessFactory {
 
 		default <K extends Value<K>, V> Committer<K, V> create(RepositoryDefinition<K, V> definition, SchemaCodec.Factory codecFactory,
 				Supplier<WriteBuffer> bufferSupplier) {

@@ -146,8 +146,8 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		latest.ifPresent(r -> {
 			Revisions earliest = Revisions.create(r.getPartitionSize(), Arrays.stream(partitions), Long.MAX_VALUE);
 			forAllSubscriptions(s -> s.earliestRevision(earliest));
-			r.update(earliest.revisions());
-			earliest.revisions().forEach(this::seek);
+			r.update(earliest.stream());
+			earliest.stream().forEach(this::seek);
 		});
 	}
 

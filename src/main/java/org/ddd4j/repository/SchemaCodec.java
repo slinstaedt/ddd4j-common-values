@@ -118,12 +118,13 @@ public enum SchemaCodec {
 		Writer<Fingerprint, SchemaEntry<?>> writer = ctx.get(Writer.FACTORY)
 				.createClosingBuffers(schemaRepositoryDescriptor)
 				.map(Fingerprint::asBuffer, e -> e.serialized(bufferFactory));
-		Throwing.TBiPredicate<SchemaEntry<?>, SchemaEntry<?>> notEqual = (e1, e2) -> !Objects.equals(e1, e2);
+		Throwing.TBiFunction<SchemaEntry<?>, SchemaEntry<?>, SchemaEntry<?>> notEqual = (o, n) -> !Objects.equals(o, n) ? n
+				: Throwing.unchecked(new Exception("not updated"));
 		return Cache
-				.<Fingerprint, Promise<SchemaEntry<?>>> sharedOnEqualKey(
+				.<Fingerprint, Promise<SchemaEntry<?>>>sharedOnEqualKey(
 						a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(ctx.conf(Cache.MAX_CAPACITY)))
 				.writeThrough(fp -> reader.getValueFailOnMissing(fp).ordered(),
-						(fp, n, o, u) -> (o.isPresent() ? o.get().testAndFail(n, notEqual) : n).thenRun(u)
+						(fp, n, o, u) -> (o.isPresent() ? o.get().thenCombine(n, notEqual) : n).thenRun(u)
 								.whenCompleteSuccessfully(e -> writer.put(fp, e)));
 	});
 	private static final Key<Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>>> SCHEMA_OFFSETS = Key.of("schemaOffsetsCache", ctx -> {

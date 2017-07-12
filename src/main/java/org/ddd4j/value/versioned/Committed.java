@@ -36,7 +36,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	private final ZonedDateTime timestamp;
 	private final Props header;
 
-	Committed(K key, V value, Revision actual, Revision next, ZonedDateTime timestamp, Props header) {
+	public Committed(K key, V value, Revision actual, Revision next, ZonedDateTime timestamp, Props header) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.actual = Require.nonNull(actual);

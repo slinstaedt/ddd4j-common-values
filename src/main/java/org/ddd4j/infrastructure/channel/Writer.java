@@ -3,7 +3,6 @@ package org.ddd4j.infrastructure.channel;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
@@ -16,7 +15,7 @@ import org.ddd4j.value.versioned.Uncommitted;
 
 public interface Writer<K, V> extends Committer<K, V> {
 
-	interface Factory extends Throwing.Closeable {
+	interface Factory extends DataAccessFactory {
 
 		Writer<ReadBuffer, ReadBuffer> create(ResourceDescriptor resource);
 
