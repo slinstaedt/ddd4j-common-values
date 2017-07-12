@@ -18,10 +18,10 @@ public interface Writer<K, V> extends Committer<K, V> {
 
 	interface Factory extends Throwing.Closeable {
 
-		Writer<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
+		Writer<ReadBuffer, ReadBuffer> create(ResourceDescriptor resource);
 
-		default Writer<ReadBuffer, ReadBuffer> createClosingBuffers(ResourceDescriptor descriptor) {
-			return create(descriptor).whenComplete(ReadBuffer::close, ReadBuffer::close);
+		default Writer<ReadBuffer, ReadBuffer> createClosingBuffers(ResourceDescriptor resource) {
+			return create(resource).whenComplete(ReadBuffer::close, ReadBuffer::close);
 		}
 	}
 

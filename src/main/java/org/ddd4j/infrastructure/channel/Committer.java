@@ -33,7 +33,7 @@ public interface Committer<K, V> {
 					v -> encoder.encode(bufferSupplier.get(), v).thenApply(WriteBuffer::flip));
 		}
 
-		Committer<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
+		Committer<ReadBuffer, ReadBuffer> create(ResourceDescriptor resource);
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class);

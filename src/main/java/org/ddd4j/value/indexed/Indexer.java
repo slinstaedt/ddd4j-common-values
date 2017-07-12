@@ -37,7 +37,7 @@ public class Indexer<D> {
 	}
 
 	public Seq<Property<D, ?>> getProperties() {
-		return Seq.of(properties.values());
+		return Seq.ofCopied(properties.values());
 	}
 
 	public <X extends D> Document<X> index(X document) {

@@ -14,7 +14,7 @@ public interface Reader<K, V> {
 
 	interface Factory extends Throwing.Closeable {
 
-		Reader<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
+		Reader<ReadBuffer, ReadBuffer> create(ResourceDescriptor resource);
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class);

@@ -17,6 +17,7 @@ import java.util.Spliterators;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.BinaryOperator;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
@@ -221,7 +222,8 @@ public interface Seq<E> extends Iter.Able<E> {
 			return ref.get();
 		}
 
-		default <T> Optional<T> eachWithIntitial(Function<? super E, ? extends T> initial, BiFunction<? super T, ? super E, ? extends T> fold) {
+		default <T> Optional<T> eachWithIntitial(Function<? super E, ? extends T> initial,
+				BiFunction<? super T, ? super E, ? extends T> fold) {
 			Ref<T> ref = Ref.create();
 			apply(Function.identity()).forEach(e -> ref.update(t -> t == null ? initial.apply(e) : fold.apply(t, e)));
 			return Optional.ofNullable(ref.get());
@@ -280,7 +282,8 @@ public interface Seq<E> extends Iter.Able<E> {
 			return apply(mapper, s -> s.reduce(identity, accumulator));
 		}
 
-		default <T, U> U reduce(Function<? super E, T> mapper, U identity, BiFunction<U, ? super T, U> accumulator, BinaryOperator<U> combiner) {
+		default <T, U> U reduce(Function<? super E, T> mapper, U identity, BiFunction<U, ? super T, U> accumulator,
+				BinaryOperator<U> combiner) {
 			return apply(mapper, s -> s.reduce(identity, accumulator, combiner));
 		}
 
@@ -332,7 +335,8 @@ public interface Seq<E> extends Iter.Able<E> {
 			default <X, Y> InnerJoin<L, R, T> on(Function<? super L, X> leftProperty, Function<? super R, Y> rightProperty,
 					BiPredicate<? super X, ? super Y> predicate) {
 				Require.nonNullElements(leftProperty, rightProperty, predicate);
-				return (p, lf, rf) -> apply((l, r) -> p.test(l, r) && predicate.test(leftProperty.apply(l), rightProperty.apply(r)), lf, rf);
+				return (p, lf, rf) -> apply((l, r) -> p.test(l, r) && predicate.test(leftProperty.apply(l), rightProperty.apply(r)), lf,
+						rf);
 			}
 
 			default InnerJoin<L, R, T> onEqual() {
@@ -378,8 +382,8 @@ public interface Seq<E> extends Iter.Able<E> {
 			}
 		}
 
-		<R, T> Seq<T> apply(Seq<R> other, BiFunction<? super L, ? super R, T> mapper, BiPredicate<? super L, ? super R> predicate, Opt<L> leftFill,
-				Opt<R> rightFill);
+		<R, T> Seq<T> apply(Seq<R> other, BiFunction<? super L, ? super R, T> mapper, BiPredicate<? super L, ? super R> predicate,
+				Opt<L> leftFill, Opt<R> rightFill);
 
 		default <R> InnerJoin<L, R, Tpl<L, R>> inner(Seq<R> other) {
 			return inner(other, Tpl::of);
@@ -518,7 +522,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		}
 
 		default <X> Mapping<E, X> flatArray(Function<? super E, X[]> mapper) {
-			return flatStream(mapper.andThen(Stream::of));
+			return flatStream(mapper.andThen(Arrays::stream));
 		}
 
 		default <X> Mapping<E, X> flatCollection(Function<? super E, ? extends Collection<? extends X>> mapper) {
@@ -551,11 +555,11 @@ public interface Seq<E> extends Iter.Able<E> {
 		}
 
 		default <X> Mapping<E, Seq<X>> mappedArray(Function<? super E, X[]> mapper) {
-			return mapped(mapper.andThen(Seq::of));
+			return mapped(mapper.<Seq<X>>andThen(Seq::of));
 		}
 
 		default <X> Mapping<E, Seq<X>> mappedCollection(Function<? super E, ? extends Collection<X>> mapper) {
-			return mapped(mapper.andThen(Seq::of));
+			return mapped(mapper.andThen(Seq::ofCopied));
 		}
 
 		default <X> Mapping<E, Seq<X>> mappedStream(Function<? super E, ? extends Stream<X>> mapper) {
@@ -665,16 +669,16 @@ public interface Seq<E> extends Iter.Able<E> {
 		Seq.of("a", "b", "c").zip().inner(Seq.of(1, 2), (x, y) -> x + y).result().fold().toString(System.out::println);
 	}
 
-	static <E> Seq<E> of(Collection<E> collection) {
-		return new ArrayList<>(collection)::stream;
-	}
-
 	@SafeVarargs
 	static <E> Seq<E> of(E... entries) {
 		return Arrays.asList(entries)::stream;
 	}
 
-	static <E> Seq<E> of(Iterable<E> iterable) {
+	static <E> Seq<E> ofCopied(Collection<E> collection) {
+		return new ArrayList<>(collection)::stream;
+	}
+
+	static <E> Seq<E> ofIterable(Iterable<E> iterable) {
 		return Iter.Able.wrap(iterable).asSequence();
 	}
 
@@ -694,6 +698,11 @@ public interface Seq<E> extends Iter.Able<E> {
 
 	default Extender<Object> appendAny() {
 		return o -> concat(this, o);
+	}
+
+	@Override
+	default Seq<E> asSequence() {
+		return this;
 	}
 
 	default String asString() {
@@ -750,6 +759,15 @@ public interface Seq<E> extends Iter.Able<E> {
 		return downstream.apply(checkFinite().stream().map(mapper));
 	}
 
+	default void forEachOrEmpty(Consumer<? super E> consumer, Runnable empty) {
+		Iterator<E> iterator = iterator();
+		if (iterator.hasNext()) {
+			iterator.forEachRemaining(consumer);
+		} else {
+			empty.run();
+		}
+	}
+
 	default <T extends Exception> void forEachThrowing(ThrowingConsumer<? super E, T> action) throws T {
 		Iterator<E> iterator = iterator();
 		while (iterator.hasNext()) {
@@ -780,7 +798,7 @@ public interface Seq<E> extends Iter.Able<E> {
 	// TODO use Joiner?
 	default Seq<E> intersect(Seq<E> other, boolean anyInfinite) {
 		Require.nonNull(other);
-		return of(() -> {
+		return ofIterable(() -> {
 			Iterator<? extends E> i1 = this.iterator();
 			Iterator<? extends E> i2 = other.iterator();
 			return new Iterator<E>() {
@@ -811,8 +829,8 @@ public interface Seq<E> extends Iter.Able<E> {
 
 	}
 
-	default <R, T> Seq<T> intersect(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate, Opt<E> leftFill,
-			Opt<R> rightFill) {
+	default <R, T> Seq<T> intersect(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate,
+			Opt<E> leftFill, Opt<R> rightFill) {
 		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
 		Iter.Able<E> able = () -> {
 			RefTpl<E, R> next = RefTpl.create(null, null);
@@ -853,8 +871,8 @@ public interface Seq<E> extends Iter.Able<E> {
 		return this::join;
 	}
 
-	default <R, T> Seq<T> join(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate, Opt<E> leftFill,
-			Opt<R> rightFill) {
+	default <R, T> Seq<T> join(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate,
+			Opt<E> leftFill, Opt<R> rightFill) {
 		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
 		return this.map()
 				.flat(l -> other.filter()
@@ -926,8 +944,8 @@ public interface Seq<E> extends Iter.Able<E> {
 		return this::zip;
 	}
 
-	default <R, T> Seq<T> zip(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate, Opt<E> leftFill,
-			Opt<R> rightFill) {
+	default <R, T> Seq<T> zip(Seq<R> other, BiFunction<? super E, ? super R, T> mapper, BiPredicate<? super E, ? super R> predicate,
+			Opt<E> leftFill, Opt<R> rightFill) {
 		Require.nonNullElements(other, mapper, predicate, leftFill, rightFill);
 		Iter.Able<T> able = () -> {
 			RefTpl<E, R> ref = RefTpl.create(null, null);

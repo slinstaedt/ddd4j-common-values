@@ -27,6 +27,11 @@ public interface Iter<T> {
 				}
 
 				@Override
+				public Iterator<T> iterator() {
+					return iterable.iterator();
+				}
+
+				@Override
 				public Spliterator<T> spliterator() {
 					return iterable.spliterator();
 				}
