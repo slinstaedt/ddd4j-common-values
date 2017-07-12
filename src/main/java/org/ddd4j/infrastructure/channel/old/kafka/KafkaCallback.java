@@ -128,7 +128,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	}
 
 	@Override
-	public Promise<Trigger> scheduleWith(Executor executor, long timeout, TimeUnit unit) {
+	public Promise<Trigger> executeWith(Executor executor, long timeout, TimeUnit unit) {
 		return client.execute(c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
 				.sync()
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> channelListener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
