@@ -5,7 +5,7 @@ import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
 import org.ddd4j.Require;
-import org.ddd4j.value.collection.Props;
+import org.ddd4j.collection.Props;
 
 //TODO rename to Attempt?
 public final class Uncommitted<K, V> implements Recorded<K, V> {

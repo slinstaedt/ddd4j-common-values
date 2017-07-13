@@ -2,7 +2,7 @@ package org.ddd4j.spi;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.ddd4j.value.collection.Props;
+import org.ddd4j.collection.Props;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;

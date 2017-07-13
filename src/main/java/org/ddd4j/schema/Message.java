@@ -5,6 +5,7 @@ import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Type;
 
+// TODO delete?
 public class Message {
 
 	public static Message serialize(SchemaFactory factory, WriteBuffer buffer, Object body) {

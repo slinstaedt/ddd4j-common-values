@@ -5,9 +5,9 @@ import java.util.Collections;
 import java.util.Map;
 
 import org.ddd4j.Throwing;
+import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 

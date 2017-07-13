@@ -10,8 +10,8 @@ import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import org.ddd4j.Require;
-import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TFunction;
+import org.ddd4j.value.Type;
 import org.ddd4j.value.Value;
 
 //TODO move to package "configuration"?
@@ -78,8 +78,8 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 		return Key.ofStringable(key, defaultValue, Boolean::valueOf);
 	}
 
-	static <X> Key<Class<? extends X>> keyOfClass(String key, Class<X> baseClass, Class<?> defaultValue) {
-		return Key.ofStringable(key, defaultValue, Class::forName).map(c -> c.asSubclass(baseClass), c -> c);
+	static <X> Key<Class<? extends X>> keyOfClass(String key, Class<X> baseClass, Class<? extends X> defaultValue) {
+		return Key.ofStringable(key, Type.of(defaultValue), Type::forName).map(t -> t.asSubType(baseClass).getRawType(), Type::of);
 	}
 
 	static <E extends Enum<E>> Key<E> keyOfEnum(Class<E> enumType, String key, E defaultValue) {
@@ -127,7 +127,7 @@ public interface Configuration extends Value<Configuration>, Seq<Tpl<String, Str
 	}
 
 	default <X> Optional<Class<? extends X>> getClass(Class<X> baseType, String key) {
-		return getString(key).map(Throwing.applied(Class::forName)).map(c -> c.<X> asSubclass(baseType));
+		return getString(key).map(Type::forName).map(t -> t.asSubType(baseType).getRawType());
 	}
 
 	default <E extends Enum<E>> Optional<E> getEnum(Class<E> enumType, String key) {

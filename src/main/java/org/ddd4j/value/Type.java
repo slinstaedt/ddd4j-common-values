@@ -2,6 +2,11 @@ package org.ddd4j.value;
 
 import java.io.Serializable;
 import java.lang.reflect.TypeVariable;
+import java.util.Collections;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.ddd4j.Require;
@@ -57,17 +62,29 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		}
 	}
 
+	private static final Map<String, Class<?>> PRIMITIVES;
+
+	static {
+		PRIMITIVES = Collections.unmodifiableMap(
+				Stream.of(boolean.class, byte.class, char.class, short.class, int.class, long.class, float.class, double.class)
+						.collect(Collectors.toMap(Class::getName, Function.identity())));
+	}
+
 	private static final long serialVersionUID = 1L;
 
 	@SuppressWarnings("rawtypes")
 	private static final TypeVariable<Class<Type>> T = Type.class.getTypeParameters()[0];
 
 	public static Type<?> forName(String className) {
-		try {
-			return of(Class.forName(className));
-		} catch (ClassNotFoundException e) {
-			return Throwing.unchecked(e);
+		Class<?> type = PRIMITIVES.get(className);
+		if (type == null) {
+			try {
+				type = Class.forName(className);
+			} catch (ClassNotFoundException e) {
+				Throwing.unchecked(e);
+			}
 		}
+		return of(type);
 	}
 
 	public static Type<?> from(ReadBuffer buffer) {
@@ -103,6 +120,10 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		return TypeUtils.isAssignable(getGenericType(), type) ? (Type<X>) this : castException(type.getTypeName());
 	}
 
+	public <X> Type<X> asSubType(Type<? super X> type) {
+		return asSubType(type.getRawType());
+	}
+
 	public T cast(Object value) {
 		return isAssignableFrom(value.getClass()) ? getRawType().cast(value) : castException(value);
 	}
@@ -135,6 +156,10 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 	@SuppressWarnings("unchecked")
 	public final Class<T> getRawType() {
 		return (Class<T>) TypeUtils.getRawType(getGenericType(), null);
+	}
+
+	public String getTypeName() {
+		return toString();
 	}
 
 	public boolean isAssignableFrom(java.lang.reflect.Type fromType) {

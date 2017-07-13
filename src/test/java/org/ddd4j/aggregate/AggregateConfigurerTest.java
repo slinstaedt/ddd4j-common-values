@@ -3,9 +3,9 @@ package org.ddd4j.aggregate;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.ddd4j.aggregate.AggregateConfigurer.AggregateServiceConfigurer;
+import org.ddd4j.collection.Props;
 import org.ddd4j.log.Log;
 import org.ddd4j.spi.TestProvisioning;
-import org.ddd4j.value.collection.Props;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;

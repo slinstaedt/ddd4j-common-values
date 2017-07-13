@@ -7,7 +7,7 @@ import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
 import org.ddd4j.Require;
-import org.ddd4j.value.collection.Props;
+import org.ddd4j.collection.Props;
 import org.ddd4j.value.math.Ordered;
 
 public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Ordered<Committed<K, V>> {

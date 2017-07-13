@@ -55,6 +55,10 @@ public class Key<T> implements ServiceFactory<T>, Named {
 		return new Key<>(name, creator, Object::getClass);
 	}
 
+	public static <T> Key<T> reflective(Class<T> serviceType) {
+		return of(serviceType, ctx -> new ReflectiveServiceFactory<>(serviceType, ctx.configuration()).create());
+	}
+
 	private final String name;
 	private final ServiceFactory<? extends T> creator;
 	private final TConsumer<? super T> destructor;

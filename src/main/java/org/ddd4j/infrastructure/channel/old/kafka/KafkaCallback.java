@@ -25,6 +25,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
+import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.old.ChannelListener;
@@ -36,7 +37,6 @@ import org.ddd4j.infrastructure.scheduler.BlockingTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 

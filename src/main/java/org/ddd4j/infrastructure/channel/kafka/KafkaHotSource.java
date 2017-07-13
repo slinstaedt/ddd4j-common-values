@@ -4,15 +4,12 @@ import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toSet;
-import static org.ddd4j.infrastructure.channel.DataAccessFactory.committed;
-import static org.ddd4j.infrastructure.channel.DataAccessFactory.resetBuffers;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
@@ -25,6 +22,7 @@ import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.BlockingTask;
@@ -38,8 +36,10 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 
 	public static class Factory implements HotSource.Factory {
 
+		private final Context context;
+
 		public Factory(Context context) {
-			// TODO Auto-generated constructor stub
+			this.context = Require.nonNull(context);
 		}
 
 		@Override
@@ -64,10 +64,6 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 			callback.onError(throwable);
 		}
 
-		void onSubscribed(int partitionCount) {
-			callback.onSubscribed(partitionCount);
-		}
-
 		@Override
 		public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
 			consumer.seekToEnd(partitions);
@@ -79,44 +75,17 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 			partitionsByTopic(partitions).forEach(callback::onPartitionsRevoked);
 		}
 
+		void onSubscribed(int partitionCount) {
+			callback.onSubscribed(partitionCount);
+		}
+
 		private Map<ResourceDescriptor, int[]> partitionsByTopic(Collection<TopicPartition> partitions) {
 			return partitions.stream().collect(groupingBy(tp -> new ResourceDescriptor(tp.topic()),
 					mapping(TopicPartition::partition, collectingAndThen(toSet(), p -> p.stream().mapToInt(Integer::intValue).toArray()))));
 		}
 	}
 
-	private static class Subscriptions {
-
-		private final ResourceDescriptor resource;
-		private final Promise<Integer> partitionSize;
-		private Set<Listener<ReadBuffer, ReadBuffer>> listeners;
-
-		Subscriptions(String topic, Promise<Integer> partitionSize) {
-			this.resource = ResourceDescriptor.of(topic);
-			this.partitionSize = Require.nonNull(partitionSize);
-		}
-
-		Subscriptions add(Listener<ReadBuffer, ReadBuffer> listener) {
-			listeners.add(Require.nonNull(listener));
-			return this;
-		}
-
-		void onNext(Committed<ReadBuffer, ReadBuffer> committed) {
-			listeners.forEach(l -> l.onNext(resource, resetBuffers(committed)));
-		}
-
-		Promise<Integer> partitionSize() {
-			return partitionSize;
-		}
-
-		Subscriptions remove(Listener<ReadBuffer, ReadBuffer> listener) {
-			listeners.remove(listener);
-			return listeners.isEmpty() ? null : this;
-		}
-	}
-
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = ConsumerRecords.empty();
-	private static final Subscriptions NONE = new Subscriptions("<NONE>", Promise.failed(new AssertionError()));
 
 	static Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
 		ReadBuffer key = Bytes.wrap(record.key()).buffered();
@@ -126,13 +95,18 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 		ZonedDateTime timestamp = Instant.ofEpochMilli(record.timestamp()).atZone(ZoneOffset.UTC);
 		// TODO deserialize header?
 		Props header = new Props(value);
-		return committed(key, value, actual, next, timestamp, header);
+		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
 	}
 
 	private Agent<Consumer<byte[], byte[]>> client;
 	private KafkaRebalanceListener rebalanceListener;
-	private Map<String, Subscriptions> subscriptions;
 	private Rescheduler rescheduler;
+	private final Subscriptions subscriptions;
+
+	public KafkaHotSource() {
+		// TODO Auto-generated constructor stub
+		this.subscriptions = new Subscriptions(this::onSubscribe);
+	}
 
 	@Override
 	public void closeChecked() throws Exception {
@@ -142,32 +116,34 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 	@Override
 	public Promise<Trigger> executeWith(Executor executor, long timeout, TimeUnit unit) {
 		return client.execute(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
-				.whenCompleteSuccessfully(rs -> rs.forEach(r -> subscriptions.getOrDefault(r.topic(), NONE).onNext(convert(r))))
+				.whenCompleteSuccessfully(rs -> rs.forEach(r -> subscriptions.onNext(r.topic(), convert(r))))
 				.whenCompleteExceptionally(rebalanceListener::onError)
 				.thenReturn(this::triggering);
 	}
 
-	private Trigger triggering() {
-		return subscriptions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
+	private Listeners onSubscribe(String topic) {
+		Promise<Integer> partitionSize = client.execute(c -> c.partitionsFor(topic).size());
+		partitionSize.whenCompleteSuccessfully(rebalanceListener::onSubscribed);
+		updateSubscription();
+		rescheduler.doIfNecessary();
+		return new Listeners(topic, partitionSize, this::updateSubscription);
 	}
 
 	@Override
 	public Promise<Integer> subscribe(Listener<ReadBuffer, ReadBuffer> listener, ResourceDescriptor resource) {
-		return subscriptions.computeIfAbsent(resource.value(), this::subscribe).add(listener).partitionSize();
+		return subscriptions.subscribe(listener, resource);
 	}
 
-	private Subscriptions subscribe(String topic) {
-		Promise<Integer> partitionSize = client.execute(c -> c.partitionsFor(topic).size());
-		partitionSize.whenCompleteSuccessfully(rebalanceListener::onSubscribed);
-		client.perform(c -> c.subscribe(subscriptions.keySet(), rebalanceListener));
-		rescheduler.doIfNecessary();
-		return new Subscriptions(topic, partitionSize);
+	private Trigger triggering() {
+		return !subscriptions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
 	}
 
 	@Override
 	public void unsubscribe(Listener<ReadBuffer, ReadBuffer> listener, ResourceDescriptor resource) {
-		if (subscriptions.computeIfPresent(resource.value(), (t, s) -> s.remove(listener)) == null) {
-			client.perform(c -> c.subscribe(subscriptions.keySet(), rebalanceListener));
-		}
+		subscriptions.unsubscribe(listener, resource);
+	}
+
+	private void updateSubscription() {
+		client.perform(c -> c.subscribe(subscriptions.resources(), rebalanceListener));
 	}
 }
