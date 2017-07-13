@@ -22,6 +22,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
+import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.HotSource;
@@ -30,7 +31,6 @@ import org.ddd4j.infrastructure.scheduler.BlockingTask;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
-import org.ddd4j.value.collection.Props;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
@@ -62,6 +62,10 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 
 		void onError(Throwable throwable) {
 			callback.onError(throwable);
+		}
+
+		void onSubscribed(int partitionCount) {
+			callback.onSubscribed(partitionCount);
 		}
 
 		@Override
@@ -132,7 +136,7 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 
 	@Override
 	public void closeChecked() throws Exception {
-		client.perform(Consumer::close);
+		client.perform(Consumer::close).join();
 	}
 
 	@Override
@@ -154,6 +158,7 @@ public class KafkaHotSource implements HotSource, BlockingTask {
 
 	private Subscriptions subscribe(String topic) {
 		Promise<Integer> partitionSize = client.execute(c -> c.partitionsFor(topic).size());
+		partitionSize.whenCompleteSuccessfully(rebalanceListener::onSubscribed);
 		client.perform(c -> c.subscribe(subscriptions.keySet(), rebalanceListener));
 		rescheduler.doIfNecessary();
 		return new Subscriptions(topic, partitionSize);
