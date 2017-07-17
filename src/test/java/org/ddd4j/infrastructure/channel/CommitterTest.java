@@ -37,7 +37,7 @@ public class CommitterTest {
 			public ResourceDescriptor getDescriptor() {
 				return ResourceDescriptor.of("test");
 			}
-		}, context.get(SchemaCodec.Factory.KEY), context.get(WriteBuffer.FACTORY));
+		}, context.get(SchemaCodec.FACTORY), context.get(WriteBuffer.FACTORY));
 		committer.commit(new Uncommitted<>(new Identifier(), "xxxx", Revisions.NONE));
 	}
 }

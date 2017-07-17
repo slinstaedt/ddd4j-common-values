@@ -38,6 +38,10 @@ public interface HotSource extends Throwing.Closeable {
 	interface Listener<K, V> {
 
 		void onNext(ResourceDescriptor resource, Committed<K, V> committed);
+
+		default <X, Y> Listener<X, Y> map(Function<? super X, ? extends K> key, Function<? super Y, ? extends V> value) {
+			return (r, c) -> onNext(r, c.map(key, value));
+		}
 	}
 
 	class Listeners {

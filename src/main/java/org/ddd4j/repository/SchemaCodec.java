@@ -29,7 +29,7 @@ public enum SchemaCodec {
 		@Override
 		public <T> Decoder<T> decoder(Context context, Class<T> type) {
 			Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_REPO);
-			return (buf, rev) -> cache.get(Fingerprint.deserialize(buf)).thenApply(e -> e.getSchema().createReader(type).read(buf));
+			return buf -> cache.get(Fingerprint.deserialize(buf)).thenApply(e -> e.getSchema().createReader(type).read(buf));
 		}
 
 		@Override
@@ -46,7 +46,7 @@ public enum SchemaCodec {
 		@Override
 		public <T> Decoder<T> decoder(Context context, Class<T> type) {
 			NamedService<SchemaFactory> factory = context.specific(SchemaFactory.KEY);
-			return (buf, rev) -> Promise.completed(factory.withOrFail(buf.getUTF()).readSchema(buf).createReader(type).read(buf));
+			return buf -> Promise.completed(factory.withOrFail(buf.getUTF()).readSchema(buf).createReader(type).read(buf));
 		}
 
 		@Override
@@ -63,7 +63,7 @@ public enum SchemaCodec {
 		@Override
 		public <T> Decoder<T> decoder(Context context, Class<T> type) {
 			Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_OFFSETS);
-			return (buf, rev) -> cache.get(rev).thenApply(e -> e.getSchema().createReader(type).read(buf));
+			return buf -> cache.get(new Revision(buf)).thenApply(e -> e.getSchema().createReader(type).read(buf));
 		}
 
 		@Override
@@ -79,7 +79,7 @@ public enum SchemaCodec {
 
 	public interface Decoder<T> {
 
-		Promise<T> decode(ReadBuffer buffer, Revision revision);
+		Promise<T> decode(ReadBuffer buffer);
 	}
 
 	public interface Encoder<T> {
@@ -89,8 +89,6 @@ public enum SchemaCodec {
 
 	public static class Factory {
 
-		public static final Key<Factory> KEY = Key.of(Factory.class, Factory::new);
-
 		private final Context context;
 
 		Factory(Context context) {
@@ -99,7 +97,7 @@ public enum SchemaCodec {
 
 		public <T> Decoder<T> decoder(Class<T> readerType) {
 			Require.nonNull(readerType);
-			return (buf, rev) -> decodeType(buf.get()).decoder(context, readerType).decode(buf, rev);
+			return buf -> decodeType(buf.get()).decoder(context, readerType).decode(buf);
 		}
 
 		public <T> Encoder<T> encoder(Class<T> writerType) {
@@ -108,6 +106,7 @@ public enum SchemaCodec {
 		}
 	}
 
+	public static final Key<Factory> FACTORY = Key.of(Factory.class, Factory::new);
 	private static final Configuration.Key<SchemaCodec> SCHEMA_ENCODER = Configuration.keyOfEnum(SchemaCodec.class, "schemaEncoder",
 			SchemaCodec.OUT_OF_BAND);
 	private static final Key<Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>>> SCHEMA_REPO = Key.of("schemaRepository", ctx -> {
