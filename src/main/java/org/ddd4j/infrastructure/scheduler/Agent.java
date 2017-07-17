@@ -69,10 +69,6 @@ public abstract class Agent<T> {
 		return query.apply(getState());
 	}
 
-	public <R> Promise<R> block(TFunction<? super T, ? extends R> task) {
-		return scheduleIfNeeded(new AgentTask.Blocking<>(executor, task));
-	}
-
 	/**
 	 * Will return a {@link Promise}, that runs with the {@link Scheduler}'s thread.
 	 *
@@ -81,6 +77,10 @@ public abstract class Agent<T> {
 	 */
 	public <R> Promise<R> execute(TFunction<? super T, ? extends R> task) {
 		return scheduleIfNeeded(new AgentTask<>(executor, task));
+	}
+
+	public <R> Promise<R> executeBlocked(TFunction<? super T, ? extends R> task) {
+		return scheduleIfNeeded(new AgentTask.Blocking<>(executor, task));
 	}
 
 	protected int getBurst() {
@@ -101,6 +101,10 @@ public abstract class Agent<T> {
 	 */
 	public Promise<T> perform(TConsumer<T> action) {
 		return scheduleIfNeeded(new AgentTask<>(executor, action.asFunction()));
+	}
+
+	public Promise<T> performBlocked(TConsumer<T> action) {
+		return scheduleIfNeeded(new AgentTask.Blocking<>(executor, action.asFunction()));
 	}
 
 	private void run() {
