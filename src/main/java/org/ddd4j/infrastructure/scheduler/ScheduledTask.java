@@ -1,21 +1,20 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 
-public interface BlockingTask {
+public interface ScheduledTask {
 
 	class Rescheduler {
 
 		private final Scheduler scheduler;
-		private final BlockingTask task;
+		private final ScheduledTask task;
 		private final AtomicBoolean scheduled;
 
-		public Rescheduler(Scheduler scheduler, BlockingTask task) {
+		public Rescheduler(Scheduler scheduler, ScheduledTask task) {
 			this.scheduler = Require.nonNull(scheduler);
 			this.task = Require.nonNull(task);
 			this.scheduled = new AtomicBoolean();
@@ -23,7 +22,7 @@ public interface BlockingTask {
 
 		public void doIfNecessary() {
 			if (scheduled.compareAndSet(false, true)) {
-				task.executeWith(scheduler, scheduler.getBlockingTimeoutInMillis(), TimeUnit.MILLISECONDS)
+				task.doScheduled(scheduler.getBlockingTimeoutInMillis(), TimeUnit.MILLISECONDS)
 						.thenRun(() -> scheduled.set(false))
 						.exceptionally(task::handleException)
 						.whenCompleteSuccessfully(t -> t.handle(this));
@@ -33,9 +32,7 @@ public interface BlockingTask {
 
 	interface Trigger {
 
-		Trigger NOTHING = r -> {
-		};
-
+		Trigger NOTHING = Rescheduler::getClass;
 		Trigger RESCHEDULE = Rescheduler::doIfNecessary;
 
 		void handle(Rescheduler rescheduler);
@@ -45,5 +42,5 @@ public interface BlockingTask {
 		return Trigger.NOTHING;
 	}
 
-	Promise<Trigger> executeWith(Executor executor, long timeout, TimeUnit unit);
+	Promise<Trigger> doScheduled(long blockingTimeout, TimeUnit blockingUnit);
 }

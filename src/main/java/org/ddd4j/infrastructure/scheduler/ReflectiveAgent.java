@@ -7,27 +7,25 @@ import java.lang.reflect.Proxy;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.value.Type;
 
-public class AgentInvocationHandler implements InvocationHandler {
+public class ReflectiveAgent implements InvocationHandler {
 
 	public static <T> T create(Scheduler scheduler, Type<T> type, T delegate) {
-		AgentInvocationHandler handler = new AgentInvocationHandler(scheduler, delegate);
+		ReflectiveAgent handler = new ReflectiveAgent(scheduler, delegate);
 		Object proxy = Proxy.newProxyInstance(type.getClassLoader(), type.getInterfaceClosure(), handler);
 		return type.cast(proxy);
 	}
 
 	private final Agent<Object> actor;
 
-	private AgentInvocationHandler(Scheduler scheduler, Object delegate) {
+	private ReflectiveAgent(Scheduler scheduler, Object delegate) {
 		this.actor = Agent.create(scheduler, delegate);
 	}
 
 	@Override
 	public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 		TFunction<Object, Object> fn = o -> method.invoke(o, args);
-		if (method.getReturnType().isAssignableFrom(Task.class)) {
-			Task<Object, Object> task = new Task<>(actor.getExecutor(), fn);
-			actor.perform(task::executeWith);
-			return task;
+		if (method.getReturnType().isAssignableFrom(AgentTask.class)) {
+			return actor.scheduleIfNeeded(new AgentTask<>(actor.getExecutor(), fn));
 		} else {
 			return actor.ask(fn);
 		}

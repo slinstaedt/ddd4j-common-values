@@ -10,7 +10,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.Producer;
 import org.ddd4j.Throwing.Task;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.scheduler.BlockingTask.Rescheduler;
+import org.ddd4j.infrastructure.scheduler.ScheduledTask.Rescheduler;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.Type;
@@ -54,7 +54,7 @@ public interface Scheduler extends Executor {
 	}
 
 	default <T> T createAgentDecorator(Type<T> type, T initialState) {
-		return AgentInvocationHandler.create(this, type, initialState);
+		return ReflectiveAgent.create(this, type, initialState);
 	}
 
 	default <T> Promise.Deferred<T> createDeferredPromise() {
@@ -85,7 +85,7 @@ public interface Scheduler extends Executor {
 		return Integer.MAX_VALUE;
 	}
 
-	default Rescheduler reschedulerFor(BlockingTask task) {
+	default Rescheduler reschedulerFor(ScheduledTask task) {
 		return new Rescheduler(this, task);
 	}
 

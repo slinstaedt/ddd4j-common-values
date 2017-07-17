@@ -18,7 +18,12 @@ import org.ddd4j.value.versioned.Committed;
 
 public interface HotSource extends Throwing.Closeable {
 
-	interface Callback {
+	interface Factory extends DataAccessFactory {
+
+		HotSource createHotSource(Listener<ReadBuffer, ReadBuffer> listener);
+	}
+
+	interface Listener<K, V> {
 
 		void onError(Throwable throwable);
 
@@ -28,20 +33,8 @@ public interface HotSource extends Throwing.Closeable {
 
 		default void onSubscribed(int partitionCount) {
 		}
-	}
-
-	interface Factory extends DataAccessFactory {
-
-		HotSource createHotSource(Callback callback);
-	}
-
-	interface Listener<K, V> {
 
 		void onNext(ResourceDescriptor resource, Committed<K, V> committed);
-
-		default <X, Y> Listener<X, Y> map(Function<? super X, ? extends K> key, Function<? super Y, ? extends V> value) {
-			return (r, c) -> onNext(r, c.map(key, value));
-		}
 	}
 
 	class Listeners {
@@ -125,7 +118,7 @@ public interface HotSource extends Throwing.Closeable {
 
 	Key<Factory> FACTORY = Key.of(Factory.class);
 
-	Promise<Integer> subscribe(Listener<ReadBuffer, ReadBuffer> listener, ResourceDescriptor resource);
+	Promise<Integer> subscribe(ResourceDescriptor resource);
 
-	void unsubscribe(Listener<ReadBuffer, ReadBuffer> listener, ResourceDescriptor resource);
+	void unsubscribe(ResourceDescriptor resource);
 }

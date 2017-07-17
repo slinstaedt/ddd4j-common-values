@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.consumer.Consumer;
@@ -33,14 +32,14 @@ import org.ddd4j.infrastructure.channel.old.ColdChannel;
 import org.ddd4j.infrastructure.channel.old.HotChannel;
 import org.ddd4j.infrastructure.channel.old.PartitionRebalanceListener;
 import org.ddd4j.infrastructure.scheduler.Agent;
-import org.ddd4j.infrastructure.scheduler.BlockingTask;
+import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
-public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback, BlockingTask {
+public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback, ScheduledTask {
 
 	private class KafkaRebalanceListener implements ConsumerRebalanceListener {
 
@@ -128,7 +127,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	}
 
 	@Override
-	public Promise<Trigger> executeWith(Executor executor, long timeout, TimeUnit unit) {
+	public Promise<Trigger> doScheduled(long timeout, TimeUnit unit) {
 		return client.execute(c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
 				.sync()
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> channelListener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))

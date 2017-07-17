@@ -41,7 +41,7 @@ public abstract class Agent<T> {
 		}
 
 		public Promise<T> performTransition(TFunction<? super T, ? extends T> transition) {
-			return scheduleIfNeeded(new Task<T, T>(getExecutor(), transition)).sync().whenComplete(this::updateState);
+			return scheduleIfNeeded(new AgentTask<T, T>(getExecutor(), transition)).sync().whenComplete(this::updateState);
 		}
 
 		private void updateState(T state, Throwable exception) {
@@ -55,7 +55,7 @@ public abstract class Agent<T> {
 
 	private final Executor executor;
 	private final int burst;
-	private final Queue<Task<T, ?>> tasks;
+	private final Queue<AgentTask<T, ?>> tasks;
 	private final AtomicBoolean scheduled;
 
 	protected Agent(Executor executor, int burst) {
@@ -69,6 +69,10 @@ public abstract class Agent<T> {
 		return query.apply(getState());
 	}
 
+	public <R> Promise<R> block(TFunction<? super T, ? extends R> task) {
+		return scheduleIfNeeded(new AgentTask.Blocking<>(executor, task));
+	}
+
 	/**
 	 * Will return a {@link Promise}, that runs with the {@link Scheduler}'s thread.
 	 *
@@ -76,7 +80,7 @@ public abstract class Agent<T> {
 	 * @return
 	 */
 	public <R> Promise<R> execute(TFunction<? super T, ? extends R> task) {
-		return scheduleIfNeeded(new Task<>(executor, task));
+		return scheduleIfNeeded(new AgentTask<>(executor, task));
 	}
 
 	protected int getBurst() {
@@ -96,15 +100,15 @@ public abstract class Agent<T> {
 	 * @return
 	 */
 	public Promise<T> perform(TConsumer<T> action) {
-		return scheduleIfNeeded(new Task<>(Runnable::run, action.asFunction()));
+		return scheduleIfNeeded(new AgentTask<>(executor, action.asFunction()));
 	}
 
 	private void run() {
 		try {
-			int iteration = 0;
-			Task<T, ?> task = null;
-			while (iteration++ < burst && (task = tasks.poll()) != null) {
-				task.executeWith(getState());
+			int remaining = getBurst();
+			AgentTask<T, ?> task = null;
+			while (remaining-- > 0 && (task = tasks.poll()) != null) {
+				task.performOn(getState());
 			}
 		} finally {
 			if (tasks.isEmpty()) {
@@ -115,7 +119,7 @@ public abstract class Agent<T> {
 		}
 	}
 
-	protected final <R> Task<T, R> scheduleIfNeeded(Task<T, R> task) {
+	protected final <R> AgentTask<T, R> scheduleIfNeeded(AgentTask<T, R> task) {
 		tasks.offer(task);
 		if (scheduled.compareAndSet(false, true)) {
 			executor.execute(this::run);

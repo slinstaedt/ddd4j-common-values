@@ -13,6 +13,10 @@ public class ResourcePartition implements Value<ResourcePartition> {
 		this.partition = Require.that(partition, partition >= 0);
 	}
 
+	public ResourcePartition(String resource, int partition) {
+		this(ResourceDescriptor.of(resource), partition);
+	}
+
 	public int getPartition() {
 		return partition;
 	}

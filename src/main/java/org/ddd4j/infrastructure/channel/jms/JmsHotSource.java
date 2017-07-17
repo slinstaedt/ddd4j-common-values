@@ -1,5 +1,8 @@
 package org.ddd4j.infrastructure.channel.jms;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import javax.jms.BytesMessage;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSConsumer;
@@ -28,10 +31,10 @@ public class JmsHotSource implements HotSource, MessageListener {
 		}
 
 		@Override
-		public HotSource createHotSource(Callback callback) {
+		public HotSource createHotSource(Listener<ReadBuffer, ReadBuffer> listener) {
 			JMSContext jmsContext = factory.createContext(JMSContext.DUPS_OK_ACKNOWLEDGE);
-			jmsContext.setExceptionListener(callback::onError);
-			return new JmsHotSource(jmsContext, callback);
+			jmsContext.setExceptionListener(listener::onError);
+			return new JmsHotSource(jmsContext, listener);
 		}
 	}
 
@@ -41,14 +44,13 @@ public class JmsHotSource implements HotSource, MessageListener {
 	}
 
 	private final JMSContext jmsContext;
-	private final Subscriptions subscriptions;
+	private final Listener<ReadBuffer, ReadBuffer> listener;
+	private final Map<String, JMSConsumer> subscriptions;
 
-	private final Callback callback;
-
-	public JmsHotSource(JMSContext jmsContext, Callback callback) {
+	JmsHotSource(JMSContext jmsContext, Listener<ReadBuffer, ReadBuffer> listener) {
 		this.jmsContext = Require.nonNull(jmsContext);
-		this.callback = Require.nonNull(callback);
-		this.subscriptions = new Subscriptions(this::onSubscribe);
+		this.listener = Require.nonNull(listener);
+		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
 	@Override
@@ -59,26 +61,32 @@ public class JmsHotSource implements HotSource, MessageListener {
 	@Override
 	public void onMessage(Message message) {
 		try {
-			subscriptions.onNext(message.getJMSType(), converted((BytesMessage) message));
+			ResourceDescriptor resource = ResourceDescriptor.of(message.getJMSType());
+			Committed<ReadBuffer, ReadBuffer> committed = converted((BytesMessage) message);
+			listener.onNext(resource, committed);
 		} catch (Exception e) {
-			callback.onError(e);
+			listener.onError(e);
 		}
 	}
 
-	private Listeners onSubscribe(String resource) {
+	@Override
+	public Promise<Integer> subscribe(ResourceDescriptor resource) {
+		subscriptions.computeIfAbsent(resource.value(), this::subscribe);
+		return Promise.completed(1);
+	}
+
+	private JMSConsumer subscribe(String resource) {
 		Topic topic = jmsContext.createTopic(resource);
 		JMSConsumer consumer = jmsContext.createSharedConsumer(topic, null);
 		consumer.setMessageListener(this);
-		return new Listeners(resource, Promise.completed(1), consumer::close);
+		return consumer;
 	}
 
 	@Override
-	public Promise<Integer> subscribe(Listener<ReadBuffer, ReadBuffer> listener, ResourceDescriptor resource) {
-		return subscriptions.subscribe(listener, resource);
-	}
-
-	@Override
-	public void unsubscribe(Listener<ReadBuffer, ReadBuffer> listener, ResourceDescriptor resource) {
-		subscriptions.unsubscribe(listener, resource);
+	public void unsubscribe(ResourceDescriptor resource) {
+		JMSConsumer consumer = subscriptions.remove(resource.value());
+		if (consumer != null) {
+			consumer.close();
+		}
 	}
 }
