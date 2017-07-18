@@ -4,13 +4,14 @@ import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.spi.Context;
+import org.ddd4j.value.Type;
 import org.ddd4j.value.Value;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revisions;
 
 public class SchemaEntry<T> extends Value.Simple<SchemaEntry<T>, Fingerprint> {
 
-	public static <T> SchemaEntry<T> create(SchemaFactory factory, Class<T> type) {
+	public static <T> SchemaEntry<T> create(SchemaFactory factory, Type<T> type) {
 		Schema<T> schema = factory.createSchema(type);
 		return new SchemaEntry<>(factory.name(), schema);
 	}

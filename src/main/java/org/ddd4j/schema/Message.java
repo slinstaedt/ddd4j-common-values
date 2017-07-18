@@ -9,7 +9,7 @@ import org.ddd4j.value.Type;
 public class Message {
 
 	public static Message serialize(SchemaFactory factory, WriteBuffer buffer, Object body) {
-		Class<Object> type = Type.ofInstance(body).getRawType();
+		Type<Object> type = Type.ofInstance(body);
 		Schema<Object> writerSchema = factory.createSchema(type);
 		writerSchema.createWriter().write(buffer, body);
 		return new Message(writerSchema, buffer.flip());
@@ -23,7 +23,7 @@ public class Message {
 		this.body = Require.nonNull(body);
 	}
 
-	public <T> T unwrap(Class<T> readerType) {
+	public <T> T unwrap(Type<T> readerType) {
 		body.mark();
 		try {
 			return writerSchema.createReader(readerType).read(body);

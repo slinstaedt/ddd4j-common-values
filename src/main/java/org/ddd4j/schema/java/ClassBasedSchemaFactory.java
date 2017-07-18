@@ -11,6 +11,7 @@ import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
+import org.ddd4j.value.Type;
 import org.ddd4j.value.Value;
 
 public class ClassBasedSchemaFactory implements SchemaFactory {
@@ -25,11 +26,11 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 
 		@Override
 		public boolean compatibleWith(Schema<?> existing) {
-			return existing.<JavaSchema> as(JavaSchema.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
+			return existing.<JavaSchema>as(JavaSchema.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
 		}
 
 		@Override
-		public <X> Reader<X> createReader(Class<X> readerType) {
+		public <X> Reader<X> createReader(Type<X> readerType) {
 			return buf -> Throwing.task(Throwing.applied(ObjectInputStream::new).apply(buf.asInputStream())::readObject)
 					.map(readerType::cast)
 					.get();
@@ -73,8 +74,8 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public <T> Schema<T> createSchema(Class<T> type) {
-		return new JavaSchema<>(type);
+	public <T> Schema<T> createSchema(Type<T> type) {
+		return new JavaSchema<>(type.getRawType());
 	}
 
 	@Override

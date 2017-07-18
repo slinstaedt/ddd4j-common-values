@@ -57,8 +57,6 @@ public interface HotSource extends Throwing.Closeable {
 			return subscriptions.subscribe(resource, listener);
 		}
 
-		// TODO enable conversion of messages
-
 		public void unsubscribe(ResourceDescriptor resource, Listener<?, ?> listener) {
 			subscriptions.unsubscribe(resource, listener);
 		}

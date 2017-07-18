@@ -12,6 +12,7 @@ import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.repository.RepositoryDefinition;
 import org.ddd4j.repository.SchemaCodec;
+import org.ddd4j.repository.SchemaCodec.Decoder;
 import org.ddd4j.value.Value;
 import org.ddd4j.value.versioned.Committed;
 
@@ -40,17 +41,18 @@ public class Subscriptions {
 		return listeners.computeIfAbsent(resource, onSubscribe).add(listener).partitionSize();
 	}
 
-	public <K extends Value<K>, V> Promise<Integer> subscribe(RepositoryDefinition<K, V> definition,
-			Listener<? super K, ? super V> listener, SchemaCodec.Factory codecFactory) {
-		codecFactory.decoder(definition.getValueType().getRawType());
-		return subscribe(definition.getResource(), listener.map(definition::deserializeKey, null));
+	public <K extends Value<K>, V> Promise<Integer> subscribe(RepositoryDefinition<K, V> definition, Listener<K, V> listener,
+			SchemaCodec.Factory codecFactory) {
+		Decoder<V> decoder = codecFactory.decoder(definition.getValueType());
+		Listener<ReadBuffer, ReadBuffer> l = listener.mapPromised(definition::deserializeKey, decoder::decode);
+		return listeners.computeIfAbsent(definition.getResource(), onSubscribe).add(listener, l).partitionSize();
 	}
 
 	public Set<ResourceDescriptor> resources() {
 		return Collections.unmodifiableSet(listeners.keySet());
 	}
 
-	public void unsubscribe(ResourceDescriptor resource, Listener<ReadBuffer, ReadBuffer> listener) {
+	public void unsubscribe(ResourceDescriptor resource, Listener<?, ?> listener) {
 		listeners.computeIfPresent(resource, (r, s) -> s.remove(listener));
 	}
 }

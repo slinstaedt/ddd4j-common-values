@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import org.apache.avro.Conversions;
+import org.apache.avro.Schema.Parser;
+import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.Encoder;
@@ -16,6 +18,7 @@ import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
+import org.ddd4j.value.Type;
 import org.ddd4j.value.collection.Configuration;
 
 public class AvroSchemaFactory implements SchemaFactory {
@@ -38,13 +41,18 @@ public class AvroSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public <T> Schema<T> createSchema(Class<T> type) {
-		return new AvroSchema<>(this, data.getSchema(type));
+	public <T> Schema<T> createSchema(Type<T> type) {
+		return new AvroSchema<>(this, getData().getSchema(type.getRawType()));
 	}
 
 	@Override
 	public Schema<?> readSchema(ReadBuffer buffer) {
-		return AvroSchema.deserialize(this, buffer);
+		org.apache.avro.Schema writerSchema = new Parser().parse(buffer.getUTF());
+		Class<?> type = getData().getClass(writerSchema);
+		if (type == null || type == Object.class) {
+			type = SchemaFactory.classForName(writerSchema.getFullName(), e -> Record.class);
+		}
+		return new AvroSchema<>(this, writerSchema);
 	}
 
 	ReflectData getData() {

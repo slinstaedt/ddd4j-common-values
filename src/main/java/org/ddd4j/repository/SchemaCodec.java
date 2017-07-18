@@ -19,6 +19,7 @@ import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Context.NamedService;
 import org.ddd4j.spi.Key;
+import org.ddd4j.value.Type;
 import org.ddd4j.value.collection.Configuration;
 import org.ddd4j.value.versioned.Revision;
 
@@ -27,13 +28,13 @@ public enum SchemaCodec {
 	OUT_OF_BAND {
 
 		@Override
-		public <T> Decoder<T> decoder(Context context, Class<T> type) {
+		public <T> Decoder<T> decoder(Context context, Type<T> type) {
 			Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_REPO);
 			return buf -> cache.get(Fingerprint.deserialize(buf)).thenApply(e -> e.getSchema().createReader(type).read(buf));
 		}
 
 		@Override
-		public <T> Encoder<T> encoder(Context context, Class<T> type) {
+		public <T> Encoder<T> encoder(Context context, Type<T> type) {
 			SchemaEntry<T> entry = SchemaEntry.create(context.get(SchemaFactory.KEY), type);
 			Fingerprint fp = entry.getFingerprint();
 			Promise<?> promise = context.get(SCHEMA_REPO).put(fp, Promise.completed(entry));
@@ -44,13 +45,13 @@ public enum SchemaCodec {
 	PER_MESSAGE {
 
 		@Override
-		public <T> Decoder<T> decoder(Context context, Class<T> type) {
+		public <T> Decoder<T> decoder(Context context, Type<T> type) {
 			NamedService<SchemaFactory> factory = context.specific(SchemaFactory.KEY);
 			return buf -> Promise.completed(factory.withOrFail(buf.getUTF()).readSchema(buf).createReader(type).read(buf));
 		}
 
 		@Override
-		public <T> Encoder<T> encoder(Context context, Class<T> type) {
+		public <T> Encoder<T> encoder(Context context, Type<T> type) {
 			SchemaFactory factory = context.get(SchemaFactory.KEY);
 			Schema<T> schema = factory.createSchema(type);
 			Schema.Writer<T> writer = schema.createWriter();
@@ -61,13 +62,13 @@ public enum SchemaCodec {
 	IN_BAND {
 
 		@Override
-		public <T> Decoder<T> decoder(Context context, Class<T> type) {
+		public <T> Decoder<T> decoder(Context context, Type<T> type) {
 			Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_OFFSETS);
 			return buf -> cache.get(new Revision(buf)).thenApply(e -> e.getSchema().createReader(type).read(buf));
 		}
 
 		@Override
-		public <T> Encoder<T> encoder(Context context, Class<T> type) {
+		public <T> Encoder<T> encoder(Context context, Type<T> type) {
 			Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_OFFSETS);
 			SchemaEntry<T> entry = SchemaEntry.create(context.get(SchemaFactory.KEY), type);
 			// TODO Auto-generated method stub
@@ -95,12 +96,12 @@ public enum SchemaCodec {
 			this.context = Require.nonNull(context);
 		}
 
-		public <T> Decoder<T> decoder(Class<T> readerType) {
+		public <T> Decoder<T> decoder(Type<T> readerType) {
 			Require.nonNull(readerType);
 			return buf -> decodeType(buf.get()).decoder(context, readerType).decode(buf);
 		}
 
-		public <T> Encoder<T> encoder(Class<T> writerType) {
+		public <T> Encoder<T> encoder(Type<T> writerType) {
 			Require.nonNull(writerType);
 			return context.conf(SCHEMA_ENCODER).encoder(context, writerType);
 		}
@@ -134,11 +135,11 @@ public enum SchemaCodec {
 		return SchemaCodec.values()[b];
 	}
 
-	public abstract <T> Decoder<T> decoder(Context context, Class<T> readerType);
+	public abstract <T> Decoder<T> decoder(Context context, Type<T> readerType);
 
 	byte encodeType() {
 		return (byte) ordinal();
 	}
 
-	public abstract <T> Encoder<T> encoder(Context context, Class<T> writerType);
+	public abstract <T> Encoder<T> encoder(Context context, Type<T> writerType);
 }

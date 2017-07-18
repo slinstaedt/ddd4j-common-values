@@ -1,6 +1,5 @@
 package org.ddd4j.schema.avro;
 
-import org.apache.avro.Schema.Parser;
 import org.apache.avro.SchemaCompatibility;
 import org.apache.avro.SchemaCompatibility.SchemaCompatibilityType;
 import org.apache.avro.generic.GenericData.Record;
@@ -8,23 +7,13 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.ddd4j.Require;
-import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
-import org.ddd4j.schema.SchemaFactory;
+import org.ddd4j.value.Type;
 import org.ddd4j.value.Value;
 
 public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schema> implements Schema<T> {
-
-	static AvroSchema<?> deserialize(AvroSchemaFactory factory, ReadBuffer buffer) {
-		org.apache.avro.Schema writerSchema = new Parser().parse(buffer.getUTF());
-		Class<?> type = factory.getData().getClass(writerSchema);
-		if (type == null || type == Object.class) {
-			type = SchemaFactory.classForName(writerSchema.getFullName(), e -> Record.class);
-		}
-		return new AvroSchema<>(factory, writerSchema);
-	}
 
 	private final AvroSchemaFactory factory;
 	private final org.apache.avro.Schema writerSchema;
@@ -36,18 +25,18 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 
 	@Override
 	public boolean compatibleWith(Schema<?> existing) {
-		return existing.<AvroSchema> as(AvroSchema.class)
+		return existing.<AvroSchema>as(AvroSchema.class)
 				.mapNonNull(o -> SchemaCompatibility.checkReaderWriterCompatibility(writerSchema, o.writerSchema).getType())
 				.checkEqual(SchemaCompatibilityType.COMPATIBLE);
 	}
 
 	@Override
-	public <X> Reader<X> createReader(Class<X> readerType) {
+	public <X> Reader<X> createReader(Type<X> readerType) {
 		DatumReader<?> reader;
-		if (readerType == Record.class) {
+		if (readerType.getRawType() == Record.class) {
 			reader = new GenericDatumReader<>(writerSchema, writerSchema, factory.getData());
 		} else {
-			org.apache.avro.Schema readerSchema = factory.getData().getSchema(readerType);
+			org.apache.avro.Schema readerSchema = factory.getData().getSchema(readerType.getRawType());
 			reader = factory.getData().createDatumReader(writerSchema, readerSchema);
 		}
 		return buf -> readerType.cast(reader.read(null, factory.createDecoder(writerSchema, buf.asInputStream())));

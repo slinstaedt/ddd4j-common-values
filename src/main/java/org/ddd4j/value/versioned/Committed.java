@@ -105,6 +105,10 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 		return new Committed<>(keyMapper.apply(key), valueMapper.apply(value), actual, nextExpected, timestamp, header);
 	}
 
+	public <X, Y> Committed<X, Y> mapKey(Function<? super K, ? extends X> keyMapper, Y value) {
+		return new Committed<>(keyMapper.apply(key), value, actual, nextExpected, timestamp, header);
+	}
+
 	public <X, Y> Committed<X, Y> mapValue(X key, Function<? super V, ? extends Y> valueMapper) {
 		return new Committed<>(key, valueMapper.apply(value), actual, nextExpected, timestamp, header);
 	}

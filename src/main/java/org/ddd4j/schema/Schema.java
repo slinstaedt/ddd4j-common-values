@@ -5,6 +5,7 @@ import java.io.IOException;
 import org.ddd4j.Throwing;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
+import org.ddd4j.value.Type;
 import org.ddd4j.value.Value;
 
 public interface Schema<T> extends Value<Schema<T>> {
@@ -39,7 +40,7 @@ public interface Schema<T> extends Value<Schema<T>> {
 
 	boolean compatibleWith(Schema<?> existing);
 
-	<X> Reader<X> createReader(Class<X> readerType);
+	<X> Reader<X> createReader(Type<X> readerType);
 
 	Writer<T> createWriter();
 
