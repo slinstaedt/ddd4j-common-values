@@ -22,8 +22,8 @@ public interface Committer<K, V> {
 
 		default <K extends Value<K>, V> Committer<K, V> create(RepositoryDefinition<K, V> definition, SchemaCodec.Factory codecFactory,
 				Supplier<WriteBuffer> bufferSupplier) {
-			Encoder<V> encoder = codecFactory.encoder(definition.getType().getRawType());
-			return create(definition.getDescriptor()).whenComplete(ReadBuffer::close, ReadBuffer::close).flatMapValue(
+			Encoder<V> encoder = codecFactory.encoder(definition.getValueType().getRawType());
+			return create(definition.getResource()).whenComplete(ReadBuffer::close, ReadBuffer::close).flatMapValue(
 					k -> bufferSupplier.get().accept(b -> definition.serializeKey(k, b)).flip(),
 					v -> encoder.encode(bufferSupplier.get(), v).thenApply(WriteBuffer::flip));
 		}

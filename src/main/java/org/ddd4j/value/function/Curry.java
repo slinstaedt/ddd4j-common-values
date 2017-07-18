@@ -14,64 +14,75 @@ public interface Curry<T, C extends Curry<?, ?>> {
 	C bind(T param);
 
 	@FunctionalInterface
-	interface Query<R> extends Curry<R, Query<R>> {
+	interface Query<T, R> extends Curry<T, Query.Term<R>> {
 
 		@FunctionalInterface
-		interface Ed<T, R> extends Curry<T, Query<R>> {
+		interface Term<R> extends Curry<R, Term<R>> {
 
 			@Override
-			default Query<R> bind(T param) {
-				return () -> invoke(param);
+			default Term<R> bind(R result) {
+				return this;
 			}
 
-			R invoke(T param);
-		}
+			R evaluate();
 
-		R evaluate();
+			default R nullSafe() {
+				return Require.nonNull(evaluate());
+			}
+
+			default Optional<R> asOptional() {
+				return Optional.ofNullable(evaluate());
+			}
+		}
 
 		@Override
-		default Query<R> bind(R result) {
-			return this;
+		default Term<R> bind(T param) {
+			return () -> evaluate(param);
 		}
 
-		default R nullSafe() {
-			return Require.nonNull(evaluate());
-		}
-
-		default Optional<R> asOptional() {
-			return Optional.ofNullable(evaluate());
-		}
+		R evaluate(T param);
 	}
 
 	@FunctionalInterface
-	interface Command extends Curry<Nothing, Command> {
+	interface Command<T> extends Curry<T, Command.Term> {
 
 		@FunctionalInterface
-		interface Ed<T> extends Curry<T, Command> {
+		interface Term extends Curry<Nothing, Term> {
 
-			@Override
-			default Command bind(T param) {
-				return () -> invoke(param);
+			@FunctionalInterface
+			interface Ed<T> extends Curry<T, Term> {
+
+				@Override
+				default Term bind(T param) {
+					return () -> invoke(param);
+				}
+
+				void invoke(T param);
 			}
 
-			void invoke(T param);
-		}
+			void execute();
 
-		void execute();
+			@Override
+			default Term bind(Nothing result) {
+				return this;
+			}
+		}
 
 		@Override
-		default Command bind(Nothing result) {
-			return this;
+		default Term bind(T param) {
+			return () -> invoke(param);
 		}
+
+		void invoke(T param);
 	}
 
 	static void main(String[] args) {
-		Curry<String, Query.Ed<Integer, Character>> f1 = s -> s::charAt;
-		Query<Character> q = f1.bind("abcd").bind(1);
+		Curry<String, Query<Integer, Character>> f1 = s -> s::charAt;
+		Query.Term<Character> q = f1.bind("abcd").bind(1);
 		System.out.println(q.evaluate());
 		System.out.println(skip(f1).bind(2).bind("123").evaluate());
 
-		Command.Ed<List<?>> clear = l -> l.clear();
+		Command<List<?>> clear = l -> l.clear();
 		List<Integer> asList = Arrays.asList(1, 2, 3);
 		clear.bind(asList).execute();
 		System.out.println(asList);

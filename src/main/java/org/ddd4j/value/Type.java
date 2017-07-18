@@ -11,8 +11,10 @@ import java.util.stream.Stream;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
+import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
+import org.ddd4j.value.function.Curry;
 
 public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Type> implements Value<Type<T>>, Serializable {
 
@@ -150,6 +152,15 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 			return new Class<?>[] { rawType };
 		} else {
 			return rawType.getInterfaces();
+		}
+	}
+
+	public <P> Curry.Query<P, T> constructor(Type<P> parameterType) {
+		try {
+			TFunction<P, T> constructor = getRawType().getConstructor(parameterType.getRawType())::newInstance;
+			return constructor::apply;
+		} catch (NoSuchMethodException | SecurityException e) {
+			return Throwing.unchecked(e);
 		}
 	}
 
