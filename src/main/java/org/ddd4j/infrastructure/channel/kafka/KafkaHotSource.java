@@ -22,6 +22,7 @@ import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.ResourcePartition;
 import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.HotSource;
+import org.ddd4j.infrastructure.channel.util.Listener;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -43,48 +44,44 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		}
 
 		@Override
-		public HotSource createHotSource(Listener<ReadBuffer, ReadBuffer> listener) {
+		public HotSource createHotSource(Callback callback, Listener<ReadBuffer, ReadBuffer> listener) {
 			Scheduler scheduler = context.get(Scheduler.KEY);
 			Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
-			return new KafkaHotSource(scheduler, consumer, listener);
+			return new KafkaHotSource(scheduler, consumer, callback, listener);
 		}
 	}
 
-	private static class KafkaRebalanceListener implements ConsumerRebalanceListener {
+	private static class KafkaRebalanceCallback implements ConsumerRebalanceListener {
 
 		private static Seq<ResourcePartition> toResourcePartitions(Collection<TopicPartition> partitions) {
 			return Seq.ofCopied(partitions).map().to(tp -> new ResourcePartition(tp.topic(), tp.partition()));
 		}
 
 		private final Consumer<byte[], byte[]> consumer;
-		private final Listener<ReadBuffer, ReadBuffer> listener;
+		private final Callback callback;
 
-		KafkaRebalanceListener(Consumer<byte[], byte[]> consumer, Listener<ReadBuffer, ReadBuffer> listener) {
+		KafkaRebalanceCallback(Consumer<byte[], byte[]> consumer, Callback callback) {
 			this.consumer = Require.nonNull(consumer);
-			this.listener = Require.nonNull(listener);
+			this.callback = Require.nonNull(callback);
 		}
 
 		void onError(Throwable throwable) {
-			listener.onError(throwable);
-		}
-
-		void onNext(ConsumerRecord<byte[], byte[]> record) {
-			listener.onNext(ResourceDescriptor.of(record.topic()), convert(record));
+			callback.onError(throwable);
 		}
 
 		@Override
 		public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
 			consumer.seekToEnd(partitions);
-			listener.onPartitionsAssigned(toResourcePartitions(partitions));
+			callback.onPartitionsAssigned(toResourcePartitions(partitions));
 		}
 
 		@Override
 		public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-			listener.onPartitionsRevoked(toResourcePartitions(partitions));
+			callback.onPartitionsRevoked(toResourcePartitions(partitions));
 		}
 
 		void onSubscribed(int partitionCount) {
-			listener.onSubscribed(partitionCount);
+			callback.onSubscribed(partitionCount);
 		}
 	}
 
@@ -113,13 +110,15 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final Rescheduler rescheduler;
-	private final KafkaRebalanceListener listener;
+	private final KafkaRebalanceCallback callback;
+	private final Listener<ReadBuffer, ReadBuffer> listener;
 	private final Map<String, Promise<Integer>> subscriptions;
 
-	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Listener<ReadBuffer, ReadBuffer> listener) {
+	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Callback callback, Listener<ReadBuffer, ReadBuffer> listener) {
 		this.client = scheduler.createAgent(consumer);
 		this.rescheduler = scheduler.reschedulerFor(this);
-		this.listener = new KafkaRebalanceListener(consumer, listener);
+		this.callback = new KafkaRebalanceCallback(consumer, callback);
+		this.listener = Require.nonNull(listener);
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
@@ -131,8 +130,12 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	@Override
 	public Promise<Trigger> doScheduled(long timeout, TimeUnit unit) {
 		return client.executeBlocked(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
-				.whenComplete(rs -> rs.forEach(listener::onNext), listener::onError)
+				.whenComplete(rs -> rs.forEach(this::onNext), callback::onError)
 				.thenReturn(this::triggering);
+	}
+
+	private void onNext(ConsumerRecord<byte[], byte[]> record) {
+		listener.onNext(ResourceDescriptor.of(record.topic()), convert(record));
 	}
 
 	@Override
@@ -142,7 +145,7 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 
 	private Promise<Integer> subscribe(String topic) {
 		Promise<Integer> partitionSize = client.execute(c -> c.partitionsFor(topic).size());
-		partitionSize.whenComplete(listener::onSubscribed, listener::onError);
+		partitionSize.whenComplete(callback::onSubscribed, callback::onError);
 		updateSubscription();
 		rescheduler.doIfNecessary();
 		return partitionSize;
@@ -160,6 +163,6 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	}
 
 	private void updateSubscription() {
-		client.perform(c -> c.subscribe(subscriptions.keySet(), listener));
+		client.perform(c -> c.subscribe(subscriptions.keySet(), callback));
 	}
 }
