@@ -23,9 +23,9 @@ import org.ddd4j.value.collection.Configuration;
 
 public class AvroSchemaFactory implements SchemaFactory {
 
-	private static final Key<ReflectData> AVRO_DATA = Key.of(ReflectData.class, c -> new ReflectData());
-	private static final Key<DecoderFactory> DECODER_FACTORY = Key.of(DecoderFactory.class, c -> DecoderFactory.get());
-	private static final Key<EncoderFactory> ENCODER_FACTORY = Key.of(EncoderFactory.class, c -> EncoderFactory.get());
+	public static final Key<ReflectData> AVRO_DATA = Key.of(ReflectData.class, c -> new ReflectData());
+	public static final Key<DecoderFactory> DECODER_FACTORY = Key.of(DecoderFactory.class, c -> DecoderFactory.get());
+	public static final Key<EncoderFactory> ENCODER_FACTORY = Key.of(EncoderFactory.class, c -> EncoderFactory.get());
 
 	private final Configuration configuration;
 	private final DecoderFactory decoderFactory;
