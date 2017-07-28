@@ -2,132 +2,120 @@ package org.ddd4j.infrastructure.scheduler;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ddd4j.Require;
-import org.ddd4j.Throwing;
-import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.value.Self;
+import org.ddd4j.value.Nothing;
 
-public abstract class Agent<T> {
+public class Agent<T> {
 
-	public static class Inherited<T extends Inherited<T>> extends Agent<T> implements Self<T> {
+	public interface Action<T> extends Task<T, Nothing> {
 
-		public Inherited(Executor executor, int burst) {
-			super(executor, burst);
-		}
+		void execute(T target) throws Exception;
 
 		@Override
-		protected T getState() {
-			return self();
+		default Nothing perform(T target) throws Exception {
+			execute(target);
+			return Nothing.INSTANCE;
 		}
 	}
 
-	public static final class Transitioning<T> extends Agent<T> {
+	public interface Task<T, R> {
 
-		private T state;
-
-		public Transitioning(Executor executor, int burst, T initialState) {
-			super(executor, burst);
-			this.state = Require.nonNull(initialState);
+		default Blocked<Task<T, R>> asBlocked() {
+			return (t, u) -> this;
 		}
 
-		@Override
-		protected T getState() {
-			return state;
+		R perform(T target) throws Exception;
+	}
+
+	private class Job<R> {
+
+		private final Blocked<? extends R> task;
+		private final Promise.Deferred<R> deferred;
+
+		Job(Blocked<? extends Task<? super T, ? extends R>> task, boolean blocked) {
+			this.task = blocked ? task.managed(t -> t.perform(target), this::isDoneWithAll) : task.map(t -> t.perform(target));
+			this.deferred = scheduler.createDeferredPromise();
 		}
 
-		public Promise<T> performTransition(TFunction<? super T, ? extends T> transition) {
-			return scheduleIfNeeded(new AgentTask<T, T>(getExecutor(), transition)).sync().whenComplete(this::updateState);
+		Promise.Cancelable<R> getPromise() {
+			return deferred;
 		}
 
-		private void updateState(T state, Throwable exception) {
-			this.state = exception != null ? Throwing.unchecked(exception) : state;
+		boolean isDoneWithAll() {
+			return deferred.isDone() && jobs.isEmpty();
+		}
+
+		boolean executeWithTimeout(long duration, TimeUnit unit) {
+			if (deferred.isDone()) {
+				return true;
+			}
+			try {
+				R value = task.execute(duration, unit);
+				return deferred.completeSuccessfully(value);
+			} catch (Throwable e) {
+				return deferred.completeExceptionally(e);
+			}
 		}
 	}
 
-	public static <T> Transitioning<T> create(Scheduler scheduler, T initialState) {
-		return new Transitioning<>(scheduler, scheduler.getBurstProcessing(), initialState);
+	public static <T> Agent<T> create(Scheduler scheduler, T target) {
+		return new Agent<>(scheduler, target);
 	}
 
-	private final Executor executor;
-	private final int burst;
-	private final Queue<AgentTask<T, ?>> tasks;
+	private final Scheduler scheduler;
+	private final T target;
+	private final Queue<Job<?>> jobs;
 	private final AtomicBoolean scheduled;
 
-	protected Agent(Executor executor, int burst) {
-		this.executor = Require.nonNull(executor);
-		this.burst = Require.that(burst, burst > 0);
-		this.tasks = new ConcurrentLinkedQueue<>();
+	public Agent(Scheduler scheduler, T target) {
+		this.scheduler = Require.nonNull(scheduler);
+		this.target = Require.nonNull(target);
+		this.jobs = new ConcurrentLinkedQueue<>();
 		this.scheduled = new AtomicBoolean(false);
 	}
 
-	<R> R ask(TFunction<? super T, R> query) {
-		return query.apply(getState());
+	public Promise.Cancelable<Nothing> execute(Action<? super T> action) {
+		return perform(action);
 	}
 
-	/**
-	 * Will return a {@link Promise}, that runs with the {@link Scheduler}'s thread.
-	 *
-	 * @param task
-	 * @return
-	 */
-	public <R> Promise<R> execute(TFunction<? super T, ? extends R> task) {
-		return scheduleIfNeeded(new AgentTask<>(executor, task));
+	public Promise.Cancelable<Nothing> executeBlocked(Blocked<Action<? super T>> action) {
+		return performBlocked(action);
 	}
 
-	public <R> Promise<R> executeBlocked(TFunction<? super T, ? extends R> task) {
-		return scheduleIfNeeded(new AgentTask.Blocking<>(executor, task));
+	public <R> Promise.Cancelable<R> perform(Task<? super T, ? extends R> task) {
+		return scheduleIfNeeded(new Job<R>(task.asBlocked(), false)).getPromise();
 	}
 
-	protected int getBurst() {
-		return burst;
+	public <R> Promise.Cancelable<R> performBlocked(Blocked<? extends Task<? super T, R>> task) {
+		return scheduleIfNeeded(new Job<>(task, true)).getPromise();
 	}
 
-	protected Executor getExecutor() {
-		return executor;
-	}
-
-	protected abstract T getState();
-
-	/**
-	 * Will return a {@link Promise}, that runs with the {@link Agent}'s thread.
-	 *
-	 * @param action
-	 * @return
-	 */
-	public Promise<T> perform(TConsumer<T> action) {
-		return scheduleIfNeeded(new AgentTask<>(executor, action.asFunction()));
-	}
-
-	public Promise<T> performBlocked(TConsumer<T> action) {
-		return scheduleIfNeeded(new AgentTask.Blocking<>(executor, action.asFunction()));
-	}
-
-	private void run() {
+	private boolean run(long duration, TimeUnit unit) {
 		try {
-			int remaining = getBurst();
-			AgentTask<T, ?> task = null;
-			while (remaining-- > 0 && (task = tasks.poll()) != null) {
-				task.performOn(getState());
+			int remaining = scheduler.getBurstProcessing();
+			Job<?> job = null;
+			while (remaining-- > 0 && (job = jobs.poll()) != null) {
+				job.executeWithTimeout(duration, unit);
 			}
 		} finally {
-			if (tasks.isEmpty()) {
+			if (jobs.isEmpty()) {
 				scheduled.set(false);
 			} else {
-				executor.execute(this::run);
+				scheduler.execute(this::run);
 			}
 		}
+		return jobs.isEmpty();
 	}
 
-	protected final <R> AgentTask<T, R> scheduleIfNeeded(AgentTask<T, R> task) {
-		tasks.offer(task);
+	private <R> Job<R> scheduleIfNeeded(Job<R> job) {
+		jobs.offer(job);
 		if (scheduled.compareAndSet(false, true)) {
-			executor.execute(this::run);
+			scheduler.execute(this::run);
 		}
-		return task;
+		return job;
 	}
 }

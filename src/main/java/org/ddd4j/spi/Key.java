@@ -1,5 +1,7 @@
 package org.ddd4j.spi;
 
+import java.util.function.Predicate;
+
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TConsumer;
@@ -14,7 +16,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 		private final Key<T> parent;
 
 		Child(Key<T> parent, String childName) {
-			super(parent.name + "." + Require.nonEmpty(childName), parent.creator, parent.destructor);
+			super(parent.name + "." + Require.nonEmpty(childName), parent.creator, parent.destructor, Context.class::isInstance);
 			this.parent = Require.nonNull(parent);
 		}
 
@@ -52,7 +54,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 	}
 
 	public static <T> Key<T> of(String name, ServiceFactory<? extends T> creator) {
-		return new Key<>(name, creator, Object::getClass);
+		return new Key<>(name, creator, Object::getClass, Context.class::isInstance);
 	}
 
 	public static <T> Key<T> reflective(Class<T> serviceType) {
@@ -62,15 +64,18 @@ public class Key<T> implements ServiceFactory<T>, Named {
 	private final String name;
 	private final ServiceFactory<? extends T> creator;
 	private final TConsumer<? super T> destructor;
+	private final Predicate<Context> precondition;
 
-	Key(String name, ServiceFactory<? extends T> creator, TConsumer<? super T> destructor) {
+	private Key(String name, ServiceFactory<? extends T> creator, TConsumer<? super T> destructor, Predicate<Context> precondition) {
 		this.name = Require.nonEmpty(name);
 		this.creator = Require.nonNull(creator);
 		this.destructor = Require.nonNull(destructor);
+		this.precondition = Require.nonNull(precondition);
 	}
 
 	@Override
 	public T create(Context context) throws Exception {
+		Require.that(precondition.test(context));
 		return creator.create(context);
 	}
 
@@ -93,8 +98,12 @@ public class Key<T> implements ServiceFactory<T>, Named {
 		return name;
 	}
 
+	public Key<T> withChecked(Predicate<Context> check) {
+		return new Key<>(name, creator, destructor, precondition.and(check));
+	}
+
 	@Override
 	public Key<T> withDestructor(TConsumer<? super T> destructor) {
-		return new Key<>(name, creator, destructor);
+		return new Key<>(name, creator, destructor, precondition);
 	}
 }

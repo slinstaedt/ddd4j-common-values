@@ -73,6 +73,20 @@ public interface Throwing {
 		}
 
 		T produce() throws Exception;
+
+		default Producer<T> withListener(TConsumer<? super T> success, TConsumer<? super Throwable> failure) {
+			Require.nonNullElements(success, failure);
+			return () -> {
+				try {
+					T value = produce();
+					success.acceptChecked(value);
+					return value;
+				} catch (Throwable e) {
+					failure.acceptChecked(e);
+					throw e;
+				}
+			};
+		}
 	}
 
 	@FunctionalInterface

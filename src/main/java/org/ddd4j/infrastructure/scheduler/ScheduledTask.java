@@ -1,6 +1,5 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ddd4j.Require;
@@ -22,7 +21,7 @@ public interface ScheduledTask {
 
 		public void doIfNecessary() {
 			if (scheduled.compareAndSet(false, true)) {
-				task.doScheduled(scheduler.getBlockingTimeoutInMillis(), TimeUnit.MILLISECONDS)
+				task.onScheduled(scheduler)
 						.thenRun(() -> scheduled.set(false))
 						.exceptionally(task::handleException)
 						.whenCompleteSuccessfully(t -> t.handle(this));
@@ -42,5 +41,5 @@ public interface ScheduledTask {
 		return Trigger.NOTHING;
 	}
 
-	Promise<Trigger> doScheduled(long blockingTimeout, TimeUnit blockingUnit);
+	Promise<Trigger> onScheduled(Scheduler scheduler);
 }

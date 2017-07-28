@@ -7,11 +7,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import org.ddd4j.Require;
@@ -23,51 +24,168 @@ import org.ddd4j.Throwing.TBiPredicate;
 import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.Throwing.TPredicate;
+import org.ddd4j.Throwing.Task;
 
 public interface Promise<T> {
 
-	class Deferred<T> implements Promise<T> {
+	class Base<T, S extends CompletionStage<T>> implements Promise<T> {
 
-		private final Executor executor;
-		private final CompletableFuture<T> future;
+		protected final Executor executor;
+		protected final S stage;
 
-		public Deferred(Executor executor) {
-			this(executor, new CompletableFuture<>());
-		}
-
-		Deferred(Executor executor, CompletableFuture<T> future) {
+		public Base(Executor executor, S stage) {
 			this.executor = Require.nonNull(executor);
-			this.future = Require.nonNull(future);
+			this.stage = Require.nonNull(stage);
 		}
 
 		@Override
 		public <X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
-			return of(executor, fn.apply(executor, future));
-		}
-
-		public boolean cancel(boolean mayInterruptIfRunning) {
-			return future.cancel(mayInterruptIfRunning);
-		}
-
-		public void complete(T value, Throwable exception) {
-			if (exception != null) {
-				completeExceptionally(exception);
-			} else {
-				completeSuccessfully(value);
-			}
-		}
-
-		public void completeExceptionally(Throwable exception) {
-			future.completeExceptionally(exception);
-		}
-
-		public void completeSuccessfully(T value) {
-			future.complete(value);
+			return Promise.of(executor, fn.apply(executor, stage));
 		}
 
 		@Override
 		public CompletionStage<T> toCompletionStage() {
-			return future;
+			return stage;
+		}
+	}
+
+	interface Cancelable<T> extends Promise<T> {
+
+		boolean cancel();
+
+		boolean isDone();
+	}
+
+	class Deferred<T> extends Base<T, CompletableFuture<T>> implements Cancelable<T> {
+
+		public Deferred(Executor executor) {
+			super(executor, new CompletableFuture<>());
+		}
+
+		public Deferred(Executor executor, CompletableFuture<T> future) {
+			super(executor, future);
+		}
+
+		@Override
+		public boolean cancel() {
+			return stage.cancel(false);
+		}
+
+		public boolean complete(T value, Throwable exception) {
+			return exception == null ? completeSuccessfully(value) : completeExceptionally(exception);
+		}
+
+		public boolean completeExceptionally(Throwable exception) {
+			return stage.completeExceptionally(exception);
+		}
+
+		public boolean completeSuccessfully(T value) {
+			return stage.complete(value);
+		}
+
+		public boolean completeWith(Producer<? extends T> producer) {
+			try {
+				T value = producer.call();
+				return completeSuccessfully(value);
+			} catch (Throwable e) {
+				return completeExceptionally(e);
+			}
+		}
+
+		public boolean completeWithConsumer(TConsumer<? super T> fn, T var) {
+			return completeWith(() -> {
+				fn.acceptChecked(var);
+				return var;
+			});
+		}
+
+		public <V> boolean completeWithFunction(TFunction<? super V, ? extends T> fn, V var) {
+			return completeWith(() -> fn.applyChecked(var));
+		}
+
+		@Override
+		public boolean isDone() {
+			return stage.isDone();
+		}
+	}
+
+	class Delayed<T> extends Base<T, CompletableFuture<T>> implements Cancelable<T>, java.util.concurrent.Delayed {
+
+		private final java.util.concurrent.Future<T> future;
+		private final java.util.concurrent.Delayed delayed;
+
+		public Delayed(Executor executor, ScheduledFuture<T> future) {
+			this(executor, future, future);
+		}
+
+		public Delayed(Executor executor, java.util.concurrent.Future<T> future, java.util.concurrent.Delayed delayed) {
+			super(executor, new CompletableFuture<>());
+			this.future = Require.nonNull(future);
+			this.delayed = Require.nonNull(delayed);
+		}
+
+		@Override
+		public boolean cancel() {
+			return future.cancel(false);
+		}
+
+		@Override
+		public int compareTo(java.util.concurrent.Delayed o) {
+			return delayed.compareTo(o);
+		}
+
+		@Override
+		public long getDelay(TimeUnit unit) {
+			return delayed.getDelay(unit);
+		}
+
+		public void ifOverdueOrElse(Consumer<Delayed<T>> overdue, Consumer<Delayed<T>> orElse) {
+			if (isOverdue()) {
+				overdue.accept(this);
+			} else {
+				orElse.accept(this);
+			}
+		}
+
+		@Override
+		public boolean isDone() {
+			return future.isDone();
+		}
+
+		public boolean isOverdue() {
+			return getDelay(TimeUnit.MILLISECONDS) <= 0;
+		}
+	}
+
+	class Future<T> extends Base<T, CompletableFuture<T>> implements Cancelable<T> {
+
+		private final java.util.concurrent.Future<T> future;
+
+		public Future(Executor executor, java.util.concurrent.Future<T> future, CompletableFuture<T> stage) {
+			super(executor, stage);
+			this.future = Require.nonNull(future);
+		}
+
+		@Override
+		public boolean cancel() {
+			stage.cancel(false);
+			return future.cancel(false);
+		}
+
+		@Override
+		public boolean isDone() {
+			return future.isDone();
+		}
+
+		void poll() {
+			try {
+				T value = future.get(500, TimeUnit.MILLISECONDS);
+				stage.complete(value);
+			} catch (ExecutionException e) {
+				stage.completeExceptionally(e.getCause());
+			} catch (InterruptedException | TimeoutException e) {
+				executor.execute(this::poll);
+			}
 		}
 	}
 
@@ -81,15 +199,6 @@ public interface Promise<T> {
 			current = Require.nonNull(trigger).whenComplete(this::setOutcome);
 		}
 
-		private void setOutcome(T result, Throwable exception) {
-			this.result = result;
-			this.exception = exception;
-		}
-
-		private T getOutcome() {
-			return exception != null ? Throwing.unchecked(exception) : result;
-		}
-
 		@Override
 		public synchronized <X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
 			Promise<X> promise = current.apply(fn);
@@ -97,33 +206,19 @@ public interface Promise<T> {
 			return promise;
 		}
 
+		private T getOutcome() {
+			return exception != null ? Throwing.unchecked(exception) : result;
+		}
+
+		private void setOutcome(T result, Throwable exception) {
+			this.result = result;
+			this.exception = exception;
+		}
+
 		@Override
 		public CompletionStage<T> toCompletionStage() {
 			return current.toCompletionStage();
 		}
-	}
-
-	static void main(String... args) throws InterruptedException {
-		Random random = new Random();
-		ExecutorService executor = ForkJoinPool.commonPool();
-
-		Deferred<String> deferred = Promise.deferred(executor);
-		Promise<String> ordered = deferred.ordered();
-		ordered.whenComplete((s, x) -> System.out.println("start"));
-		for (int i = 0; i < 10; i++) {
-			int c = i;
-			ordered.whenComplete((s, x) -> {
-				Thread.sleep(random.nextInt(500));
-				System.out.println(c + ": " + s);
-			});
-		}
-		deferred.complete("XXX", new Exception());
-		ordered.whenComplete((s, x) -> System.out.println("end"));
-		deferred.whenComplete((s, x) -> System.out.println("starting..."));
-
-		System.out.println("Executor shutdown");
-		executor.awaitTermination(20, TimeUnit.SECONDS);
-
 	}
 
 	static Promise<Void> completed() {
@@ -146,40 +241,54 @@ public interface Promise<T> {
 		return of(Runnable::run, future);
 	}
 
-	static <T> Promise<T> of(Executor executor, CompletionStage<T> stage) {
-		Require.nonNullElements(executor, stage);
-		return new Promise<T>() {
+	static void main(String... args) throws InterruptedException {
+		Random random = new Random();
+		ExecutorService executor = ForkJoinPool.commonPool();
 
-			@Override
-			public <X> Promise<X> apply(BiFunction<Executor, CompletionStage<T>, CompletionStage<X>> fn) {
-				return of(executor, fn.apply(executor, stage));
-			}
+		Deferred<String> deferred = Promise.deferred(executor);
+		Promise<String> ordered = deferred.ordered();
+		ordered.whenComplete((s, x) -> System.out.println("start"));
+		for (int i = 0; i < 10; i++) {
+			int c = i;
+			ordered.whenComplete((s, x) -> {
+				Thread.sleep(random.nextInt(500));
+				System.out.println(c + ": " + s);
+			});
+		}
+		deferred.complete("XXX", new Exception());
+		ordered.whenComplete((s, x) -> System.out.println("end"));
+		deferred.whenComplete((s, x) -> System.out.println("starting..."));
 
-			@Override
-			public CompletionStage<T> toCompletionStage() {
-				return stage;
-			}
-		};
+		System.out.println("Executor shutdown");
+		executor.awaitTermination(20, TimeUnit.SECONDS);
 	}
 
-	static <T> Promise<T> ofBlocking(Executor executor, Future<T> future) {
-		Require.nonNullElements(executor, future);
-		CompletableFuture<T> result = new CompletableFuture<>();
-		executor.execute(new Runnable() {
+	static <T> Promise<T> of(Executor executor, CompletionStage<T> stage) {
+		return new Base<>(executor, stage);
+	}
 
-			@Override
-			public void run() {
-				try {
-					T value = future.get(500, TimeUnit.MILLISECONDS);
-					result.complete(value);
-				} catch (ExecutionException e) {
-					result.completeExceptionally(e.getCause());
-				} catch (InterruptedException | TimeoutException e) {
-					executor.execute(this);
-				}
-			}
-		});
-		return of(executor, result);
+	@SuppressWarnings("unchecked")
+	static <T> Promise.Cancelable<T> ofFuture(Executor executor, java.util.concurrent.Future<T> future) {
+		Require.nonNullElements(executor, future);
+		if (future instanceof Promise.Cancelable) {
+			return ((Promise.Cancelable<T>) future);
+		} else if (future instanceof CompletableFuture) {
+			return new Future<>(executor, future, (CompletableFuture<T>) future);
+		} else {
+			Future<T> promise = new Future<>(executor, future, new CompletableFuture<>());
+			executor.execute(promise::poll);
+			return promise;
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	static <T> Promise.Delayed<T> ofDelayed(Executor executor, ScheduledFuture<T> future) {
+		Require.nonNullElements(executor, future);
+		if (future instanceof Promise.Delayed) {
+			return ((Promise.Delayed<T>) future);
+		} else {
+			return new Delayed<>(executor, future);
+		}
 	}
 
 	default Promise<Void> acceptEither(Promise<? extends T> other, TConsumer<? super T> action) {
@@ -196,6 +305,14 @@ public interface Promise<T> {
 		return withExecutor(executor);
 	}
 
+	default Promise<T> checkOrFail(TPredicate<? super T> predicate) {
+		return whenCompleteSuccessfully(predicate.throwOnFail(IllegalArgumentException::new));
+	}
+
+	default <U> Promise<Void> checkOrFailOnBoth(Promise<? extends U> other, TBiPredicate<? super T, ? super U> predicate) {
+		return thenAcceptBoth(other, predicate.throwOnFail(IllegalArgumentException::new));
+	}
+
 	default Promise<T> exceptionally(TFunction<Throwable, ? extends T> fn) {
 		return apply((e, s) -> s.exceptionally(fn));
 	}
@@ -206,10 +323,10 @@ public interface Promise<T> {
 
 	default <U> Promise<U> handle(TFunction<? super T, ? extends U> success, TFunction<? super Throwable, ? extends U> exception) {
 		return handle((t, ex) -> {
-			if (ex != null) {
-				return exception.apply(ex);
-			} else {
+			if (ex == null) {
 				return success.apply(t);
+			} else {
+				return exception.apply(ex);
 			}
 		});
 	}
@@ -248,14 +365,6 @@ public interface Promise<T> {
 
 	default Promise<T> sync() {
 		return withExecutor(Runnable::run);
-	}
-
-	default Promise<T> checkOrFail(TPredicate<? super T> predicate) {
-		return whenCompleteSuccessfully(predicate.throwOnFail(IllegalArgumentException::new));
-	}
-
-	default <U> Promise<Void> checkOrFailOnBoth(Promise<? extends U> other, TBiPredicate<? super T, ? super U> predicate) {
-		return thenAcceptBoth(other, predicate.throwOnFail(IllegalArgumentException::new));
 	}
 
 	default Promise<Void> thenAccept(TConsumer<? super T> action) {
@@ -298,6 +407,10 @@ public interface Promise<T> {
 		whenCompleteSuccessfully(future::complete);
 		whenCompleteExceptionally(future::completeExceptionally);
 		return future;
+	}
+
+	default Promise<T> whenComplete(Task task) {
+		return whenComplete((t, ex) -> task.run());
 	}
 
 	default Promise<T> whenComplete(TBiConsumer<? super T, ? super Throwable> action) {
