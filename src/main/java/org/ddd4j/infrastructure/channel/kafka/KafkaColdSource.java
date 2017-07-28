@@ -3,24 +3,21 @@ package org.ddd4j.infrastructure.channel.kafka;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.ResourcePartition;
+import org.ddd4j.infrastructure.ResourceRevision;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.DataAccessFactory;
+import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -42,33 +39,10 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 		}
 
 		@Override
-		public ColdSource createColdSource() {
+		public ColdSource createColdSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
 			Scheduler scheduler = context.get(Scheduler.KEY);
 			Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
 			return null;
-		}
-	}
-
-	private static class KafkaRebalanceListener {
-
-		private static Seq<ResourcePartition> toResourcePartitions(Collection<TopicPartition> partitions) {
-			return Seq.ofCopied(partitions).map().to(tp -> new ResourcePartition(tp.topic(), tp.partition()));
-		}
-
-		private final Consumer<byte[], byte[]> consumer;
-		private final Listener<ReadBuffer, ReadBuffer> listener;
-
-		KafkaRebalanceListener(Consumer<byte[], byte[]> consumer, Listener<ReadBuffer, ReadBuffer> listener) {
-			this.consumer = Require.nonNull(consumer);
-			this.listener = Require.nonNull(listener);
-		}
-
-		void onError(Throwable throwable) {
-			listener.onError(throwable);
-		}
-
-		void onNext(ConsumerRecord<byte[], byte[]> record) {
-			listener.onNext(ResourceDescriptor.of(record.topic()), convert(record));
 		}
 	}
 
@@ -97,29 +71,44 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final Rescheduler rescheduler;
-	private final KafkaRebalanceListener listener;
 	private final Map<String, Promise<Integer>> subscriptions;
+	private final Callback callback;
+	private final SourceListener<ReadBuffer, ReadBuffer> listener;
 
-	KafkaColdSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Listener<ReadBuffer, ReadBuffer> listener) {
+	KafkaColdSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Callback callback,
+			SourceListener<ReadBuffer, ReadBuffer> listener) {
 		this.client = scheduler.createAgent(consumer);
+		this.callback = callback;
+		this.listener = listener;
 		this.rescheduler = scheduler.reschedulerFor(this);
-		this.listener = new KafkaRebalanceListener(consumer, listener);
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
 	@Override
 	public void closeChecked() throws Exception {
-		client.perform(Consumer::close).join();
+		client.execute(Consumer::close).join();
 	}
 
 	@Override
-	public Promise<Trigger> doScheduled(long timeout, TimeUnit unit) {
-		return client.executeBlocked(c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
-				.whenComplete(rs -> rs.forEach(listener::onNext), listener::onError)
+	public Promise<Trigger> onScheduled(Scheduler scheduler) {
+		return client.performBlocked((t, u) -> c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(u.toMillis(t)))
+				.whenComplete(rs -> rs.forEach(listener::onNext), callback::onError)
 				.thenReturn(this::triggering);
 	}
 
 	private Trigger triggering() {
 		return !subscriptions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
+	}
+
+	@Override
+	public void pause(Seq<ResourceRevision> revisions) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void resume(Seq<ResourceRevision> revisions) {
+		// TODO Auto-generated method stub
+
 	}
 }

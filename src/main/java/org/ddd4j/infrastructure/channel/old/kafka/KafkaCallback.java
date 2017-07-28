@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
@@ -97,7 +96,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	}
 
 	void close() {
-		client.perform(Consumer::close);
+		client.execute(Consumer::close);
 	}
 
 	private void doAssignAndSeek(Consumer<?, ?> consumer, String topic, Revision revision) {
@@ -127,8 +126,8 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	}
 
 	@Override
-	public Promise<Trigger> doScheduled(long timeout, TimeUnit unit) {
-		return client.execute(c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
+	public Promise<Trigger> onScheduled(Scheduler scheduler) {
+		return client.performBlocked((t, u) -> c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(u.toMillis(t)))
 				.sync()
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> channelListener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
 				.whenCompleteExceptionally(channelListener::onError)
@@ -137,19 +136,19 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 
 	@Override
 	public void seek(ResourceDescriptor topic, Revision revision) {
-		assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doFetchPartitionSize(c, t)).sync())
-				.whenCompleteSuccessfully(size -> client.perform(c -> doAssignAndSeek(c, topic.value(), revision)))
+		assignments.computeIfAbsent(topic.value(), t -> client.perform(c -> doFetchPartitionSize(c, t)).sync())
+				.whenCompleteSuccessfully(size -> client.execute(c -> doAssignAndSeek(c, topic.value(), revision)))
 				.whenCompleteExceptionally(channelListener::onError);
 	}
 
 	@Override
 	public Promise<Integer> subscribe(ResourceDescriptor topic) {
-		return assignments.computeIfAbsent(topic.value(), t -> client.execute(c -> doSubscribe(c, t)));
+		return assignments.computeIfAbsent(topic.value(), t -> client.perform(c -> doSubscribe(c, t)));
 	}
 
 	@Override
 	public void unseek(ResourceDescriptor topic, int partition) {
-		client.perform(c -> {
+		client.execute(c -> {
 			List<TopicPartition> partitions = c.assignment()
 					.stream()
 					.filter(tp -> !tp.topic().equals(topic.value()) || tp.partition() != partition)
@@ -163,7 +162,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	@Override
 	public void unsubscribe(ResourceDescriptor topic) {
 		if (assignments.remove(topic.value()) != null) {
-			client.perform(c -> c.subscribe(assignments.keySet(), kafkaRebalanceListener));
+			client.execute(c -> c.subscribe(assignments.keySet(), kafkaRebalanceListener));
 		}
 	}
 }

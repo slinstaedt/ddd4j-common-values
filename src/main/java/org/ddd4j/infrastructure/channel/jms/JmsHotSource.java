@@ -16,6 +16,7 @@ import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.channel.HotSource;
+import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.value.versioned.Committed;
@@ -31,10 +32,10 @@ public class JmsHotSource implements HotSource, MessageListener {
 		}
 
 		@Override
-		public HotSource createHotSource(Listener<ReadBuffer, ReadBuffer> listener) {
+		public HotSource createHotSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
 			JMSContext jmsContext = factory.createContext(JMSContext.DUPS_OK_ACKNOWLEDGE);
-			jmsContext.setExceptionListener(listener::onError);
-			return new JmsHotSource(jmsContext, listener);
+			jmsContext.setExceptionListener(callback::onError);
+			return new JmsHotSource(jmsContext, callback, listener);
 		}
 	}
 
@@ -44,11 +45,13 @@ public class JmsHotSource implements HotSource, MessageListener {
 	}
 
 	private final JMSContext jmsContext;
-	private final Listener<ReadBuffer, ReadBuffer> listener;
+	private final SourceListener<ReadBuffer, ReadBuffer> listener;
+	private final Callback callback;
 	private final Map<String, JMSConsumer> subscriptions;
 
-	JmsHotSource(JMSContext jmsContext, Listener<ReadBuffer, ReadBuffer> listener) {
+	JmsHotSource(JMSContext jmsContext, Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
 		this.jmsContext = Require.nonNull(jmsContext);
+		this.callback = Require.nonNull(callback);
 		this.listener = Require.nonNull(listener);
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
@@ -65,7 +68,7 @@ public class JmsHotSource implements HotSource, MessageListener {
 			Committed<ReadBuffer, ReadBuffer> committed = converted((BytesMessage) message);
 			listener.onNext(resource, committed);
 		} catch (Exception e) {
-			listener.onError(e);
+			callback.onError(e);
 		}
 	}
 

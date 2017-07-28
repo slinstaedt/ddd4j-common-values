@@ -15,7 +15,7 @@ public class Listeners {
 	private final ResourceDescriptor resource;
 	private final Promise<Integer> partitionSize;
 	private final Runnable closer;
-	private final Map<Object, Listener<ReadBuffer, ReadBuffer>> listeners;
+	private final Map<Object, SourceListener<ReadBuffer, ReadBuffer>> listeners;
 
 	public Listeners(ResourceDescriptor resource, Promise<Integer> partitionSize, Runnable closer) {
 		this.resource = Require.nonNull(resource);
@@ -24,11 +24,11 @@ public class Listeners {
 		this.listeners = new ConcurrentHashMap<>();
 	}
 
-	public Listeners add(Listener<ReadBuffer, ReadBuffer> listener) {
+	public Listeners add(SourceListener<ReadBuffer, ReadBuffer> listener) {
 		return add(listener, listener);
 	}
 
-	public Listeners add(Object handle, Listener<ReadBuffer, ReadBuffer> listener) {
+	public Listeners add(Object handle, SourceListener<ReadBuffer, ReadBuffer> listener) {
 		listeners.put(Require.nonNull(handle), Require.nonNull(listener));
 		return this;
 	}

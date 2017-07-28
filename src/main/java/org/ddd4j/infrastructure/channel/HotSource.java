@@ -4,7 +4,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.ResourcePartition;
-import org.ddd4j.infrastructure.channel.util.Listener;
+import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.channel.util.Listeners;
 import org.ddd4j.infrastructure.channel.util.Subscriptions;
 import org.ddd4j.io.ReadBuffer;
@@ -28,7 +28,7 @@ public interface HotSource extends Throwing.Closeable {
 
 	interface Factory extends DataAccessFactory {
 
-		HotSource createHotSource(Callback callback, Listener<ReadBuffer, ReadBuffer> listener);
+		HotSource createHotSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener);
 
 		default Publisher createHotPublisher(Callback callback) {
 			return new Publisher(this, callback);
@@ -53,11 +53,11 @@ public interface HotSource extends Throwing.Closeable {
 			return new Listeners(resource, source.subscribe(resource), () -> source.unsubscribe(resource));
 		}
 
-		public Promise<Integer> subscribe(ResourceDescriptor resource, Listener<ReadBuffer, ReadBuffer> listener) {
+		public Promise<Integer> subscribe(ResourceDescriptor resource, SourceListener<ReadBuffer, ReadBuffer> listener) {
 			return subscriptions.subscribe(resource, listener);
 		}
 
-		public void unsubscribe(ResourceDescriptor resource, Listener<?, ?> listener) {
+		public void unsubscribe(ResourceDescriptor resource, SourceListener<?, ?> listener) {
 			subscriptions.unsubscribe(resource, listener);
 		}
 	}

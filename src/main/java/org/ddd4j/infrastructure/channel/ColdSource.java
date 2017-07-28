@@ -1,97 +1,106 @@
 package org.ddd4j.infrastructure.channel;
 
-import java.util.concurrent.Executor;
+import java.util.Map;
 
+import org.ddd4j.Require;
 import org.ddd4j.Throwing;
-import org.ddd4j.collection.Array;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.Promise.Deferred;
 import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.ResourcePartition;
+import org.ddd4j.infrastructure.ResourceRevision;
+import org.ddd4j.infrastructure.channel.util.ResourceRevisions;
+import org.ddd4j.infrastructure.channel.util.SourceListener;
+import org.ddd4j.infrastructure.scheduler.ScheduledTask;
+import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.collection.Seq;
-import org.ddd4j.value.versioned.Committed;
-import org.ddd4j.value.versioned.Revision;
-import org.ddd4j.value.versioned.Revisions;
 
 public interface ColdSource extends Throwing.Closeable {
 
-	interface Factory extends DataAccessFactory {
-
-		ColdSource createColdSource();
-	}
-
-	interface Listener<K, V> {
+	interface Callback {
 
 		void onComplete();
 
 		void onError(Throwable throwable);
-
-		void onNext(ResourceDescriptor resource, Committed<K, V> committed);
 	}
 
-	interface Pull extends ColdSource {
+	interface Factory extends DataAccessFactory {
 
-		@Override
-		default void resume(Listener<ReadBuffer, ReadBuffer> listener, ResourceDescriptor resource, Seq<Revision> start) {
-			Revisions revisions = new Revisions(start);
-			fetch(resource, start).whenComplete(s -> s.forEachOrEmpty(c -> {
-				listener.onNext(resource, c);
-				revisions.update(c.getNextExpected());
-			}, listener::onComplete), listener::onError).checkOrFail(Seq::isNotEmpty).thenRun(() -> resume(listener, resource, revisions));
+		ColdSource createColdSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener);
+	}
+
+	class VersionedReaderBased implements ColdSource, ScheduledTask {
+
+		public static class Factory implements ColdSource.Factory {
+
+			private final Context context;
+
+			public Factory(Context context) {
+				this.context = Require.nonNull(context);
+				Require.that(context.get(ColdSource.FACTORY), ColdReader.ColdSourceBased.Factory.class::isInstance);
+			}
+
+			@Override
+			public ColdSource createColdSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
+				ColdReader reader = context.get(ColdReader.FACTORY).createVersionedReader();
+				Scheduler scheduler = context.get(Scheduler.KEY);
+				return new VersionedReaderBased(callback, listener, reader, scheduler);
+			}
+
+			@Override
+			public void closeChecked() throws Exception {
+				context.get(ColdReader.FACTORY).closeChecked();
+			}
+
+			@Override
+			public Map<ResourceDescriptor, Integer> knownResources() {
+				return context.get(ColdReader.FACTORY).knownResources();
+			}
+		}
+
+		private final Callback callback;
+		private final SourceListener<ReadBuffer, ReadBuffer> listener;
+		private final ColdReader reader;
+		private final Rescheduler rescheduler;
+		private final ResourceRevisions resourceRevisions;
+
+		public VersionedReaderBased(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener, ColdReader reader,
+				Scheduler scheduler) {
+			this.callback = Require.nonNull(callback);
+			this.listener = Require.nonNull(listener);
+			this.reader = Require.nonNull(reader);
+			this.rescheduler = scheduler.reschedulerFor(this);
+			this.resourceRevisions = new ResourceRevisions();
 		}
 
 		@Override
-		default void pause(Seq<ResourcePartition> partitions) {
-			// TODO Auto-generated method stub
+		public void closeChecked() {
+			resourceRevisions.clear();
+		}
+
+		@Override
+		public Promise<Trigger> onScheduled(Scheduler scheduler) {
+			return reader.get(resourceRevisions)
+					.whenComplete(rc -> rc.forEachOrEmpty(listener::onNext, callback::onComplete), callback::onError)
+					.thenApply(rc -> resourceRevisions.isNotEmpty() && rc.isNotEmpty() ? Trigger.RESCHEDULE : Trigger.NOTHING);
+		}
+
+		@Override
+		public void pause(Seq<ResourceRevision> revisions) {
+			resourceRevisions.remove(revisions);
+		}
+
+		@Override
+		public void resume(Seq<ResourceRevision> revisions) {
+			resourceRevisions.add(revisions);
+			rescheduler.doIfNecessary();
 		}
 	}
 
-	interface Push extends ColdSource {
+	Key<Factory> FACTORY = Key.of(Factory.class, VersionedReaderBased.Factory::new);
 
-		default int batchSize() {
-			return 100;
-		}
+	void pause(Seq<ResourceRevision> revisions);
 
-		default Executor executor() {
-			return Runnable::run;
-		}
-
-		@Override
-		default Promise<Seq<Committed<ReadBuffer, ReadBuffer>>> fetch(ResourceDescriptor resource, Seq<Revision> start) {
-			Deferred<Seq<Committed<ReadBuffer, ReadBuffer>>> deferred = Promise.deferred(executor());
-			Array<Committed<ReadBuffer, ReadBuffer>> result = new Array<>();
-			resume(new ColdSource.Listener<ReadBuffer, ReadBuffer>() {
-
-				@Override
-				public void onComplete() {
-					deferred.completeSuccessfully(result::stream);
-				}
-
-				@Override
-				public void onError(Throwable throwable) {
-					deferred.completeExceptionally(throwable);
-				}
-
-				@Override
-				public void onNext(ResourceDescriptor resource, Committed<ReadBuffer, ReadBuffer> committed) {
-					result.add(committed);
-					if (result.size() >= batchSize()) {
-						onComplete();
-						pause(null);
-					}
-				}
-			}, resource, start);
-			return deferred;
-		}
-	}
-
-	Key<Factory> FACTORY = Key.of(Factory.class);
-
-	Promise<Seq<Committed<ReadBuffer, ReadBuffer>>> fetch(ResourceDescriptor resource, Seq<Revision> start);
-
-	void resume(Listener<ReadBuffer, ReadBuffer> listener, ResourceDescriptor resource, Seq<Revision> start);
-
-	void pause(Seq<ResourcePartition> partitions);
+	void resume(Seq<ResourceRevision> revisions);
 }

@@ -37,14 +37,14 @@ public class Subscriptions {
 		listeners.getOrDefault(resource, NONE).onNext(committed);
 	}
 
-	public Promise<Integer> subscribe(ResourceDescriptor resource, Listener<ReadBuffer, ReadBuffer> listener) {
+	public Promise<Integer> subscribe(ResourceDescriptor resource, SourceListener<ReadBuffer, ReadBuffer> listener) {
 		return listeners.computeIfAbsent(resource, onSubscribe).add(listener).partitionSize();
 	}
 
-	public <K extends Value<K>, V> Promise<Integer> subscribe(RepositoryDefinition<K, V> definition, Listener<K, V> listener,
+	public <K extends Value<K>, V> Promise<Integer> subscribe(RepositoryDefinition<K, V> definition, SourceListener<K, V> listener,
 			SchemaCodec.Factory codecFactory) {
 		Decoder<V> decoder = codecFactory.decoder(definition.getValueType());
-		Listener<ReadBuffer, ReadBuffer> l = listener.mapPromised(definition::deserializeKey, decoder::decode);
+		SourceListener<ReadBuffer, ReadBuffer> l = listener.mapPromised(definition::deserializeKey, decoder::decode);
 		return listeners.computeIfAbsent(definition.getResource(), onSubscribe).add(listener, l).partitionSize();
 	}
 
@@ -52,7 +52,7 @@ public class Subscriptions {
 		return Collections.unmodifiableSet(listeners.keySet());
 	}
 
-	public void unsubscribe(ResourceDescriptor resource, Listener<?, ?> listener) {
+	public void unsubscribe(ResourceDescriptor resource, SourceListener<?, ?> listener) {
 		listeners.computeIfPresent(resource, (r, s) -> s.remove(listener));
 	}
 }

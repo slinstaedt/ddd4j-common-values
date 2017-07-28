@@ -77,7 +77,7 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 		Promise<Void> saveRevisions(Revision[] revisions);
 	}
 
-	private class SubscriptionListener implements Subscription, HotSource.Listener<K, V> {
+	private class SubscriptionListener implements Subscription, HotSource.SourceListener<K, V> {
 
 		private final Subscriber<? super Committed<K, V>> subscriber;
 		private final RevisionCallback callback;

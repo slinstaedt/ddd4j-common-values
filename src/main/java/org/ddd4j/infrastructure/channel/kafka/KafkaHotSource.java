@@ -7,7 +7,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
@@ -22,7 +21,7 @@ import org.ddd4j.infrastructure.ResourceDescriptor;
 import org.ddd4j.infrastructure.ResourcePartition;
 import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.HotSource;
-import org.ddd4j.infrastructure.channel.util.Listener;
+import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -44,7 +43,7 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		}
 
 		@Override
-		public HotSource createHotSource(Callback callback, Listener<ReadBuffer, ReadBuffer> listener) {
+		public HotSource createHotSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
 			Scheduler scheduler = context.get(Scheduler.KEY);
 			Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
 			return new KafkaHotSource(scheduler, consumer, callback, listener);
@@ -108,28 +107,29 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		return props;
 	}
 
+	private final SourceListener<ReadBuffer, ReadBuffer> listener;
+	private final KafkaRebalanceCallback callback;
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final Rescheduler rescheduler;
-	private final KafkaRebalanceCallback callback;
-	private final Listener<ReadBuffer, ReadBuffer> listener;
 	private final Map<String, Promise<Integer>> subscriptions;
 
-	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Callback callback, Listener<ReadBuffer, ReadBuffer> listener) {
+	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Callback callback,
+			SourceListener<ReadBuffer, ReadBuffer> listener) {
+		this.listener = Require.nonNull(listener);
+		this.callback = new KafkaRebalanceCallback(consumer, callback);
 		this.client = scheduler.createAgent(consumer);
 		this.rescheduler = scheduler.reschedulerFor(this);
-		this.callback = new KafkaRebalanceCallback(consumer, callback);
-		this.listener = Require.nonNull(listener);
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
 	@Override
 	public void closeChecked() throws Exception {
-		client.performBlocked(Consumer::close).join();
+		client.executeBlocked((t, u) -> c -> c.close(t, u)).join();
 	}
 
 	@Override
-	public Promise<Trigger> doScheduled(long timeout, TimeUnit unit) {
-		return client.executeBlocked(c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(unit.toMillis(timeout)))
+	public Promise<Trigger> onScheduled(Scheduler scheduler) {
+		return client.performBlocked((t, u) -> c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(u.toMillis(t)))
 				.whenComplete(rs -> rs.forEach(this::onNext), callback::onError)
 				.thenReturn(this::triggering);
 	}
@@ -144,7 +144,7 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	}
 
 	private Promise<Integer> subscribe(String topic) {
-		Promise<Integer> partitionSize = client.execute(c -> c.partitionsFor(topic).size());
+		Promise<Integer> partitionSize = client.perform(c -> c.partitionsFor(topic).size());
 		partitionSize.whenComplete(callback::onSubscribed, callback::onError);
 		updateSubscription();
 		rescheduler.doIfNecessary();
@@ -163,6 +163,6 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	}
 
 	private void updateSubscription() {
-		client.perform(c -> c.subscribe(subscriptions.keySet(), callback));
+		client.execute(c -> c.subscribe(subscriptions.keySet(), callback));
 	}
 }
