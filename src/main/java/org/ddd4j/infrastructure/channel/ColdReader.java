@@ -35,6 +35,8 @@ public interface ColdReader {
 
 		public static class Factory implements ColdReader.Factory {
 
+			public static final Configuration.Key<Integer> TIMEOUT = Configuration.keyOfInteger("timeoutInMillis", 2000);
+
 			private final Context context;
 
 			public Factory(Context context) {
@@ -44,7 +46,7 @@ public interface ColdReader {
 
 			@Override
 			public ColdReader createVersionedReader() {
-				return new ColdSourceBased(context.get(Scheduler.KEY), context.get(ColdSource.FACTORY));
+				return new ColdSourceBased(context.get(Scheduler.KEY), context.get(ColdSource.FACTORY), context.conf(TIMEOUT));
 			}
 
 			@Override
@@ -59,8 +61,6 @@ public interface ColdReader {
 		}
 
 		private static class Listener implements Callback, SourceListener<ReadBuffer, ReadBuffer> {
-
-			public static final Configuration.Key<Integer> TIMEOUT = Configuration.keyOfInteger("timeoutInMillis", 2000);
 
 			private final Promise.Deferred<ResourceRecords> deferred;
 			private final ColdSource source;
@@ -93,7 +93,7 @@ public interface ColdReader {
 				}
 			}
 
-			Promise.Deferred<ResourceRecords> getResult() {
+			Promise<ResourceRecords> getResult() {
 				return deferred;
 			}
 
@@ -110,15 +110,17 @@ public interface ColdReader {
 
 		private final Scheduler scheduler;
 		private final ColdSource.Factory delegate;
+		private final int timeoutInMillis;
 
-		public ColdSourceBased(Scheduler scheduler, ColdSource.Factory delegate) {
+		public ColdSourceBased(Scheduler scheduler, ColdSource.Factory delegate, int timeoutInMillis) {
 			this.scheduler = Require.nonNull(scheduler);
 			this.delegate = Require.nonNull(delegate);
+			this.timeoutInMillis = timeoutInMillis;
 		}
 
 		@Override
 		public Promise<ResourceRecords> get(Seq<ResourceRevision> revisions) {
-			return new Listener(scheduler, delegate, revisions).getResult();
+			return new Listener(scheduler, delegate, revisions, timeoutInMillis).getResult();
 		}
 	}
 
