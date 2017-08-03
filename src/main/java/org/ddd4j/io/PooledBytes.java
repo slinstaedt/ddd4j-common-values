@@ -21,7 +21,7 @@ public class PooledBytes<B extends Bytes> extends Bytes {
 	static final Configuration.Key<Integer> POOL_SIZE = Configuration.keyOfInteger("poolSize", 512);
 
 	public static final Key<Cache.ReadThrough<Integer, byte[]>> BYTE_ARRAY_CACHE = Key.of("byteArrayCache",
-			ctx -> Cache.<Integer, byte[]> exclusive(b -> b.length)
+			ctx -> Cache.<Integer, byte[]>exclusive(b -> b.length)
 					.evict()
 					.withMaximumCapacity(ctx.conf(POOL_SIZE))
 					.lookupValues(Cache.KeyLookup.CEILING, k -> min(bitCount(k) == 1 ? k : highestOneBit(k) << 1, 4096))
@@ -30,11 +30,11 @@ public class PooledBytes<B extends Bytes> extends Bytes {
 	public static final Key<Cache.ReadThrough<Integer, java.nio.ByteBuffer>> BYTE_BUFFER_CACHE = Key.of("byteBufferCache",
 			ctx -> ctx.get(BYTE_ARRAY_CACHE).wrapEntries(java.nio.ByteBuffer::wrap, java.nio.ByteBuffer::array));
 
-	public static final Key<Cache.ReadThrough<Integer, ByteArray>> BYTES_CACHE = Key.of("bytesCache",
-			ctx -> ctx.get(BYTE_ARRAY_CACHE).wrapEntries(ByteArray::new, ByteArray::backing));
+	public static final Key<Cache.ReadThrough<Integer, Bytes.Arrayed>> BYTES_CACHE = Key.of("bytesCache",
+			ctx -> ctx.get(BYTE_ARRAY_CACHE).wrapEntries(Bytes.Arrayed::new, Bytes.Arrayed::backing));
 
-	public static final Key<Supplier<PooledBytes<ByteArray>>> FACTORY = Key.of("pooledBytesFactory", ctx -> {
-		Pool<ByteArray> pool = ctx.get(BYTES_CACHE).pooledBy(ctx.conf(BUFFER_SIZE));
+	public static final Key<Supplier<PooledBytes<Bytes.Arrayed>>> FACTORY = Key.of("pooledBytesFactory", ctx -> {
+		Pool<Bytes.Arrayed> pool = ctx.get(BYTES_CACHE).pooledBy(ctx.conf(BUFFER_SIZE));
 		return () -> new PooledBytes<>(pool);
 	});
 
