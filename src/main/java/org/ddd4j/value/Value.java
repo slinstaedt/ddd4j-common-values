@@ -2,6 +2,7 @@ package org.ddd4j.value;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
@@ -143,8 +144,8 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		}
 	}
 
-	default <X extends V> Opt<X> as(Class<X> type) {
-		return type.isInstance(this) ? Opt.of(type.cast(this)) : Opt.none();
+	default <X extends V> Optional<X> as(Class<X> type) {
+		return type.isInstance(this) ? Optional.of(type.cast(this)) : Optional.empty();
 	}
 
 	default void serialize(WriteBuffer buffer) {

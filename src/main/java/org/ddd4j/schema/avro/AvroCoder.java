@@ -64,4 +64,8 @@ public enum AvroCoder {
 	public abstract Decoder decoder(DecoderFactory factory, Schema schema, InputStream in) throws IOException;
 
 	public abstract Encoder encoder(EncoderFactory factory, Schema schema, OutputStream out) throws IOException;
+
+	public boolean isBinary() {
+		return this == BINARY || this == DIRECT;
+	}
 }

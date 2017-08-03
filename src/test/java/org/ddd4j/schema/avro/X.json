@@ -1,0 +1,31 @@
+[
+	{
+		"type": "record",
+		"name": "X1",
+		"namespace": "org.ddd4j.schema.avro.TestValue$",
+		"fields": [
+			{
+				"name": "value",
+				"type": "double"
+			}
+		]
+	},
+	{
+		"type": "record",
+		"name": "X2",
+		"namespace": "org.ddd4j.schema.avro.TestValue$",
+		"fields": [
+			{
+				"name": "value",
+				"type": {
+					"type": "fixed",
+					"name": "uuid",
+					"namespace": "",
+					"doc": "Byte conversion for UUID",
+					"size": 16,
+					"logicalType": "uuid"
+				}
+			}
+		]
+	}
+]

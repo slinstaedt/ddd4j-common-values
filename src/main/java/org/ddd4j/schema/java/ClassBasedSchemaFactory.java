@@ -26,7 +26,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 
 		@Override
 		public boolean compatibleWith(Schema<?> existing) {
-			return existing.<JavaSchema>as(JavaSchema.class).mapNonNull(o -> o.baseType).checkEqual(baseType);
+			return existing.<JavaSchema>as(JavaSchema.class).map(o -> o.baseType).map(baseType::equals).orElse(Boolean.FALSE);
 		}
 
 		@Override

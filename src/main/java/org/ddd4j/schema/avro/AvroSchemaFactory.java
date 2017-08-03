@@ -16,6 +16,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
+import org.ddd4j.schema.avro.conversion.UUIDByteConversion;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.Type;
@@ -27,32 +28,46 @@ public class AvroSchemaFactory implements SchemaFactory {
 	public static final Key<DecoderFactory> DECODER_FACTORY = Key.of(DecoderFactory.class, c -> DecoderFactory.get());
 	public static final Key<EncoderFactory> ENCODER_FACTORY = Key.of(EncoderFactory.class, c -> EncoderFactory.get());
 
+	public static final Configuration.Key<AvroCoder> CODING = Configuration.keyOfEnum(AvroCoder.class, "coding", AvroCoder.BINARY);
+	public static final Configuration.Key<AvroFingerprintAlgorithm> FINGERPRINT = Configuration.keyOfEnum(AvroFingerprintAlgorithm.class,
+			"fingerprint", AvroFingerprintAlgorithm.SHA_256);
+
 	private final Configuration configuration;
 	private final DecoderFactory decoderFactory;
 	private final EncoderFactory encoderFactory;
 	private final ReflectData data;
+	private final AvroCoder coder;
 
 	public AvroSchemaFactory(Context context) {
+
 		this.configuration = context.configuration();
 		this.decoderFactory = context.get(DECODER_FACTORY);
 		this.encoderFactory = context.get(ENCODER_FACTORY);
 		this.data = context.get(AVRO_DATA);
-		data.addLogicalTypeConversion(new Conversions.UUIDConversion());
+		this.coder = context.conf(CODING);
+		if (coder.isBinary()) {
+			data.addLogicalTypeConversion(new UUIDByteConversion());
+			data.addLogicalTypeConversion(new Conversions.UUIDConversion());
+		} else {
+			data.addLogicalTypeConversion(new Conversions.UUIDConversion());
+			data.addLogicalTypeConversion(new UUIDByteConversion());
+		}
 	}
 
 	@Override
 	public <T> Schema<T> createSchema(Type<T> type) {
-		return new AvroSchema<>(this, getData().getSchema(type.getRawType()));
+		return new AvroSchema<>(this, coder, getData().getSchema(type.getRawType()));
 	}
 
 	@Override
 	public Schema<?> readSchema(ReadBuffer buffer) {
+		AvroCoder writerCoder = AvroCoder.values()[buffer.getInt()];
 		org.apache.avro.Schema writerSchema = new Parser().parse(buffer.getUTF());
 		Class<?> type = getData().getClass(writerSchema);
 		if (type == null || type == Object.class) {
 			type = SchemaFactory.classForName(writerSchema.getFullName(), e -> Record.class);
 		}
-		return new AvroSchema<>(this, writerSchema);
+		return new AvroSchema<>(this, writerCoder, writerSchema);
 	}
 
 	ReflectData getData() {
@@ -60,16 +75,12 @@ public class AvroSchemaFactory implements SchemaFactory {
 	}
 
 	AvroFingerprintAlgorithm getFingerprintAlgorithm() {
-		return configuration.getEnum(AvroFingerprintAlgorithm.class, "fingerprint").orElse(AvroFingerprintAlgorithm.SHA_256);
+		return configuration.get(FINGERPRINT);
 	}
 
-	private AvroCoder coder() {
-		return configuration.getEnum(AvroCoder.class, "coding").orElse(AvroCoder.JSON);
-	}
-
-	Decoder createDecoder(org.apache.avro.Schema schema, InputStream in) {
+	Decoder createDecoder(AvroCoder coder, org.apache.avro.Schema schema, InputStream in) {
 		try {
-			return coder().decoder(decoderFactory, schema, in);
+			return coder.decoder(decoderFactory, schema, in);
 		} catch (IOException e) {
 			return Throwing.unchecked(e);
 		}
@@ -77,7 +88,7 @@ public class AvroSchemaFactory implements SchemaFactory {
 
 	Encoder createEncoder(org.apache.avro.Schema schema, OutputStream out) {
 		try {
-			return coder().encoder(encoderFactory, schema, out);
+			return coder.encoder(encoderFactory, schema, out);
 		} catch (IOException e) {
 			return Throwing.unchecked(e);
 		}
