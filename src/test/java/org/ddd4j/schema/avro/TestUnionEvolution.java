@@ -8,11 +8,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.SchemaValidationException;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
@@ -33,7 +33,7 @@ public class TestUnionEvolution {
 	public static final Schema READER_SCHEMA;
 
 	static {
-		ReflectData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
+		// ReflectData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
 		ReflectData.get().addLogicalTypeConversion(new UUIDByteConversion());
 
 		Schema schema = Throwing.task(() -> new Schema.Parser().parse(TestUnionEvolution.class.getResourceAsStream("X.json"))).get();
@@ -48,7 +48,7 @@ public class TestUnionEvolution {
 
 	public static byte[] encode(Object datum) throws IOException {
 		try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-			Encoder encoder = EncoderFactory.get().jsonEncoder(WRITER_SCHEMA, stream);
+			Encoder encoder = EncoderFactory.get().directBinaryEncoder(stream, null);
 			DatumWriter<Object> writer = new ReflectDatumWriter<>(WRITER_SCHEMA);
 			writer.write(datum, encoder);
 			encoder.flush();
@@ -58,7 +58,7 @@ public class TestUnionEvolution {
 
 	public static <T> T decode(byte[] data) throws IOException {
 		try (ByteArrayInputStream stream = new ByteArrayInputStream(data)) {
-			Decoder decoder = DecoderFactory.get().jsonDecoder(READER_SCHEMA, stream);
+			Decoder decoder = DecoderFactory.get().directBinaryDecoder(stream, null);
 			DatumReader<T> reader = new GenericDatumReader<>(WRITER_SCHEMA, READER_SCHEMA);
 			return reader.read(null, decoder);
 		}
@@ -69,13 +69,14 @@ public class TestUnionEvolution {
 		System.out.println(READER_SCHEMA);
 
 		// Object record = new GenericRecordBuilder(WRITER_SCHEMA).set("value", UUID.randomUUID()).build();
-		Object record = new X3(42);
+		Object record = new X3(55);
 		byte[] encoded = encode(record);
 		System.out.println(new String(encoded, "UTF-8"));
 
-		Object decoded = decode(encoded);
+		GenericRecord decoded = decode(encoded);
 		System.out.println(decoded.getClass());
-		System.out.println(decoded);
+		System.out.println(decoded.getSchema());
+		System.out.println(WRITER_SCHEMA.getTypes().contains(decoded.getSchema()));
 	}
 }
 
