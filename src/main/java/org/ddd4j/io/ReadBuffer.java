@@ -7,6 +7,7 @@ import java.nio.channels.WritableByteChannel;
 import java.util.function.Consumer;
 
 import org.ddd4j.Require;
+import org.ddd4j.Throwing.TConsumer;
 
 public interface ReadBuffer extends RelativeBuffer {
 
@@ -115,6 +116,10 @@ public interface ReadBuffer extends RelativeBuffer {
 	ReadBuffer reset();
 
 	ReadBuffer rewind();
+
+	default void read(TConsumer<? super InputStream> reader) {
+		reader.accept(asInputStream());
+	}
 
 	default byte[] toByteArray() {
 		byte[] b = new byte[remaining()];

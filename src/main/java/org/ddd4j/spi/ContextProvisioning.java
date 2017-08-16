@@ -2,7 +2,7 @@ package org.ddd4j.spi;
 
 import java.util.ServiceLoader;
 
-import org.ddd4j.value.collection.Configuration;
+import org.ddd4j.value.config.Configuration;
 
 public interface ContextProvisioning {
 

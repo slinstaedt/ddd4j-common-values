@@ -13,7 +13,7 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Cache;
 import org.ddd4j.value.Named;
-import org.ddd4j.value.collection.Configuration;
+import org.ddd4j.value.config.Configuration;
 
 public interface Registry extends Context, ServiceBinder, AutoCloseable {
 

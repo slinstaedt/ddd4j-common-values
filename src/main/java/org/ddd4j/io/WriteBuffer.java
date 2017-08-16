@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import org.ddd4j.Require;
+import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.spi.Key;
 
 public interface WriteBuffer extends RelativeBuffer {
@@ -122,4 +123,8 @@ public interface WriteBuffer extends RelativeBuffer {
 
 	@Override
 	WriteBuffer reset();
+
+	default void write(TConsumer<? super OutputStream> writer) {
+		writer.accept(asOutputStream());
+	}
 }

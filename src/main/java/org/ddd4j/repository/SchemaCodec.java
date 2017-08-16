@@ -20,7 +20,8 @@ import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Context.NamedService;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.Type;
-import org.ddd4j.value.collection.Configuration;
+import org.ddd4j.value.config.ConfKey;
+import org.ddd4j.value.config.Configuration;
 import org.ddd4j.value.versioned.Revision;
 
 public enum SchemaCodec {
@@ -108,7 +109,7 @@ public enum SchemaCodec {
 	}
 
 	public static final Key<Factory> FACTORY = Key.of(Factory.class, Factory::new);
-	private static final Configuration.Key<SchemaCodec> SCHEMA_ENCODER = Configuration.keyOfEnum(SchemaCodec.class, "schemaEncoder",
+	private static final ConfKey<SchemaCodec> SCHEMA_ENCODER = Configuration.keyOfEnum(SchemaCodec.class, "schemaEncoder",
 			SchemaCodec.OUT_OF_BAND);
 	private static final Key<Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>>> SCHEMA_REPO = Key.of("schemaRepository", ctx -> {
 		ResourceDescriptor schemaRepositoryDescriptor = ResourceDescriptor.of("schemata");

@@ -43,7 +43,8 @@ import org.ddd4j.collection.Cache.Decorating.Evicting;
 import org.ddd4j.collection.Cache.Decorating.Listening;
 import org.ddd4j.collection.Cache.Decorating.Retrying;
 import org.ddd4j.collection.Cache.Decorating.Wrapped;
-import org.ddd4j.value.collection.Configuration;
+import org.ddd4j.value.config.ConfKey;
+import org.ddd4j.value.config.Configuration;
 
 public interface Cache<K, V> {
 
@@ -1005,7 +1006,7 @@ public interface Cache<K, V> {
 		}
 	}
 
-	Configuration.Key<Integer> MAX_CAPACITY = Configuration.keyOfInteger("maxCapacity", 100);
+	ConfKey<Integer> MAX_CAPACITY = Configuration.keyOfInteger("maxCapacity", 100);
 
 	static <K extends Comparable<K>, V> Exclusive<K, V> exclusive(Function<? super V, ? extends K> keyedBy) {
 		return new Exclusive<>(Comparable::compareTo, keyedBy);

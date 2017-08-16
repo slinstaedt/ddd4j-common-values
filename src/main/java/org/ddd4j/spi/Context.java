@@ -4,7 +4,8 @@ import java.util.Optional;
 
 import org.ddd4j.Require;
 import org.ddd4j.value.Named;
-import org.ddd4j.value.collection.Configuration;
+import org.ddd4j.value.config.ConfKey;
+import org.ddd4j.value.config.Configuration;
 
 public interface Context {
 
@@ -19,7 +20,7 @@ public interface Context {
 
 	Context child(Named value);
 
-	default <V> V conf(Configuration.Key<V> key) {
+	default <V> V conf(ConfKey<V> key) {
 		return configuration().get(key);
 	}
 

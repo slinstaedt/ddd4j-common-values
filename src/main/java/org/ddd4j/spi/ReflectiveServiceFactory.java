@@ -8,7 +8,7 @@ import java.util.Optional;
 
 import org.ddd4j.Require;
 import org.ddd4j.value.Type;
-import org.ddd4j.value.collection.Configuration;
+import org.ddd4j.value.config.Configuration;
 
 public class ReflectiveServiceFactory<T> {
 

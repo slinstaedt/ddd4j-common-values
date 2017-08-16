@@ -20,8 +20,9 @@ import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.collection.Configuration;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.config.ConfKey;
+import org.ddd4j.value.config.Configuration;
 import org.ddd4j.value.versioned.Committed;
 
 public interface ColdReader {
@@ -35,7 +36,7 @@ public interface ColdReader {
 
 		public static class Factory implements ColdReader.Factory {
 
-			public static final Configuration.Key<Integer> TIMEOUT = Configuration.keyOfInteger("timeoutInMillis", 2000);
+			public static final ConfKey<Integer> TIMEOUT = Configuration.keyOfInteger("timeoutInMillis", 2000);
 
 			private final Context context;
 

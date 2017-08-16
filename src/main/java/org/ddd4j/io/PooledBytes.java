@@ -13,12 +13,13 @@ import org.ddd4j.Require;
 import org.ddd4j.collection.Cache;
 import org.ddd4j.collection.Cache.Pool;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.collection.Configuration;
+import org.ddd4j.value.config.ConfKey;
+import org.ddd4j.value.config.Configuration;
 
 public class PooledBytes<B extends Bytes> extends Bytes {
 
-	static final Configuration.Key<Integer> BUFFER_SIZE = Configuration.keyOfInteger("bufferSize", 4096);
-	static final Configuration.Key<Integer> POOL_SIZE = Configuration.keyOfInteger("poolSize", 512);
+	static final ConfKey<Integer> BUFFER_SIZE = Configuration.keyOfInteger("bufferSize", 4096);
+	static final ConfKey<Integer> POOL_SIZE = Configuration.keyOfInteger("poolSize", 512);
 
 	public static final Key<Cache.ReadThrough<Integer, byte[]>> BYTE_ARRAY_CACHE = Key.of("byteArrayCache",
 			ctx -> Cache.<Integer, byte[]>exclusive(b -> b.length)
