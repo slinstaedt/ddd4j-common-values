@@ -10,6 +10,7 @@ import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
 import org.ddd4j.value.math.Ordered;
 
+//TODO add actual date beside transaction date
 public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Ordered<Committed<K, V>> {
 
 	public static class Published<K, V> extends Committed<K, V> {

@@ -25,7 +25,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.channel.old.ChannelListener;
 import org.ddd4j.infrastructure.channel.old.ColdChannel;
 import org.ddd4j.infrastructure.channel.old.HotChannel;
@@ -61,8 +61,8 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 			partitionsByTopic(partitions).forEach(listener::onPartitionsRevoked);
 		}
 
-		private Map<ResourceDescriptor, int[]> partitionsByTopic(Collection<TopicPartition> partitions) {
-			return partitions.stream().collect(groupingBy(tp -> new ResourceDescriptor(tp.topic()),
+		private Map<ChannelName, int[]> partitionsByTopic(Collection<TopicPartition> partitions) {
+			return partitions.stream().collect(groupingBy(tp -> new ChannelName(tp.topic()),
 					mapping(TopicPartition::partition, collectingAndThen(toSet(), p -> p.stream().mapToInt(Integer::intValue).toArray()))));
 		}
 	}
@@ -129,25 +129,25 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	public Promise<Trigger> onScheduled(Scheduler scheduler) {
 		return client.performBlocked((t, u) -> c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(u.toMillis(t)))
 				.sync()
-				.whenCompleteSuccessfully(rs -> rs.forEach(r -> channelListener.onNext(ResourceDescriptor.of(r.topic()), convert(r))))
+				.whenCompleteSuccessfully(rs -> rs.forEach(r -> channelListener.onNext(ChannelName.of(r.topic()), convert(r))))
 				.whenCompleteExceptionally(channelListener::onError)
 				.thenApply(rs -> rs.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE);
 	}
 
 	@Override
-	public void seek(ResourceDescriptor topic, Revision revision) {
+	public void seek(ChannelName topic, Revision revision) {
 		assignments.computeIfAbsent(topic.value(), t -> client.perform(c -> doFetchPartitionSize(c, t)).sync())
 				.whenCompleteSuccessfully(size -> client.execute(c -> doAssignAndSeek(c, topic.value(), revision)))
 				.whenCompleteExceptionally(channelListener::onError);
 	}
 
 	@Override
-	public Promise<Integer> subscribe(ResourceDescriptor topic) {
+	public Promise<Integer> subscribe(ChannelName topic) {
 		return assignments.computeIfAbsent(topic.value(), t -> client.perform(c -> doSubscribe(c, t)));
 	}
 
 	@Override
-	public void unseek(ResourceDescriptor topic, int partition) {
+	public void unseek(ChannelName topic, int partition) {
 		client.execute(c -> {
 			List<TopicPartition> partitions = c.assignment()
 					.stream()
@@ -160,7 +160,7 @@ public class KafkaCallback implements ColdChannel.Callback, HotChannel.Callback,
 	}
 
 	@Override
-	public void unsubscribe(ResourceDescriptor topic) {
+	public void unsubscribe(ChannelName topic) {
 		if (assignments.remove(topic.value()) != null) {
 			client.execute(c -> c.subscribe(assignments.keySet(), kafkaRebalanceListener));
 		}

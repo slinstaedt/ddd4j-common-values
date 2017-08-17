@@ -11,7 +11,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.channel.old.ColdChannel;
 import org.ddd4j.infrastructure.channel.old.HotChannel;
 import org.ddd4j.infrastructure.channel.old.LazyListener;
@@ -26,7 +26,7 @@ import org.ddd4j.value.versioned.Uncommitted;
 
 public class KafkaChannel implements ColdChannel, HotChannel {
 
-	static ProducerRecord<byte[], byte[]> convert(ResourceDescriptor topic, Recorded<ReadBuffer, ReadBuffer> recorded) {
+	static ProducerRecord<byte[], byte[]> convert(ChannelName topic, Recorded<ReadBuffer, ReadBuffer> recorded) {
 		int partition = recorded.partition(ReadBuffer::hash);
 		long timestamp = Clock.systemUTC().millis();
 		byte[] key = recorded.getKey().toByteArray();
@@ -64,14 +64,14 @@ public class KafkaChannel implements ColdChannel, HotChannel {
 	}
 
 	@Override
-	public void send(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+	public void send(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed) {
 		if (lazyListener.isNotBothAssigned()) {
 			producer.get().send(convert(topic, committed));
 		}
 	}
 
 	@Override
-	public Promise<CommitResult<ReadBuffer, ReadBuffer>> trySend(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
+	public Promise<CommitResult<ReadBuffer, ReadBuffer>> trySend(ChannelName topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
 		Promise.Deferred<CommitResult<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
 		producer.get().send(convert(topic, attempt), (metadata, exception) -> {
 			if (metadata != null) {

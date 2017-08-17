@@ -5,9 +5,9 @@ import java.util.Map;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.ResourceRevision;
-import org.ddd4j.infrastructure.channel.util.ResourceRevisions;
+import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.ChannelRevision;
+import org.ddd4j.infrastructure.channel.util.ChannelRevisions;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -54,7 +54,7 @@ public interface ColdSource extends Throwing.Closeable {
 			}
 
 			@Override
-			public Map<ResourceDescriptor, Integer> knownResources() {
+			public Map<ChannelName, Integer> knownResources() {
 				return context.get(ColdReader.FACTORY).knownResources();
 			}
 		}
@@ -63,7 +63,7 @@ public interface ColdSource extends Throwing.Closeable {
 		private final SourceListener<ReadBuffer, ReadBuffer> listener;
 		private final ColdReader reader;
 		private final Rescheduler rescheduler;
-		private final ResourceRevisions resourceRevisions;
+		private final ChannelRevisions channelRevisions;
 
 		public VersionedReaderBased(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener, ColdReader reader,
 				Scheduler scheduler) {
@@ -71,36 +71,36 @@ public interface ColdSource extends Throwing.Closeable {
 			this.listener = Require.nonNull(listener);
 			this.reader = Require.nonNull(reader);
 			this.rescheduler = scheduler.reschedulerFor(this);
-			this.resourceRevisions = new ResourceRevisions();
+			this.channelRevisions = new ChannelRevisions();
 		}
 
 		@Override
 		public void closeChecked() {
-			resourceRevisions.clear();
+			channelRevisions.clear();
 		}
 
 		@Override
 		public Promise<Trigger> onScheduled(Scheduler scheduler) {
-			return reader.get(resourceRevisions)
+			return reader.get(channelRevisions)
 					.whenComplete(rc -> rc.forEachOrEmpty(listener::onNext, callback::onComplete), callback::onError)
-					.thenApply(rc -> resourceRevisions.isNotEmpty() && rc.isNotEmpty() ? Trigger.RESCHEDULE : Trigger.NOTHING);
+					.thenApply(rc -> channelRevisions.isNotEmpty() && rc.isNotEmpty() ? Trigger.RESCHEDULE : Trigger.NOTHING);
 		}
 
 		@Override
-		public void pause(Seq<ResourceRevision> revisions) {
-			resourceRevisions.remove(revisions);
+		public void pause(Seq<ChannelRevision> revisions) {
+			channelRevisions.remove(revisions);
 		}
 
 		@Override
-		public void resume(Seq<ResourceRevision> revisions) {
-			resourceRevisions.add(revisions);
+		public void resume(Seq<ChannelRevision> revisions) {
+			channelRevisions.add(revisions);
 			rescheduler.doIfNecessary();
 		}
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class, VersionedReaderBased.Factory::new);
 
-	void pause(Seq<ResourceRevision> revisions);
+	void pause(Seq<ChannelRevision> revisions);
 
-	void resume(Seq<ResourceRevision> revisions);
+	void resume(Seq<ChannelRevision> revisions);
 }

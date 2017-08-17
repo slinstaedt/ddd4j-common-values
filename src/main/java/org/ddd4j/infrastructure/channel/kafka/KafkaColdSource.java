@@ -14,7 +14,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceRevision;
+import org.ddd4j.infrastructure.ChannelRevision;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
@@ -101,13 +101,13 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	}
 
 	@Override
-	public void pause(Seq<ResourceRevision> revisions) {
+	public void pause(Seq<ChannelRevision> revisions) {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public void resume(Seq<ResourceRevision> revisions) {
+	public void resume(Seq<ChannelRevision> revisions) {
 		// TODO Auto-generated method stub
 
 	}

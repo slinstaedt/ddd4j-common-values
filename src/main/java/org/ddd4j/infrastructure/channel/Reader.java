@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
@@ -13,7 +13,7 @@ public interface Reader<K, V> {
 
 	interface Factory extends DataAccessFactory {
 
-		Reader<ReadBuffer, ReadBuffer> create(ResourceDescriptor resource);
+		Reader<ReadBuffer, ReadBuffer> create(ChannelName resource);
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class);

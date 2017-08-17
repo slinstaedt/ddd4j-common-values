@@ -16,9 +16,9 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
+import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.ChannelPartition;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.ResourcePartition;
 import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
@@ -52,8 +52,8 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 
 	private static class KafkaRebalanceCallback implements ConsumerRebalanceListener {
 
-		private static Seq<ResourcePartition> toResourcePartitions(Collection<TopicPartition> partitions) {
-			return Seq.ofCopied(partitions).map().to(tp -> new ResourcePartition(tp.topic(), tp.partition()));
+		private static Seq<ChannelPartition> toChannelPartitions(Collection<TopicPartition> partitions) {
+			return Seq.ofCopied(partitions).map().to(tp -> new ChannelPartition(tp.topic(), tp.partition()));
 		}
 
 		private final Consumer<byte[], byte[]> consumer;
@@ -71,12 +71,12 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		@Override
 		public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
 			consumer.seekToEnd(partitions);
-			callback.onPartitionsAssigned(toResourcePartitions(partitions));
+			callback.onPartitionsAssigned(toChannelPartitions(partitions));
 		}
 
 		@Override
 		public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-			callback.onPartitionsRevoked(toResourcePartitions(partitions));
+			callback.onPartitionsRevoked(toChannelPartitions(partitions));
 		}
 
 		void onSubscribed(int partitionCount) {
@@ -135,12 +135,12 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	}
 
 	private void onNext(ConsumerRecord<byte[], byte[]> record) {
-		listener.onNext(ResourceDescriptor.of(record.topic()), convert(record));
+		listener.onNext(ChannelName.of(record.topic()), convert(record));
 	}
 
 	@Override
-	public Promise<Integer> subscribe(ResourceDescriptor resource) {
-		return subscriptions.computeIfAbsent(resource.value(), this::subscribe);
+	public Promise<Integer> subscribe(ChannelName name) {
+		return subscriptions.computeIfAbsent(name.value(), this::subscribe);
 	}
 
 	private Promise<Integer> subscribe(String topic) {
@@ -156,8 +156,8 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	}
 
 	@Override
-	public void unsubscribe(ResourceDescriptor resource) {
-		if (subscriptions.remove(resource.value()) != null) {
+	public void unsubscribe(ChannelName name) {
+		if (subscriptions.remove(name.value()) != null) {
 			updateSubscription();
 		}
 	}

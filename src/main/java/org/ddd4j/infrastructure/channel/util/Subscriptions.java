@@ -8,7 +8,7 @@ import java.util.function.Function;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.repository.RepositoryDefinition;
 import org.ddd4j.repository.SchemaCodec;
@@ -18,13 +18,13 @@ import org.ddd4j.value.versioned.Committed;
 
 public class Subscriptions {
 
-	private static final Listeners NONE = new Listeners(ResourceDescriptor.of("<NONE>"), Promise.failed(new AssertionError()),
+	private static final Listeners NONE = new Listeners(ChannelName.of("<NONE>"), Promise.failed(new AssertionError()),
 			Void.class::getClass);
 
-	private final Function<ResourceDescriptor, Listeners> onSubscribe;
-	private final ConcurrentMap<ResourceDescriptor, Listeners> listeners;
+	private final Function<ChannelName, Listeners> onSubscribe;
+	private final ConcurrentMap<ChannelName, Listeners> listeners;
 
-	public Subscriptions(Function<ResourceDescriptor, Listeners> onSubscribe) {
+	public Subscriptions(Function<ChannelName, Listeners> onSubscribe) {
 		this.onSubscribe = Require.nonNull(onSubscribe);
 		this.listeners = new ConcurrentHashMap<>();
 	}
@@ -33,11 +33,11 @@ public class Subscriptions {
 		return listeners.isEmpty();
 	}
 
-	public void onNext(ResourceDescriptor resource, Committed<ReadBuffer, ReadBuffer> committed) {
+	public void onNext(ChannelName resource, Committed<ReadBuffer, ReadBuffer> committed) {
 		listeners.getOrDefault(resource, NONE).onNext(committed);
 	}
 
-	public Promise<Integer> subscribe(ResourceDescriptor resource, SourceListener<ReadBuffer, ReadBuffer> listener) {
+	public Promise<Integer> subscribe(ChannelName resource, SourceListener<ReadBuffer, ReadBuffer> listener) {
 		return listeners.computeIfAbsent(resource, onSubscribe).add(listener).partitionSize();
 	}
 
@@ -48,11 +48,11 @@ public class Subscriptions {
 		return listeners.computeIfAbsent(definition.getResource(), onSubscribe).add(listener, l).partitionSize();
 	}
 
-	public Set<ResourceDescriptor> resources() {
+	public Set<ChannelName> resources() {
 		return Collections.unmodifiableSet(listeners.keySet());
 	}
 
-	public void unsubscribe(ResourceDescriptor resource, SourceListener<?, ?> listener) {
+	public void unsubscribe(ChannelName resource, SourceListener<?, ?> listener) {
 		listeners.computeIfPresent(resource, (r, s) -> s.remove(listener));
 	}
 }

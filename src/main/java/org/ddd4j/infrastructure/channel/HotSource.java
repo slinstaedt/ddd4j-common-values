@@ -2,8 +2,8 @@ package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.ResourcePartition;
+import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.ChannelPartition;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.channel.util.Listeners;
 import org.ddd4j.infrastructure.channel.util.Subscriptions;
@@ -18,9 +18,9 @@ public interface HotSource extends Throwing.Closeable {
 
 		void onError(Throwable throwable);
 
-		void onPartitionsAssigned(Seq<ResourcePartition> partitions);
+		void onPartitionsAssigned(Seq<ChannelPartition> partitions);
 
-		void onPartitionsRevoked(Seq<ResourcePartition> partitions);
+		void onPartitionsRevoked(Seq<ChannelPartition> partitions);
 
 		default void onSubscribed(int partitionCount) {
 		}
@@ -45,26 +45,26 @@ public interface HotSource extends Throwing.Closeable {
 			this.subscriptions = new Subscriptions(this::onSubscribe);
 		}
 
-		private void onNext(ResourceDescriptor resource, Committed<ReadBuffer, ReadBuffer> committed) {
+		private void onNext(ChannelName resource, Committed<ReadBuffer, ReadBuffer> committed) {
 			subscriptions.onNext(resource, committed);
 		}
 
-		private Listeners onSubscribe(ResourceDescriptor resource) {
+		private Listeners onSubscribe(ChannelName resource) {
 			return new Listeners(resource, source.subscribe(resource), () -> source.unsubscribe(resource));
 		}
 
-		public Promise<Integer> subscribe(ResourceDescriptor resource, SourceListener<ReadBuffer, ReadBuffer> listener) {
+		public Promise<Integer> subscribe(ChannelName resource, SourceListener<ReadBuffer, ReadBuffer> listener) {
 			return subscriptions.subscribe(resource, listener);
 		}
 
-		public void unsubscribe(ResourceDescriptor resource, SourceListener<?, ?> listener) {
+		public void unsubscribe(ChannelName resource, SourceListener<?, ?> listener) {
 			subscriptions.unsubscribe(resource, listener);
 		}
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class);
 
-	Promise<Integer> subscribe(ResourceDescriptor resource);
+	Promise<Integer> subscribe(ChannelName resource);
 
-	void unsubscribe(ResourceDescriptor resource);
+	void unsubscribe(ChannelName resource);
 }

@@ -5,7 +5,7 @@ import java.time.ZonedDateTime;
 import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.repository.RepositoryDefinition;
 import org.ddd4j.repository.SchemaCodec;
@@ -34,8 +34,8 @@ public class CommitterTest {
 		Committer<Identifier, String> committer = context.get(Committer.FACTORY).create(new RepositoryDefinition<Identifier, String>() {
 
 			@Override
-			public ResourceDescriptor getResource() {
-				return ResourceDescriptor.of("test");
+			public ChannelName getResource() {
+				return ChannelName.of("test");
 			}
 		}, context.get(SchemaCodec.FACTORY), context.get(WriteBuffer.FACTORY));
 		committer.commit(new Uncommitted<>(new Identifier(), "xxxx", Revisions.NONE));

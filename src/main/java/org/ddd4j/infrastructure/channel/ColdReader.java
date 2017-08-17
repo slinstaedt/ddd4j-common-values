@@ -12,8 +12,8 @@ import java.util.function.Supplier;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Promise.Cancelable;
-import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.ResourceRevision;
+import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.ChannelRevision;
 import org.ddd4j.infrastructure.channel.ColdSource.Callback;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -56,20 +56,20 @@ public interface ColdReader {
 			}
 
 			@Override
-			public Map<ResourceDescriptor, Integer> knownResources() {
+			public Map<ChannelName, Integer> knownResources() {
 				return context.get(ColdSource.FACTORY).knownResources();
 			}
 		}
 
 		private static class Listener implements Callback, SourceListener<ReadBuffer, ReadBuffer> {
 
-			private final Promise.Deferred<ResourceRecords> deferred;
+			private final Promise.Deferred<CommittedRecords> deferred;
 			private final ColdSource source;
-			private final Map<ResourceDescriptor, List<Committed<ReadBuffer, ReadBuffer>>> records;
+			private final Map<ChannelName, List<Committed<ReadBuffer, ReadBuffer>>> records;
 			private final Supplier<Promise.Cancelable<?>> timerProvider;
 			private Cancelable<?> timer;
 
-			Listener(Scheduler scheduler, ColdSource.Factory delegate, Seq<ResourceRevision> revisions, int timeoutInMillis) {
+			Listener(Scheduler scheduler, ColdSource.Factory delegate, Seq<ChannelRevision> revisions, int timeoutInMillis) {
 				this.deferred = scheduler.createDeferredPromise();
 				this.source = delegate.createColdSource(this, this);
 				this.records = new HashMap<>();
@@ -80,11 +80,11 @@ public interface ColdReader {
 
 			void timeout() {
 				source.close();
-				deferred.completeSuccessfully(ResourceRecords.copied(records));
+				deferred.completeSuccessfully(CommittedRecords.copied(records));
 			}
 
 			@Override
-			public void onNext(ResourceDescriptor resource, Committed<ReadBuffer, ReadBuffer> committed) {
+			public void onNext(ChannelName resource, Committed<ReadBuffer, ReadBuffer> committed) {
 				if (deferred.isDone()) {
 					source.close();
 				} else {
@@ -94,13 +94,13 @@ public interface ColdReader {
 				}
 			}
 
-			Promise<ResourceRecords> getResult() {
+			Promise<CommittedRecords> getResult() {
 				return deferred;
 			}
 
 			@Override
 			public void onComplete() {
-				deferred.completeSuccessfully(ResourceRecords.copied(records));
+				deferred.completeSuccessfully(CommittedRecords.copied(records));
 			}
 
 			@Override
@@ -120,28 +120,28 @@ public interface ColdReader {
 		}
 
 		@Override
-		public Promise<ResourceRecords> get(Seq<ResourceRevision> revisions) {
+		public Promise<CommittedRecords> get(Seq<ChannelRevision> revisions) {
 			return new Listener(scheduler, delegate, revisions, timeoutInMillis).getResult();
 		}
 	}
 
-	class ResourceRecords {
+	class CommittedRecords {
 
-		public static final ResourceRecords EMPTY = new ResourceRecords(Collections.emptyMap());
+		public static final CommittedRecords EMPTY = new CommittedRecords(Collections.emptyMap());
 
-		public static ResourceRecords copied(Map<ResourceDescriptor, List<Committed<ReadBuffer, ReadBuffer>>> values) {
-			Map<ResourceDescriptor, Seq<Committed<ReadBuffer, ReadBuffer>>> copy = new HashMap<>();
+		public static CommittedRecords copied(Map<ChannelName, List<Committed<ReadBuffer, ReadBuffer>>> values) {
+			Map<ChannelName, Seq<Committed<ReadBuffer, ReadBuffer>>> copy = new HashMap<>();
 			values.forEach((r, c) -> copy.put(r, Seq.ofCopied(c)));
-			return new ResourceRecords(copy);
+			return new CommittedRecords(copy);
 		}
 
-		private final Map<ResourceDescriptor, Seq<Committed<ReadBuffer, ReadBuffer>>> values;
+		private final Map<ChannelName, Seq<Committed<ReadBuffer, ReadBuffer>>> values;
 
-		public ResourceRecords(Map<ResourceDescriptor, Seq<Committed<ReadBuffer, ReadBuffer>>> values) {
+		public CommittedRecords(Map<ChannelName, Seq<Committed<ReadBuffer, ReadBuffer>>> values) {
 			this.values = new HashMap<>(values);
 		}
 
-		public Seq<Committed<ReadBuffer, ReadBuffer>> commits(ResourceDescriptor resource) {
+		public Seq<Committed<ReadBuffer, ReadBuffer>> commits(ChannelName resource) {
 			return values.getOrDefault(resource, Seq.empty());
 		}
 
@@ -149,11 +149,11 @@ public interface ColdReader {
 			return !values.isEmpty();
 		}
 
-		public void forEach(BiConsumer<ResourceDescriptor, Committed<ReadBuffer, ReadBuffer>> consumer) {
+		public void forEach(BiConsumer<ChannelName, Committed<ReadBuffer, ReadBuffer>> consumer) {
 			values.forEach((r, s) -> s.forEach(c -> consumer.accept(r, c)));
 		}
 
-		public void forEachOrEmpty(BiConsumer<ResourceDescriptor, Committed<ReadBuffer, ReadBuffer>> consumer, Runnable empty) {
+		public void forEachOrEmpty(BiConsumer<ChannelName, Committed<ReadBuffer, ReadBuffer>> consumer, Runnable empty) {
 			if (values.isEmpty()) {
 				empty.run();
 			} else {
@@ -164,5 +164,5 @@ public interface ColdReader {
 
 	Key<Factory> FACTORY = Key.of(Factory.class, ColdSourceBased.Factory::new);
 
-	Promise<ResourceRecords> get(Seq<ResourceRevision> revisions);
+	Promise<CommittedRecords> get(Seq<ChannelRevision> revisions);
 }

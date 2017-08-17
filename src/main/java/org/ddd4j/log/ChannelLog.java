@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.ddd4j.Require;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.channel.old.Channel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Committer;
@@ -23,17 +23,17 @@ public class ChannelLog {
 		}
 
 		@Override
-		public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+		public void onNext(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed) {
 			subscriptions.getOrDefault(topic, ChannelPublisher.VOID).onNext(committed);
 		}
 
 		@Override
-		public void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions) {
+		public void onPartitionsAssigned(ChannelName topic, int[] partitions) {
 			subscriptions.getOrDefault(topic, ChannelPublisher.VOID).loadRevisions(partitions);
 		}
 
 		@Override
-		public void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
+		public void onPartitionsRevoked(ChannelName topic, int[] partitions) {
 			subscriptions.getOrDefault(topic, ChannelPublisher.VOID).saveRevisions(partitions);
 		}
 	}
@@ -41,7 +41,7 @@ public class ChannelLog {
 	public static final Key<ChannelLog> KEY = Key.of(ChannelLog.class, ctx -> new ChannelLog(ctx.get(Channel.KEY)));
 
 	private final Channel channel;
-	private final Map<ResourceDescriptor, ChannelPublisher> subscriptions;
+	private final Map<ChannelName, ChannelPublisher> subscriptions;
 	private final Channel.Callback callback;
 
 	public ChannelLog(Channel channel) {
@@ -50,12 +50,12 @@ public class ChannelLog {
 		this.callback = channel.register(new Listener());
 	}
 
-	public Committer<ReadBuffer, ReadBuffer> committer(ResourceDescriptor topic) {
+	public Committer<ReadBuffer, ReadBuffer> committer(ChannelName topic) {
 		Require.nonNull(topic);
 		return attempt -> channel.trySend(topic, attempt);
 	}
 
-	public ChannelPublisher publisher(ResourceDescriptor topic) {
+	public ChannelPublisher publisher(ChannelName topic) {
 		return subscriptions.computeIfAbsent(topic, t -> new ChannelPublisher(t, callback));
 	}
 }

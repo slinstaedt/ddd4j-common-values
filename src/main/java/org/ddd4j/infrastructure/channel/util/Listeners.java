@@ -5,19 +5,19 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 
 public class Listeners {
 
-	private final ResourceDescriptor resource;
+	private final ChannelName resource;
 	private final Promise<Integer> partitionSize;
 	private final Runnable closer;
 	private final Map<Object, SourceListener<ReadBuffer, ReadBuffer>> listeners;
 
-	public Listeners(ResourceDescriptor resource, Promise<Integer> partitionSize, Runnable closer) {
+	public Listeners(ChannelName resource, Promise<Integer> partitionSize, Runnable closer) {
 		this.resource = Require.nonNull(resource);
 		this.partitionSize = Require.nonNull(partitionSize);
 		this.closer = Require.nonNull(closer);

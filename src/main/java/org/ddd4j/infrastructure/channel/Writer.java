@@ -4,7 +4,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.CommitResult;
@@ -17,9 +17,9 @@ public interface Writer<K, V> extends Committer<K, V> {
 
 	interface Factory extends DataAccessFactory {
 
-		Writer<ReadBuffer, ReadBuffer> create(ResourceDescriptor resource);
+		Writer<ReadBuffer, ReadBuffer> create(ChannelName resource);
 
-		default Writer<ReadBuffer, ReadBuffer> createClosingBuffers(ResourceDescriptor resource) {
+		default Writer<ReadBuffer, ReadBuffer> createClosingBuffers(ChannelName resource) {
 			return create(resource).whenComplete(ReadBuffer::close, ReadBuffer::close);
 		}
 	}

@@ -3,7 +3,7 @@ package org.ddd4j.infrastructure.channel;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.channel.old.ColdChannel;
 import org.ddd4j.infrastructure.channel.old.HotChannel;
 import org.ddd4j.io.ReadBuffer;
@@ -45,18 +45,18 @@ public class TestChannelListener implements ColdChannel.Listener, HotChannel.Lis
 	}
 
 	@Override
-	public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+	public void onNext(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed) {
 		messages.add(committed);
 	}
 
 	@Override
-	public void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions) {
+	public void onPartitionsAssigned(ChannelName topic, int[] partitions) {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
+	public void onPartitionsRevoked(ChannelName topic, int[] partitions) {
 		// TODO Auto-generated method stub
 
 	}

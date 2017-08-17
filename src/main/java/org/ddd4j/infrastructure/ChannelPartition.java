@@ -3,26 +3,26 @@ package org.ddd4j.infrastructure;
 import org.ddd4j.Require;
 import org.ddd4j.value.Value;
 
-public class ResourcePartition implements Value<ResourcePartition> {
+public class ChannelPartition implements Value<ChannelPartition> {
 
-	private final ResourceDescriptor resource;
+	private final ChannelName name;
 	private final int partition;
 
-	public ResourcePartition(ResourceDescriptor resource, int partition) {
-		this.resource = Require.nonNull(resource);
+	public ChannelPartition(ChannelName name, int partition) {
+		this.name = Require.nonNull(name);
 		this.partition = Require.that(partition, partition >= 0);
 	}
 
-	public ResourcePartition(String resource, int partition) {
-		this(ResourceDescriptor.of(resource), partition);
+	public ChannelPartition(String resource, int partition) {
+		this(ChannelName.of(resource), partition);
 	}
 
 	public int getPartition() {
 		return partition;
 	}
 
-	public ResourceDescriptor getResource() {
-		return resource;
+	public ChannelName getName() {
+		return name;
 	}
 
 	@Override
@@ -30,7 +30,7 @@ public class ResourcePartition implements Value<ResourcePartition> {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + partition;
-		result = prime * result + resource.hashCode();
+		result = prime * result + name.hashCode();
 		return result;
 	}
 
@@ -43,7 +43,7 @@ public class ResourcePartition implements Value<ResourcePartition> {
 		} else if (getClass() != obj.getClass()) {
 			return false;
 		}
-		ResourcePartition other = (ResourcePartition) obj;
-		return partition == other.partition && resource.equals(other.resource);
+		ChannelPartition other = (ChannelPartition) obj;
+		return partition == other.partition && name.equals(other.name);
 	}
 }

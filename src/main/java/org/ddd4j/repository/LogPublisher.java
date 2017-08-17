@@ -9,8 +9,8 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
-import org.ddd4j.infrastructure.ResourcePartition;
+import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.ChannelPartition;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.io.ReadBuffer;
@@ -28,7 +28,7 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 	private static class Subscriptions {
 
 		private final SubscriptionListener listener;
-		private final Map<ResourceDescriptor, Promise<Revisions>> hotRevisions;
+		private final Map<ChannelName, Promise<Revisions>> hotRevisions;
 
 		Subscriptions(SubscriptionListener listener) {
 			this.listener = Require.nonNull(listener);
@@ -43,7 +43,7 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 			listener.onError(throwable);
 		}
 
-		void onNextIfSubscribed(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed, TConsumer<Revisions> action) {
+		void onNextIfSubscribed(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed, TConsumer<Revisions> action) {
 			Promise<Revisions> promise = hotRevisions.get(topic);
 			if (promise != null) {
 				promise.whenCompleteSuccessfully(action);
@@ -51,19 +51,19 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 			}
 		}
 
-		void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions) {
+		void onPartitionsAssigned(ChannelName topic, int[] partitions) {
 			listener.onPartitionsAssigned(topic, partitions);
 		}
 
-		void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
+		void onPartitionsRevoked(ChannelName topic, int[] partitions) {
 			listener.onPartitionsRevoked(topic, partitions);
 		}
 
-		Promise<Integer> subscribeIfNeeded(ResourceDescriptor topic, Function<ResourceDescriptor, Promise<Revisions>> subscriber) {
+		Promise<Integer> subscribeIfNeeded(ChannelName topic, Function<ChannelName, Promise<Revisions>> subscriber) {
 			return hotRevisions.computeIfAbsent(topic, subscriber).thenApply(Revisions::getPartitionSize);
 		}
 
-		void unsubscribeIfNeeded(ResourceDescriptor topic, Consumer<ResourceDescriptor> unsubscriber) {
+		void unsubscribeIfNeeded(ChannelName topic, Consumer<ChannelName> unsubscriber) {
 			if (hotRevisions.remove(topic) != null) {
 				unsubscriber.accept(topic);
 			}
@@ -109,12 +109,12 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 		}
 
 		@Override
-		public void onPartitionsAssigned(Seq<ResourcePartition> partitions) {
+		public void onPartitionsAssigned(Seq<ChannelPartition> partitions) {
 			callback.loadRevisions(partitions).whenCompleteSuccessfully(r -> cold.subscribe(subscriber, descriptor, r));
 		}
 
 		@Override
-		public void onPartitionsRevoked(Seq<ResourcePartition> partitions) {
+		public void onPartitionsRevoked(Seq<ChannelPartition> partitions) {
 			// TODO Auto-generated method stub
 
 		}
@@ -124,10 +124,10 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 
 		Key<Factory> KEY = Key.of(Factory.class);
 
-		LogPublisher<ReadBuffer, ReadBuffer> create(ResourceDescriptor descriptor);
+		LogPublisher<ReadBuffer, ReadBuffer> create(ChannelName descriptor);
 	}
 
-	private ResourceDescriptor descriptor;
+	private ChannelName descriptor;
 	private ColdSource.Factory cold;
 	private HotSource hot;
 	private Map<Subscriber<? super Committed<K, V>>, SubscriptionListener> subscriptions;

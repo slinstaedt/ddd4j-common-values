@@ -5,7 +5,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.repository.RepositoryDefinition;
@@ -28,7 +28,7 @@ public interface Committer<K, V> {
 					v -> encoder.encode(bufferSupplier.get(), v).thenApply(WriteBuffer::flip));
 		}
 
-		Committer<ReadBuffer, ReadBuffer> create(ResourceDescriptor resource);
+		Committer<ReadBuffer, ReadBuffer> create(ChannelName resource);
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class);

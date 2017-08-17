@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.channel.old.Channel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Publisher;
@@ -91,7 +91,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 
 	public static final ChannelPublisher VOID = new ChannelPublisher();
 
-	private final ResourceDescriptor topic;
+	private final ChannelName topic;
 	private final Channel.Callback callback;
 	private final Lazy<Revisions> latest;
 	private final Map<Subscriber<Committed<ReadBuffer, ReadBuffer>>, ChannelSubscription> subscriptions;
@@ -103,7 +103,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		this.subscriptions = Collections.emptyMap();
 	}
 
-	public ChannelPublisher(ResourceDescriptor topic, Channel.Callback callback) {
+	public ChannelPublisher(ChannelName topic, Channel.Callback callback) {
 		this.topic = Require.nonNull(topic);
 		this.callback = Require.nonNull(callback);
 		this.latest = new Lazy<>(() -> new Revisions(callback.subscribe(topic).join()), r -> callback.unsubscribe(topic));

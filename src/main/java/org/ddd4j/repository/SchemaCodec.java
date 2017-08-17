@@ -7,7 +7,8 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Cache;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.ChannelRevision;
 import org.ddd4j.infrastructure.channel.Reader;
 import org.ddd4j.infrastructure.channel.Writer;
 import org.ddd4j.io.ReadBuffer;
@@ -29,7 +30,7 @@ public enum SchemaCodec {
 	OUT_OF_BAND {
 
 		@Override
-		public <T> Decoder<T> decoder(Context context, Type<T> type) {
+		public <T> Decoder<T> decoder(Context context, Type<T> type, ChannelName name) {
 			Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_REPO);
 			return buf -> cache.get(Fingerprint.deserialize(buf)).thenApply(e -> e.getSchema().createReader(type).read(buf));
 		}
@@ -46,7 +47,7 @@ public enum SchemaCodec {
 	PER_MESSAGE {
 
 		@Override
-		public <T> Decoder<T> decoder(Context context, Type<T> type) {
+		public <T> Decoder<T> decoder(Context context, Type<T> type, ChannelName name) {
 			NamedService<SchemaFactory> factory = context.specific(SchemaFactory.KEY);
 			return buf -> Promise.completed(factory.withOrFail(buf.getUTF()).readSchema(buf).createReader(type).read(buf));
 		}
@@ -63,14 +64,15 @@ public enum SchemaCodec {
 	IN_BAND {
 
 		@Override
-		public <T> Decoder<T> decoder(Context context, Type<T> type) {
-			Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_OFFSETS);
-			return buf -> cache.get(new Revision(buf)).thenApply(e -> e.getSchema().createReader(type).read(buf));
+		public <T> Decoder<T> decoder(Context context, Type<T> type, ChannelName name) {
+			Cache.WriteThrough<ChannelRevision, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_OFFSETS);
+			return buf -> cache.get(new ChannelRevision(name, new Revision(buf)))
+					.thenApply(e -> e.getSchema().createReader(type).read(buf));
 		}
 
 		@Override
 		public <T> Encoder<T> encoder(Context context, Type<T> type) {
-			Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_OFFSETS);
+			Cache.WriteThrough<ChannelRevision, Promise<SchemaEntry<?>>> cache = context.get(SCHEMA_OFFSETS);
 			SchemaEntry<T> entry = SchemaEntry.create(context.get(SchemaFactory.KEY), type);
 			// TODO Auto-generated method stub
 			Promise<?> promise = null;
@@ -97,9 +99,9 @@ public enum SchemaCodec {
 			this.context = Require.nonNull(context);
 		}
 
-		public <T> Decoder<T> decoder(Type<T> readerType) {
-			Require.nonNull(readerType);
-			return buf -> decodeType(buf.get()).decoder(context, readerType).decode(buf);
+		public <T> Decoder<T> decoder(Type<T> readerType, ChannelName channelName) {
+			Require.nonNullElements(readerType, channelName);
+			return buf -> decodeType(buf.get()).decoder(context, readerType, channelName).decode(buf);
 		}
 
 		public <T> Encoder<T> encoder(Type<T> writerType) {
@@ -112,7 +114,7 @@ public enum SchemaCodec {
 	private static final ConfKey<SchemaCodec> SCHEMA_ENCODER = Configuration.keyOfEnum(SchemaCodec.class, "schemaEncoder",
 			SchemaCodec.OUT_OF_BAND);
 	private static final Key<Cache.WriteThrough<Fingerprint, Promise<SchemaEntry<?>>>> SCHEMA_REPO = Key.of("schemaRepository", ctx -> {
-		ResourceDescriptor schemaRepositoryDescriptor = ResourceDescriptor.of("schemata");
+		ChannelName schemaRepositoryDescriptor = ChannelName.of("schemata");
 		Supplier<WriteBuffer> bufferFactory = ctx.get(WriteBuffer.FACTORY);
 		Reader<Fingerprint, SchemaEntry<?>> reader = ctx.get(Reader.FACTORY).create(schemaRepositoryDescriptor).map(Fingerprint::asBuffer,
 				b -> SchemaEntry.deserialize(ctx, b));
@@ -128,15 +130,17 @@ public enum SchemaCodec {
 						(fp, n, o, u) -> (o.isPresent() ? o.get().thenCombine(n, notEqual) : n).thenRun(u)
 								.whenCompleteSuccessfully(e -> writer.put(fp, e)));
 	});
-	private static final Key<Cache.WriteThrough<Revision, Promise<SchemaEntry<?>>>> SCHEMA_OFFSETS = Key.of("schemaOffsetsCache", ctx -> {
-		throw new UnsupportedOperationException();
-	});
+	private static final Key<Cache.WriteThrough<ChannelRevision, Promise<SchemaEntry<?>>>> SCHEMA_OFFSETS = Key.of("schemaOffsetsCache",
+			ctx -> {
+				// TODO
+				throw new UnsupportedOperationException();
+			});
 
 	static SchemaCodec decodeType(byte b) {
 		return SchemaCodec.values()[b];
 	}
 
-	public abstract <T> Decoder<T> decoder(Context context, Type<T> readerType);
+	public abstract <T> Decoder<T> decoder(Context context, Type<T> readerType, ChannelName channelName);
 
 	byte encodeType() {
 		return (byte) ordinal();

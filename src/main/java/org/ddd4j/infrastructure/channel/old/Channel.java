@@ -9,7 +9,7 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.math.Ordered.Comparison;
@@ -33,17 +33,17 @@ public class Channel implements Closeable {
 			this.hotCallback = Require.nonNull(hotCallback);
 		}
 
-		public void seek(ResourceDescriptor topic, Revision revision) {
+		public void seek(ChannelName topic, Revision revision) {
 			coldCallback.seek(topic, revision);
 		}
 
 		@Override
-		public Promise<Integer> subscribe(ResourceDescriptor topic) {
+		public Promise<Integer> subscribe(ChannelName topic) {
 			return subscriptions.subscribeIfNeeded(topic, t -> hotCallback.subscribe(t).sync().thenApply(Revisions::new));
 		}
 
 		@Override
-		public void unsubscribe(ResourceDescriptor topic) {
+		public void unsubscribe(ChannelName topic) {
 			subscriptions.unsubscribeIfNeeded(topic, hotCallback::unsubscribe);
 		}
 	}
@@ -66,7 +66,7 @@ public class Channel implements Closeable {
 		}
 
 		@Override
-		public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+		public void onNext(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed) {
 			subscriptions.onNextIfSubscribed(topic, committed, r -> {
 				Revision nextExpected = committed.getNextExpected();
 				if (r.compare(nextExpected) == Comparison.EQUAL) {
@@ -94,18 +94,18 @@ public class Channel implements Closeable {
 		}
 
 		@Override
-		public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+		public void onNext(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed) {
 			subscriptions.onNextIfSubscribed(topic, committed, r -> r.update(committed.getNextExpected()));
 		}
 
 		@Override
-		public void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions) {
+		public void onPartitionsAssigned(ChannelName topic, int[] partitions) {
 			subscriptions.onPartitionsAssigned(topic, partitions);
 
 		}
 
 		@Override
-		public void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
+		public void onPartitionsRevoked(ChannelName topic, int[] partitions) {
 			subscriptions.onPartitionsRevoked(topic, partitions);
 		}
 	}
@@ -116,7 +116,7 @@ public class Channel implements Closeable {
 	private static class Subscriptions {
 
 		private final Listener listener;
-		private final Map<ResourceDescriptor, Promise<Revisions>> hotRevisions;
+		private final Map<ChannelName, Promise<Revisions>> hotRevisions;
 
 		Subscriptions(Listener listener) {
 			this.listener = Require.nonNull(listener);
@@ -131,7 +131,7 @@ public class Channel implements Closeable {
 			listener.onError(throwable);
 		}
 
-		void onNextIfSubscribed(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed, TConsumer<Revisions> action) {
+		void onNextIfSubscribed(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed, TConsumer<Revisions> action) {
 			Promise<Revisions> promise = hotRevisions.get(topic);
 			if (promise != null) {
 				promise.whenCompleteSuccessfully(action);
@@ -139,19 +139,19 @@ public class Channel implements Closeable {
 			}
 		}
 
-		void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions) {
+		void onPartitionsAssigned(ChannelName topic, int[] partitions) {
 			listener.onPartitionsAssigned(topic, partitions);
 		}
 
-		void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
+		void onPartitionsRevoked(ChannelName topic, int[] partitions) {
 			listener.onPartitionsRevoked(topic, partitions);
 		}
 
-		Promise<Integer> subscribeIfNeeded(ResourceDescriptor topic, Function<ResourceDescriptor, Promise<Revisions>> subscriber) {
+		Promise<Integer> subscribeIfNeeded(ChannelName topic, Function<ChannelName, Promise<Revisions>> subscriber) {
 			return hotRevisions.computeIfAbsent(topic, subscriber).thenApply(Revisions::getPartitionSize);
 		}
 
-		void unsubscribeIfNeeded(ResourceDescriptor topic, Consumer<ResourceDescriptor> unsubscriber) {
+		void unsubscribeIfNeeded(ChannelName topic, Consumer<ChannelName> unsubscriber) {
 			if (hotRevisions.remove(topic) != null) {
 				unsubscriber.accept(topic);
 			}
@@ -183,11 +183,11 @@ public class Channel implements Closeable {
 	}
 
 	// TODO allow sending with locking?
-	private void send(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+	private void send(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed) {
 		hotChannel.send(topic, committed);
 	}
 
-	public Promise<CommitResult<ReadBuffer, ReadBuffer>> trySend(ResourceDescriptor topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
+	public Promise<CommitResult<ReadBuffer, ReadBuffer>> trySend(ChannelName topic, Uncommitted<ReadBuffer, ReadBuffer> attempt) {
 		Promise<CommitResult<ReadBuffer, ReadBuffer>> promise = coldChannel.trySend(topic, attempt);
 		return promise.whenCompleteSuccessfully(r -> r.onCommitted(c -> hotChannel.send(topic, c)));
 	}

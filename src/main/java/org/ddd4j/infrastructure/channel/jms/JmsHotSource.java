@@ -14,7 +14,7 @@ import javax.jms.Topic;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.io.ReadBuffer;
@@ -64,7 +64,7 @@ public class JmsHotSource implements HotSource, MessageListener {
 	@Override
 	public void onMessage(Message message) {
 		try {
-			ResourceDescriptor resource = ResourceDescriptor.of(message.getJMSType());
+			ChannelName resource = ChannelName.of(message.getJMSType());
 			Committed<ReadBuffer, ReadBuffer> committed = converted((BytesMessage) message);
 			listener.onNext(resource, committed);
 		} catch (Exception e) {
@@ -73,7 +73,7 @@ public class JmsHotSource implements HotSource, MessageListener {
 	}
 
 	@Override
-	public Promise<Integer> subscribe(ResourceDescriptor resource) {
+	public Promise<Integer> subscribe(ChannelName resource) {
 		subscriptions.computeIfAbsent(resource.value(), this::subscribe);
 		return Promise.completed(1);
 	}
@@ -86,7 +86,7 @@ public class JmsHotSource implements HotSource, MessageListener {
 	}
 
 	@Override
-	public void unsubscribe(ResourceDescriptor resource) {
+	public void unsubscribe(ChannelName resource) {
 		JMSConsumer consumer = subscriptions.remove(resource.value());
 		if (consumer != null) {
 			consumer.close();

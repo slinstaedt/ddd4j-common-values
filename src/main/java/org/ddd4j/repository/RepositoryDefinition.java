@@ -1,6 +1,6 @@
 package org.ddd4j.repository;
 
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Type;
@@ -9,7 +9,7 @@ import org.ddd4j.value.Value;
 
 public interface RepositoryDefinition<K extends Value<K>, V> {
 
-	ResourceDescriptor getResource();
+	ChannelName getResource();
 
 	default K deserializeKey(ReadBuffer buffer) {
 		return getKeyType().constructor(Type.of(ReadBuffer.class)).evaluate(buffer);

@@ -6,7 +6,7 @@ import java.util.Map;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Props;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
@@ -29,7 +29,7 @@ public interface DataAccessFactory extends Throwing.Closeable {
 		// ignore
 	}
 
-	default Map<ResourceDescriptor, Integer> knownResources() {
+	default Map<ChannelName, Integer> knownResources() {
 		return Collections.emptyMap();
 	}
 }

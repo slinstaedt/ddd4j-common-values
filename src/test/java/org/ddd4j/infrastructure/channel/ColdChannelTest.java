@@ -3,7 +3,7 @@ package org.ddd4j.infrastructure.channel;
 import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
 
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.channel.old.ColdChannel;
 import org.ddd4j.infrastructure.channel.old.ColdChannel.Callback;
 import org.ddd4j.io.Bytes;
@@ -27,12 +27,12 @@ public abstract class ColdChannelTest {
 	@Parameter
 	public ColdChannel testUnit;
 
-	private ResourceDescriptor topic;
+	private ChannelName topic;
 	private Revisions revisions;
 
 	@Before
 	public void before() {
-		topic = ResourceDescriptor.of(TEST_TOPIC);
+		topic = ChannelName.of(TEST_TOPIC);
 		revisions = new Revisions(1);
 
 		revisions.updateWithPartition(0, 0);

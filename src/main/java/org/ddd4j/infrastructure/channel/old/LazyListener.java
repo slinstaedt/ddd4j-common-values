@@ -5,7 +5,7 @@ import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ResourceDescriptor;
+import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.Lazy;
 import org.ddd4j.value.collection.Ref;
@@ -18,12 +18,12 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback>
 	private class LazyColdCallback implements ColdChannel.Callback {
 
 		@Override
-		public void seek(ResourceDescriptor topic, Revision revision) {
+		public void seek(ChannelName topic, Revision revision) {
 			callbackDelegate.get().seek(topic, revision);
 		}
 
 		@Override
-		public void unseek(ResourceDescriptor topic, int partition) {
+		public void unseek(ChannelName topic, int partition) {
 			callbackDelegate.get().unseek(topic, partition);
 		}
 	}
@@ -31,12 +31,12 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback>
 	private class LazyHotCallback implements HotChannel.Callback {
 
 		@Override
-		public Promise<Integer> subscribe(ResourceDescriptor topic) {
+		public Promise<Integer> subscribe(ChannelName topic) {
 			return callbackDelegate.get().subscribe(topic);
 		}
 
 		@Override
-		public void unsubscribe(ResourceDescriptor topic) {
+		public void unsubscribe(ChannelName topic) {
 			callbackDelegate.get().unsubscribe(topic);
 		}
 	}
@@ -88,18 +88,18 @@ public class LazyListener<C extends ColdChannel.Callback & HotChannel.Callback>
 	}
 
 	@Override
-	public void onNext(ResourceDescriptor topic, Committed<ReadBuffer, ReadBuffer> committed) {
+	public void onNext(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed) {
 		coldDelegate.ifPresent(l -> l.onNext(topic, committed));
 		hotDelegate.ifPresent(l -> l.onNext(topic, committed));
 	}
 
 	@Override
-	public void onPartitionsAssigned(ResourceDescriptor topic, int[] partitions) {
+	public void onPartitionsAssigned(ChannelName topic, int[] partitions) {
 		hotDelegate.ifPresent(l -> l.onPartitionsAssigned(topic, partitions));
 	}
 
 	@Override
-	public void onPartitionsRevoked(ResourceDescriptor topic, int[] partitions) {
+	public void onPartitionsRevoked(ChannelName topic, int[] partitions) {
 		hotDelegate.ifPresent(l -> l.onPartitionsRevoked(topic, partitions));
 	}
 }
