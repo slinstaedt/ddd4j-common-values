@@ -36,7 +36,7 @@ public final class Conflicting<K, V> implements CommitResult<K, V> {
 	}
 
 	@Override
-	public <X, Y> Conflicting<X, Y> with(X key, Y value) {
-		return new Conflicting<>(key, expected, actual);
+	public <X, Y> Conflicting<X, Y> withValuesFrom(Recorded<X, Y> recorded) {
+		return new Conflicting<>(recorded.getKey(), expected, actual);
 	}
 }

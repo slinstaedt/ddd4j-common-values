@@ -9,8 +9,8 @@ public class ChannelRevision extends Value.Comlex<ChannelRevision> {
 	private final ChannelName name;
 	private final Revision revision;
 
-	public ChannelRevision(ChannelName resource, Revision revision) {
-		this.name = Require.nonNull(resource);
+	public ChannelRevision(ChannelName name, Revision revision) {
+		this.name = Require.nonNull(name);
 		this.revision = Require.nonNull(revision);
 	}
 

@@ -14,6 +14,13 @@ import org.ddd4j.io.WriteBuffer;
 public interface Value<V extends Value<V>> extends Self<V> {
 
 	abstract class Comlex<V extends Comlex<V>> extends Simple<V, Value<?>[]> {
+
+		@Override
+		public void serialize(WriteBuffer buffer) {
+			for (Value<?> value : value()) {
+				value.serialize(buffer);
+			}
+		}
 	}
 
 	abstract class Simple<V extends Value<V>, T> implements Value<V> {
@@ -157,7 +164,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		try {
 			serialize(buffer);
 			return buffer.flip();
-		} catch (Throwable e) {
+		} catch (Exception e) {
 			buffer.close();
 			throw e;
 		}

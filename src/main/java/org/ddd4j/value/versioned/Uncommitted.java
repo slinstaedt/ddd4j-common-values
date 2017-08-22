@@ -71,6 +71,10 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 		return actualExpected.partition(hash);
 	}
 
+	public <X, Y> Uncommitted<X, Y> with(Function<? super K, ? extends X> keyMapper, Y value) {
+		return new Uncommitted<>(keyMapper.apply(key), value, actualExpected, header);
+	}
+
 	public Uncommitted<K, V> withHeader(Function<Props, Props> headerBuilder) {
 		return new Uncommitted<>(key, value, actualExpected, headerBuilder.apply(header));
 	}

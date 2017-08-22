@@ -43,7 +43,7 @@ public interface ColdSource extends Throwing.Closeable {
 
 			@Override
 			public ColdSource createColdSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
-				ColdReader reader = context.get(ColdReader.FACTORY).createVersionedReader();
+				ColdReader reader = context.get(ColdReader.FACTORY).createColdReader();
 				Scheduler scheduler = context.get(Scheduler.KEY);
 				return new VersionedReaderBased(callback, listener, reader, scheduler);
 			}
@@ -54,8 +54,8 @@ public interface ColdSource extends Throwing.Closeable {
 			}
 
 			@Override
-			public Map<ChannelName, Integer> knownResources() {
-				return context.get(ColdReader.FACTORY).knownResources();
+			public Map<ChannelName, Integer> knownChannelNames() {
+				return context.get(ColdReader.FACTORY).knownChannelNames();
 			}
 		}
 

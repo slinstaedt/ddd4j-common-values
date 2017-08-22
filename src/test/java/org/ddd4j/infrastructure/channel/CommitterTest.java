@@ -34,7 +34,7 @@ public class CommitterTest {
 		Committer<Identifier, String> committer = context.get(Committer.FACTORY).create(new RepositoryDefinition<Identifier, String>() {
 
 			@Override
-			public ChannelName getResource() {
+			public ChannelName getChannelName() {
 				return ChannelName.of("test");
 			}
 		}, context.get(SchemaCodec.FACTORY), context.get(WriteBuffer.FACTORY));

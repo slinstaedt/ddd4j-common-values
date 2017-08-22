@@ -9,7 +9,7 @@ import org.ddd4j.value.Value;
 
 public interface RepositoryDefinition<K extends Value<K>, V> {
 
-	ChannelName getResource();
+	ChannelName getChannelName();
 
 	default K deserializeKey(ReadBuffer buffer) {
 		return getKeyType().constructor(Type.of(ReadBuffer.class)).evaluate(buffer);

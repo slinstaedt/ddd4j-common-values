@@ -29,7 +29,7 @@ public interface DataAccessFactory extends Throwing.Closeable {
 		// ignore
 	}
 
-	default Map<ChannelName, Integer> knownResources() {
+	default Map<ChannelName, Integer> knownChannelNames() {
 		return Collections.emptyMap();
 	}
 }

@@ -11,16 +11,16 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 	public static final long END_OFFSET = Long.MAX_VALUE;
 	public static final long UNKNOWN_OFFSET = -1;
 
+	public static Revision deserialize(ReadBuffer buffer) {
+		return new Revision(buffer.getInt(), buffer.getLong());
+	}
+
 	private final int partition;
 	private final long offset;
 
 	public Revision(int partition, long offset) {
 		this.partition = Require.that(partition, partition >= 0);
 		this.offset = Require.that(offset, offset != UNKNOWN_OFFSET);
-	}
-
-	public Revision(ReadBuffer buffer) {
-		this(buffer.getInt(), buffer.getLong());
 	}
 
 	@Override

@@ -16,7 +16,7 @@ import org.ddd4j.value.Value;
 
 public class ClassBasedSchemaFactory implements SchemaFactory {
 
-	static class JavaSchema<T> extends Value.Simple<Schema<T>, Class<T>> implements Schema<T> {
+	private class JavaSchema<T> extends Value.Simple<Schema<T>, Class<T>> implements Schema<T> {
 
 		private final Class<T> baseType;
 
@@ -53,8 +53,8 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public String getName() {
-			return baseType.getName();
+		public String getFactoryName() {
+			return ClassBasedSchemaFactory.this.name();
 		}
 
 		@Override

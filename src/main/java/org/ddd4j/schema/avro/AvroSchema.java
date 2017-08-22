@@ -68,8 +68,8 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 	}
 
 	@Override
-	public String getName() {
-		return writerSchema.getFullName();
+	public String getFactoryName() {
+		return factory.name();
 	}
 
 	@Override

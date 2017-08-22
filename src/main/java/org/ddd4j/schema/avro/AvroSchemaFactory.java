@@ -79,6 +79,11 @@ public class AvroSchemaFactory implements SchemaFactory {
 		return configuration.get(FINGERPRINT);
 	}
 
+	@Override
+	public String name() {
+		return "avro";
+	}
+
 	Decoder createDecoder(AvroCoder coder, org.apache.avro.Schema schema, InputStream in) {
 		try {
 			return coder.decoder(decoderFactory, schema, in);

@@ -124,7 +124,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	}
 
 	@Override
-	public <X, Y> Committed<X, Y> with(X key, Y value) {
-		return new Committed<>(key, value, actual, nextExpected, timestamp, header);
+	public <X, Y> Committed<X, Y> withValuesFrom(Recorded<X, Y> recorded) {
+		return new Committed<>(recorded.getKey(), recorded.getValue(), actual, nextExpected, timestamp, header);
 	}
 }

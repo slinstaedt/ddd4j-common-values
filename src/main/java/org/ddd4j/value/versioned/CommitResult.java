@@ -26,5 +26,5 @@ public interface CommitResult<K, V> {
 		});
 	}
 
-	<X, Y> CommitResult<X, Y> with(X key, Y value);
+	<X, Y> CommitResult<X, Y> withValuesFrom(Recorded<X, Y> recorded);
 }

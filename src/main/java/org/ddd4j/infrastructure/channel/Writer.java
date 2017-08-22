@@ -3,8 +3,8 @@ package org.ddd4j.infrastructure.channel;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.CommitResult;
@@ -20,7 +20,7 @@ public interface Writer<K, V> extends Committer<K, V> {
 		Writer<ReadBuffer, ReadBuffer> create(ChannelName resource);
 
 		default Writer<ReadBuffer, ReadBuffer> createClosingBuffers(ChannelName resource) {
-			return create(resource).whenComplete(ReadBuffer::close, ReadBuffer::close);
+			return create(resource).onCompleted(ReadBuffer::close, ReadBuffer::close);
 		}
 	}
 
@@ -33,7 +33,7 @@ public interface Writer<K, V> extends Committer<K, V> {
 
 	@Override
 	default <X, Y> Writer<X, Y> map(Function<? super X, K> key, Function<? super Y, V> value) {
-		return r -> put(r.map(key, value)).thenApply(c -> c.with(r.getKey(), r.getValue()));
+		return r -> put(r.map(key, value)).thenApply(c -> c.withValuesFrom(r));
 	}
 
 	default Promise<Committed<K, V>> put(K key, V value) {
@@ -43,7 +43,7 @@ public interface Writer<K, V> extends Committer<K, V> {
 	Promise<Committed<K, V>> put(Recorded<K, V> attempt);
 
 	@Override
-	default Writer<K, V> whenComplete(Consumer<? super K> key, Consumer<? super V> value) {
+	default Writer<K, V> onCompleted(Consumer<? super K> key, Consumer<? super V> value) {
 		return a -> put(a).thenRun(() -> {
 			key.accept(a.getKey());
 			value.accept(a.getValue());

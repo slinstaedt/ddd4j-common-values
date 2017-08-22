@@ -42,34 +42,10 @@ import org.ddd4j.collection.Cache.Decorating.Blocking;
 import org.ddd4j.collection.Cache.Decorating.Evicting;
 import org.ddd4j.collection.Cache.Decorating.Listening;
 import org.ddd4j.collection.Cache.Decorating.Retrying;
-import org.ddd4j.collection.Cache.Decorating.Wrapped;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;
 
 public interface Cache<K, V> {
-
-	class Entry<K, V> {
-
-		private final K key;
-		private final V value;
-
-		public Entry(K key, V value) {
-			this.key = Require.nonNull(key);
-			this.value = Require.nonNull(value);
-		}
-
-		public K getKey() {
-			return key;
-		}
-
-		public V getValue() {
-			return value;
-		}
-
-		<X> Entry<K, X> mapValue(Function<? super V, ? extends X> mapper) {
-			return new Entry<>(key, mapper.apply(value));
-		}
-	}
 
 	abstract class Access<K, V> {
 
@@ -96,6 +72,11 @@ public interface Cache<K, V> {
 					}
 				}
 				return value != null ? value : factory.get().getValue();
+			}
+
+			@Override
+			boolean contains(K key) {
+				return pool.containsKey(key);
 			}
 
 			private Queue<V> enqueue(Queue<V> queue, V value) {
@@ -176,6 +157,11 @@ public interface Cache<K, V> {
 			}
 
 			@Override
+			boolean contains(K key) {
+				return singletons.containsKey(key);
+			}
+
+			@Override
 			boolean evict(K key, V value) {
 				Future<? extends V> future = futures.remove(value);
 				return future != null ? singletons.remove(key, future) : false;
@@ -204,11 +190,56 @@ public interface Cache<K, V> {
 			}
 		}
 
+		private static class Wrapped<K, V, T> extends Access<K, T> {
+
+			private final Access<K, V> delegate;
+			private final Function<? super V, ? extends T> wrapper;
+			private final Function<? super T, ? extends V> unwrapper;
+
+			Wrapped(Access<K, V> delegate, Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
+				this.delegate = Require.nonNull(delegate);
+				this.wrapper = Require.nonNull(wrapper);
+				this.unwrapper = Require.nonNull(unwrapper);
+			}
+
+			@Override
+			T acquire(K key, Producer<Entry<K, T>> factory, long timeoutInMillis) {
+				return wrapper.apply(delegate.acquire(key, factory.map(tpl -> tpl.mapValue(unwrapper)), timeoutInMillis));
+			}
+
+			@Override
+			boolean contains(K key) {
+				return delegate.contains(key);
+			}
+
+			@Override
+			boolean evict(K key, T value) {
+				return delegate.evict(key, unwrapper.apply(value));
+			}
+
+			@Override
+			void evictAll(K key, Disposer<? super K, ? super T> disposer) {
+				delegate.evictAll(key, disposer.with(wrapper));
+			}
+
+			@Override
+			NavigableSet<K> keys() {
+				return delegate.keys();
+			}
+
+			@Override
+			void release(T value) {
+				delegate.release(unwrapper.apply(value));
+			}
+		}
+
 		abstract V acquire(K key, Producer<Entry<K, V>> factory, long timeoutInMillis);
 
 		public Access<K, V> blockOn(int capacity, boolean fair) {
 			return new Blocking<>(this, capacity, fair);
 		}
+
+		abstract boolean contains(K key);
 
 		public Evicting<K, V> evict() {
 			return evict(EvictStrategy.ANY);
@@ -280,6 +311,10 @@ public interface Cache<K, V> {
 			return delegate.acquire(effectiveKey, () -> new Entry<>(key, factory.create(key)), timeoutInMillis);
 		}
 
+		public boolean contains(K key) {
+			return delegate.contains(key);
+		}
+
 		@Override
 		public void evictAll(Disposer<K, V> disposer) {
 			new HashSet<>(delegate.keys()).forEach(k -> delegate.evictAll(k, disposer));
@@ -319,11 +354,10 @@ public interface Cache<K, V> {
 
 		public static class Blocking<K, V> extends Decorating<K, V> {
 
-			private final Access<K, V> delegate;
 			private final Semaphore semaphore;
 
 			public Blocking(Access<K, V> delegate, int capacity, boolean fair) {
-				this.delegate = Require.nonNull(delegate);
+				super(delegate);
 				this.semaphore = new Semaphore(capacity, fair);
 			}
 
@@ -362,11 +396,6 @@ public interface Cache<K, V> {
 			@Override
 			void evictAll(K key, Disposer<? super K, ? super V> disposer) {
 				delegate.evictAll(key, disposer.andThen((k, v) -> semaphore.release()));
-			}
-
-			@Override
-			NavigableSet<K> keys() {
-				return delegate.keys();
 			}
 
 			@Override
@@ -436,7 +465,6 @@ public interface Cache<K, V> {
 				}
 			}
 
-			private final Access<K, V> delegate;
 			private final EvictStrategy strategy;
 			private final int minCapacity;
 			private final int maxCapacity;
@@ -444,7 +472,7 @@ public interface Cache<K, V> {
 			private final Map<V, EvictEntry> entries;
 
 			Evicting(Access<K, V> delegate, EvictStrategy strategy, int minCapacity, int maxCapacity, long threshold) {
-				this.delegate = Require.nonNull(delegate);
+				super(delegate);
 				this.strategy = Require.nonNull(strategy);
 				this.minCapacity = Require.that(minCapacity, minCapacity >= 0);
 				this.maxCapacity = Require.that(maxCapacity, maxCapacity >= minCapacity);
@@ -491,11 +519,6 @@ public interface Cache<K, V> {
 				}
 			}
 
-			@Override
-			NavigableSet<K> keys() {
-				return delegate.keys();
-			}
-
 			private Entry<K, V> registerEntry(Producer<Entry<K, V>> factory) {
 				Entry<K, V> tpl = factory.get();
 				entries.put(tpl.getValue(), new EvictEntry(tpl.getKey(), tpl.getValue()));
@@ -533,16 +556,15 @@ public interface Cache<K, V> {
 
 		public static class Listening<K, V> extends Decorating<K, V> {
 
-			private final Access<K, V> delegate;
 			private final List<Listener<? super V>> listeners;
 
 			Listening(Access<K, V> delegate) {
-				this.delegate = Require.nonNull(delegate);
+				super(delegate);
 				this.listeners = Collections.emptyList();
 			}
 
 			private Listening(Listening<K, V> copy, Listener<? super V> listener) {
-				this.delegate = copy.delegate;
+				super(copy.delegate);
 				this.listeners = new ArrayList<>(copy.listeners.size() + 1);
 				this.listeners.addAll(copy.listeners);
 				this.listeners.add(Require.nonNull(listener));
@@ -576,11 +598,6 @@ public interface Cache<K, V> {
 				}
 			}
 
-			@Override
-			void evictAll(K key, Disposer<? super K, ? super V> disposer) {
-				delegate.evictAll(key, disposer);
-			}
-
 			public Listening<K, V> evicted(Consumer<? super V> listener) {
 				Require.nonNull(listener);
 				return lifecycle(new Listener<V>() {
@@ -590,11 +607,6 @@ public interface Cache<K, V> {
 						listener.accept(value);
 					}
 				});
-			}
-
-			@Override
-			NavigableSet<K> keys() {
-				return delegate.keys();
 			}
 
 			public Listening<K, V> lifecycle(Listener<? super V> listener) {
@@ -621,12 +633,11 @@ public interface Cache<K, V> {
 
 		public static class Retrying<K, V> extends Decorating<K, V> {
 
-			private final Access<K, V> delegate;
 			private final int maxRetries;
 			private final long timeoutInMillis;
 
 			Retrying(Access<K, V> delegate, int maxRetries, long timeoutInMillis) {
-				this.delegate = Require.nonNull(delegate);
+				super(delegate);
 				this.maxRetries = Require.that(maxRetries, maxRetries >= 0);
 				this.timeoutInMillis = Require.that(timeoutInMillis, timeoutInMillis >= 0);
 			}
@@ -645,26 +656,6 @@ public interface Cache<K, V> {
 				return value;
 			}
 
-			@Override
-			boolean evict(K key, V value) {
-				return delegate.evict(key, value);
-			}
-
-			@Override
-			void evictAll(K key, Disposer<? super K, ? super V> disposer) {
-				delegate.evictAll(key, disposer);
-			}
-
-			@Override
-			NavigableSet<K> keys() {
-				return delegate.keys();
-			}
-
-			@Override
-			void release(V value) {
-				delegate.release(value);
-			}
-
 			public Retrying<K, V> times(int maxRetries) {
 				return new Retrying<>(delegate, maxRetries, timeoutInMillis);
 			}
@@ -674,42 +665,35 @@ public interface Cache<K, V> {
 			}
 		}
 
-		public static class Wrapped<K, V, T> extends Decorating<K, T> {
+		protected final Access<K, V> delegate;
 
-			private final Access<K, V> delegate;
-			private final Function<? super V, ? extends T> wrapper;
-			private final Function<? super T, ? extends V> unwrapper;
+		protected Decorating(Access<K, V> delegate) {
+			this.delegate = Require.nonNull(delegate);
+		}
 
-			Wrapped(Access<K, V> delegate, Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
-				this.delegate = Require.nonNull(delegate);
-				this.wrapper = Require.nonNull(wrapper);
-				this.unwrapper = Require.nonNull(unwrapper);
-			}
+		@Override
+		boolean contains(K key) {
+			return delegate.contains(key);
+		}
 
-			@Override
-			T acquire(K key, Producer<Entry<K, T>> factory, long timeoutInMillis) {
-				return wrapper.apply(delegate.acquire(key, factory.map(tpl -> tpl.mapValue(unwrapper)), timeoutInMillis));
-			}
+		@Override
+		boolean evict(K key, V value) {
+			return delegate.evict(key, value);
+		}
 
-			@Override
-			boolean evict(K key, T value) {
-				return delegate.evict(key, unwrapper.apply(value));
-			}
+		@Override
+		void evictAll(K key, Disposer<? super K, ? super V> disposer) {
+			delegate.evictAll(key, disposer);
+		}
 
-			@Override
-			void evictAll(K key, Disposer<? super K, ? super T> disposer) {
-				delegate.evictAll(key, disposer.with(wrapper));
-			}
+		@Override
+		NavigableSet<K> keys() {
+			return delegate.keys();
+		}
 
-			@Override
-			NavigableSet<K> keys() {
-				return delegate.keys();
-			}
-
-			@Override
-			void release(T value) {
-				delegate.release(unwrapper.apply(value));
-			}
+		@Override
+		void release(V value) {
+			delegate.release(value);
 		}
 	}
 
@@ -739,6 +723,29 @@ public interface Cache<K, V> {
 
 		default <T> Disposer<K, T> with(Function<? super T, ? extends V> wrapper) {
 			return (k, t) -> dispose(k, wrapper.apply(t));
+		}
+	}
+
+	class Entry<K, V> {
+
+		private final K key;
+		private final V value;
+
+		public Entry(K key, V value) {
+			this.key = Require.nonNull(key);
+			this.value = Require.nonNull(value);
+		}
+
+		public K getKey() {
+			return key;
+		}
+
+		public V getValue() {
+			return value;
+		}
+
+		<X> Entry<K, X> mapValue(Function<? super V, ? extends X> mapper) {
+			return new Entry<>(key, mapper.apply(value));
 		}
 	}
 
@@ -888,6 +895,16 @@ public interface Cache<K, V> {
 		}
 	}
 
+	@FunctionalInterface
+	interface Reader<K, V> {
+
+		default <T> Reader<K, T> andThen(Function<? super V, ? extends T> mapper) {
+			return k -> mapper.apply(read(k));
+		}
+
+		V read(K key) throws Exception;
+	}
+
 	class ReadThrough<K, V> implements Cache<K, V> {
 
 		private final Aside<K, V> delegate;
@@ -906,6 +923,10 @@ public interface Cache<K, V> {
 
 		public V acquire(K key, long timeoutInMillis) {
 			return delegate.acquire(key, factory, timeoutInMillis);
+		}
+
+		public boolean contains(K key) {
+			return delegate.contains(key);
 		}
 
 		@Override
@@ -929,16 +950,6 @@ public interface Cache<K, V> {
 		public <T> ReadThrough<K, T> wrapEntries(Function<? super V, ? extends T> wrapper, Function<? super T, ? extends V> unwrapper) {
 			return new ReadThrough<>(delegate.wrapEntries(wrapper, unwrapper), factory.andThen(wrapper), disposer.with(unwrapper));
 		}
-	}
-
-	@FunctionalInterface
-	interface Reader<K, V> {
-
-		default <T> Reader<K, T> andThen(Function<? super V, ? extends T> mapper) {
-			return k -> mapper.apply(read(k));
-		}
-
-		V read(K key) throws Exception;
 	}
 
 	@FunctionalInterface
@@ -968,17 +979,21 @@ public interface Cache<K, V> {
 			this.writer = Require.nonNull(writer);
 		}
 
+		public boolean contains(K key) {
+			return delegate.contains(key);
+		}
+
+		@Override
+		public void evictAll(Disposer<K, V> disposer) {
+			delegate.evictAll(disposer);
+		}
+
 		public V get(K key) {
 			return get(key, Long.MAX_VALUE);
 		}
 
 		public V get(K key, long timeoutInMillis) {
 			return delegate.acquire(key, reader::read, timeoutInMillis);
-		}
-
-		@Override
-		public void evictAll(Disposer<K, V> disposer) {
-			delegate.evictAll(disposer);
 		}
 
 		public V put(K key, V newValue) {
@@ -1006,7 +1021,7 @@ public interface Cache<K, V> {
 		}
 	}
 
-	ConfKey<Integer> MAX_CAPACITY = Configuration.keyOfInteger("maxCapacity", 100);
+	ConfKey<Integer> MAX_CAPACITY = Configuration.keyOfInteger("maxCapacity", 1024);
 
 	static <K extends Comparable<K>, V> Exclusive<K, V> exclusive(Function<? super V, ? extends K> keyedBy) {
 		return new Exclusive<>(Comparable::compareTo, keyedBy);

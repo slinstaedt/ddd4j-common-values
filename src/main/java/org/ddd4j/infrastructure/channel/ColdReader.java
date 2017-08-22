@@ -10,10 +10,10 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import org.ddd4j.Require;
-import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.Promise.Cancelable;
 import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.ChannelRevision;
+import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.Promise.Cancelable;
 import org.ddd4j.infrastructure.channel.ColdSource.Callback;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -24,12 +24,13 @@ import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;
 import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Revision;
 
 public interface ColdReader {
 
 	interface Factory extends DataAccessFactory {
 
-		ColdReader createVersionedReader();
+		ColdReader createColdReader();
 	}
 
 	class ColdSourceBased implements ColdReader {
@@ -46,7 +47,7 @@ public interface ColdReader {
 			}
 
 			@Override
-			public ColdReader createVersionedReader() {
+			public ColdReader createColdReader() {
 				return new ColdSourceBased(context.get(Scheduler.KEY), context.get(ColdSource.FACTORY), context.conf(TIMEOUT));
 			}
 
@@ -56,8 +57,8 @@ public interface ColdReader {
 			}
 
 			@Override
-			public Map<ChannelName, Integer> knownResources() {
-				return context.get(ColdSource.FACTORY).knownResources();
+			public Map<ChannelName, Integer> knownChannelNames() {
+				return context.get(ColdSource.FACTORY).knownChannelNames();
 			}
 		}
 
@@ -84,11 +85,11 @@ public interface ColdReader {
 			}
 
 			@Override
-			public void onNext(ChannelName resource, Committed<ReadBuffer, ReadBuffer> committed) {
+			public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
 				if (deferred.isDone()) {
 					source.close();
 				} else {
-					records.computeIfAbsent(resource, r -> new ArrayList<>()).add(committed);
+					records.computeIfAbsent(name, r -> new ArrayList<>()).add(committed);
 					timer.cancel();
 					timer = timerProvider.get();
 				}
@@ -141,8 +142,16 @@ public interface ColdReader {
 			this.values = new HashMap<>(values);
 		}
 
-		public Seq<Committed<ReadBuffer, ReadBuffer>> commits(ChannelName resource) {
-			return values.getOrDefault(resource, Seq.empty());
+		public Committed<ReadBuffer, ReadBuffer> commit(ChannelName name, Revision actual) {
+			return commits(name).filter().by(c -> c.getActual().equal(actual)).head().getNonNull();
+		}
+
+		public Committed<ReadBuffer, ReadBuffer> commit(ChannelRevision spec) {
+			return commits(spec.getName()).filter().by(c -> c.getActual().equal(spec.getRevision())).head().getNonNull();
+		}
+
+		public Seq<Committed<ReadBuffer, ReadBuffer>> commits(ChannelName name) {
+			return values.getOrDefault(name, Seq.empty());
 		}
 
 		public boolean isNotEmpty() {
@@ -165,4 +174,16 @@ public interface ColdReader {
 	Key<Factory> FACTORY = Key.of(Factory.class, ColdSourceBased.Factory::new);
 
 	Promise<CommittedRecords> get(Seq<ChannelRevision> revisions);
+
+	default Promise<CommittedRecords> get(ChannelRevision... revisions) {
+		return get(Seq.of(revisions));
+	}
+
+	default Promise<Committed<ReadBuffer, ReadBuffer>> getCommitted(ChannelRevision revision) {
+		return get(revision).thenApply(cr -> cr.commit(revision));
+	}
+
+	default Promise<ReadBuffer> getCommittedValue(ChannelRevision revision) {
+		return getCommitted(revision).thenApply(Committed::getValue);
+	}
 }

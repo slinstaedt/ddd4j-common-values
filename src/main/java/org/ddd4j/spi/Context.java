@@ -14,7 +14,7 @@ public interface Context {
 		Optional<T> with(String name);
 
 		default T withOrFail(String name) {
-			return with(name).orElseThrow(AssertionError::new);
+			return with(name).orElseThrow(()-> new IllegalArgumentException("Service with name not registerd: " + name));
 		}
 	}
 

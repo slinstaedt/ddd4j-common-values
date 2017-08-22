@@ -11,6 +11,7 @@ import org.ddd4j.value.Value;
 //TODO rename to ServiceKey?
 public class Key<T> implements ServiceFactory<T>, Named {
 
+	// TODO needed?
 	private static class Child<T> extends Key<T> implements Value<Child<T>> {
 
 		private final Key<T> parent;
@@ -22,7 +23,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 
 		@Override
 		public int hashCode() {
-			return name().hashCode();
+			return parent.hashCode() ^ name().hashCode();
 		}
 
 		@Override
