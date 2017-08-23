@@ -43,7 +43,7 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		private BoundChild boundChild(Named value) {
-			return children.computeIfAbsent(value.name(), n -> new BoundChild(configuration.prefixed(n), this));
+			return children.computeIfAbsent(value.getName(), n -> new BoundChild(configuration.prefixed(n), this));
 		}
 
 		@SuppressWarnings("unchecked")
@@ -67,9 +67,9 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 
 		@Override
 		public Context child(Named value) {
-			Context child = children.get(value.name());
+			Context child = children.get(value.getName());
 			if (child == null) {
-				if (configuration.getString(value.name()).isPresent()) {
+				if (configuration.getString(value.getName()).isPresent()) {
 					child = boundChild(value);
 				} else {
 					child = transientChild(value);
@@ -90,7 +90,7 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		private <T> Optional<ServiceFactory<T>> configuredFactory(Key<T> key) {
-			return configuration.getString(key.name())
+			return configuration.getString(key.getName())
 					.map(s -> s.isEmpty() ? null : s)
 					.map(Throwing.applied(Class::forName))
 					.map(Throwing.applied(c -> newInstance(c, key)))
@@ -124,7 +124,7 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		private Context transientChild(Named value) {
-			return new TransientChild(configuration.prefixed(value.name()), this);
+			return new TransientChild(configuration.prefixed(value.getName()), this);
 		}
 	}
 
@@ -180,7 +180,7 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 					.acquire(key,
 							k -> boundFactories(key).stream()
 									.map(f -> f.createUnchecked(child))
-									.collect(Collectors.toMap(Named::name, Function.identity())))
+									.collect(Collectors.toMap(Named::getName, Function.identity())))
 					.get(name);
 			return Optional.ofNullable(service);
 		}

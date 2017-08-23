@@ -11,7 +11,7 @@ public interface ServiceConfigurer {
 
 		@Override
 		default void bindServices(ServiceBinder binder) {
-			binder.initializeEager(Key.of(name(), ctx -> {
+			binder.initializeEager(Key.of(getName(), ctx -> {
 				Class<? extends C> type = getType().getRawType();
 				ctx.get(ContextProvisioning.KEY).loadRegistered(type).forEach(r -> configurer(ctx.child(r)).accept(r));
 				return new Object();

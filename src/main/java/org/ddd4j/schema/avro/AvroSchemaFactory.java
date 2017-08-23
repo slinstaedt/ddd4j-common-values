@@ -80,7 +80,7 @@ public class AvroSchemaFactory implements SchemaFactory {
 	}
 
 	@Override
-	public String name() {
+	public String getName() {
 		return "avro";
 	}
 

@@ -54,7 +54,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 
 		@Override
 		public String getFactoryName() {
-			return ClassBasedSchemaFactory.this.name();
+			return ClassBasedSchemaFactory.this.getName();
 		}
 
 		@Override

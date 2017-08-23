@@ -23,7 +23,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 
 		@Override
 		public int hashCode() {
-			return parent.hashCode() ^ name().hashCode();
+			return parent.hashCode() ^ getName().hashCode();
 		}
 
 		@Override
@@ -38,7 +38,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 				return false;
 			}
 			Child<?> other = (Child<?>) obj;
-			return this.parent.equals(other.parent) && this.name().equals(other.name());
+			return this.parent.equals(other.parent) && this.getName().equals(other.getName());
 		}
 	}
 
@@ -86,7 +86,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 	}
 
 	@Override
-	public String name() {
+	public String getName() {
 		return name;
 	}
 
