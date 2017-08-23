@@ -34,7 +34,7 @@ public class PooledBytes<B extends Bytes> extends Bytes {
 	public static final Key<Cache.ReadThrough<Integer, Bytes.Arrayed>> BYTES_CACHE = Key.of("bytesCache",
 			ctx -> ctx.get(BYTE_ARRAY_CACHE).wrapEntries(Bytes.Arrayed::new, Bytes.Arrayed::backing));
 
-	public static final Key<Supplier<PooledBytes<Bytes.Arrayed>>> FACTORY = Key.of("pooledBytesFactory", ctx -> {
+	public static final Key<Supplier<Bytes>> POOL = Key.of("pooledBytesPool", ctx -> {
 		Pool<Bytes.Arrayed> pool = ctx.get(BYTES_CACHE).pooledBy(ctx.conf(BUFFER_SIZE));
 		return () -> new PooledBytes<>(pool);
 	});

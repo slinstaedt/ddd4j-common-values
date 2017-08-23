@@ -9,7 +9,6 @@ import java.util.function.Supplier;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.io.Bytes.Arrayed;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 
@@ -17,14 +16,14 @@ public interface WriteBuffer extends RelativeBuffer {
 
 	class Pool {
 
-		private final Supplier<PooledBytes<Arrayed>> factory;
+		private final Supplier<Bytes> bytesPool;
 
 		public Pool(Context context) {
-			this.factory = context.get(PooledBytes.FACTORY);
+			this.bytesPool = context.get(PooledBytes.POOL);
 		}
 
 		public WriteBuffer get() {
-			return factory.get().buffered();
+			return bytesPool.get().buffered();
 		}
 
 		public ReadBuffer serialized(Consumer<WriteBuffer> serializer) {
