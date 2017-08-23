@@ -181,12 +181,12 @@ public enum SchemaCodec {
 					b -> Schema.deserializeFromFactory(context, b));
 			Writer<Fingerprint, Schema<?>> writer = context.get(Writer.FACTORY).createClosingBuffers(REPO_NAME).map(Fingerprint::asBuffer,
 					s -> bufferPool.serialized(s::serializeWithFactoryName));
-			this.cache = Cache
-					.<Fingerprint, Promise<Schema<?>>>sharedOnEqualKey(
-							a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(context.conf(Cache.MAX_CAPACITY)))
-					.writeThrough(fp -> reader.getValueFailOnMissing(fp).ordered(),
-							(fp, n, o, u) -> (o.isPresent() ? o.get().thenCombine(n, SchemaRepository::notEqual) : n).thenRun(u)
-									.whenCompleteSuccessfully(e -> writer.put(fp, e)));
+			Cache.Aside<Fingerprint, Promise<Schema<?>>> cache = Cache.<Fingerprint, Promise<Schema<?>>>sharedOnEqualKey(
+					a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(context.conf(Cache.MAX_CAPACITY)));
+			this.cache = cache.writeThrough(
+					fp -> reader.getValueFailOnMissing(fp).whenCompleteExceptionally(ex -> cache.evictAll(fp)).ordered(),
+					(fp, n, o, u) -> (o.isPresent() ? o.get().thenCombine(n, SchemaRepository::notEqual) : n).thenRun(u)
+							.whenCompleteSuccessfully(e -> writer.put(fp, e)));
 		}
 
 		Promise<Schema<?>> get(Fingerprint fingerprint) {
