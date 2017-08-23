@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentMap;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Cache;
-import org.ddd4j.collection.Cache.WriteThrough;
 import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.ChannelRevision;
 import org.ddd4j.infrastructure.Promise;
@@ -165,7 +164,7 @@ public enum SchemaCodec {
 			}
 		}
 
-		private final WriteThrough<Fingerprint, Promise<Schema<?>>> cache;
+		private final Cache.WriteThrough<Fingerprint, Promise<Schema<?>>> cache;
 
 		SchemaRepository(Context context) {
 			WriteBuffer.Pool bufferPool = context.get(WriteBuffer.POOL);
