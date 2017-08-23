@@ -9,14 +9,37 @@ import java.util.function.Supplier;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing.TConsumer;
+import org.ddd4j.io.Bytes.Arrayed;
+import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 
 public interface WriteBuffer extends RelativeBuffer {
 
-	Key<Supplier<WriteBuffer>> FACTORY = Key.of("pooledBufferFactory", ctx -> {
-		Supplier<PooledBytes<Bytes.Arrayed>> factory = ctx.get(PooledBytes.FACTORY);
-		return () -> factory.get().buffered();
-	});
+	class Pool {
+
+		private final Supplier<PooledBytes<Arrayed>> factory;
+
+		public Pool(Context context) {
+			this.factory = context.get(PooledBytes.FACTORY);
+		}
+
+		public WriteBuffer get() {
+			return factory.get().buffered();
+		}
+
+		public ReadBuffer serialized(Consumer<WriteBuffer> serializer) {
+			WriteBuffer buffer = get();
+			try {
+				serializer.accept(buffer);
+				return buffer.flip();
+			} catch (Exception e) {
+				buffer.close();
+				throw e;
+			}
+		}
+	}
+
+	Key<WriteBuffer.Pool> POOL = Key.of(Pool.class, Pool::new);
 
 	default WriteBuffer accept(Consumer<? super WriteBuffer> visitor) {
 		visitor.accept(this);

@@ -55,8 +55,6 @@ public interface Schema<T> extends Value<Schema<T>> {
 
 	String getFactoryName();
 
-	// boolean contains(Type<?> type);
-
 	int hashCode(Object object);
 
 	default <X> X read(Type<X> readerType, ReadBuffer buffer) {
