@@ -2,9 +2,9 @@ package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ChannelName;
-import org.ddd4j.infrastructure.ChannelPartition;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.infrastructure.channel.util.Listeners;
 import org.ddd4j.infrastructure.channel.util.Subscriptions;
 import org.ddd4j.io.ReadBuffer;

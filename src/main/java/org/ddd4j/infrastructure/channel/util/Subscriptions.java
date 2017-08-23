@@ -8,12 +8,10 @@ import java.util.function.Function;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
+import org.ddd4j.infrastructure.channel.util.SchemaCodec.Decoder;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.repository.RepositoryDefinition;
-import org.ddd4j.repository.SchemaCodec;
-import org.ddd4j.repository.SchemaCodec.Decoder;
-import org.ddd4j.value.Value;
 import org.ddd4j.value.versioned.Committed;
 
 public class Subscriptions {
@@ -41,11 +39,10 @@ public class Subscriptions {
 		return listeners.computeIfAbsent(resource, onSubscribe).add(listener).partitionSize();
 	}
 
-	public <K extends Value<K>, V> Promise<Integer> subscribe(RepositoryDefinition<K, V> definition, SourceListener<K, V> listener,
-			SchemaCodec.Factory codecFactory) {
-		Decoder<V> decoder = codecFactory.decoder(definition.getValueType());
-		SourceListener<ReadBuffer, ReadBuffer> l = listener.mapPromised(definition::deserializeKey, decoder::decode);
-		return listeners.computeIfAbsent(definition.getResource(), onSubscribe).add(listener, l).partitionSize();
+	public <K, V> Promise<Integer> subscribe(ChannelSpec<K, V> spec, SourceListener<K, V> listener, SchemaCodec.Factory codecFactory) {
+		Decoder<V> decoder = codecFactory.decoder(spec);
+		SourceListener<ReadBuffer, ReadBuffer> sl = listener.mapPromised(spec::deserializeKey, decoder::decode);
+		return listeners.computeIfAbsent(spec.getName(), onSubscribe).add(listener, sl).partitionSize();
 	}
 
 	public Set<ChannelName> resources() {

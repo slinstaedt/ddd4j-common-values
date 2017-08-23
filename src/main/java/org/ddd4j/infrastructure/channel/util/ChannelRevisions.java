@@ -3,8 +3,8 @@ package org.ddd4j.infrastructure.channel.util;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import org.ddd4j.infrastructure.ChannelName;
-import org.ddd4j.infrastructure.ChannelRevision;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Revisions;
 

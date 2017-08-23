@@ -1,9 +1,8 @@
 package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.repository.RepositoryDefinition;
+import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.Value;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.indexed.Indexed;
 import org.ddd4j.value.indexed.Indexer;
@@ -14,7 +13,7 @@ public interface IndexReader<K, V> extends Indexed, Reader<K, V> {
 
 	interface Factory extends DataAccessFactory {
 
-		<K extends Value<K>, V> IndexReader<K, V> create(RepositoryDefinition<K, V> definition, Indexer<? super V> indexer);
+		<K, V> IndexReader<K, V> create(ChannelSpec<K, V> spec, Indexer<? super V> indexer);
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class);

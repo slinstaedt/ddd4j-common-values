@@ -5,7 +5,7 @@ import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.Lazy;
 import org.ddd4j.value.collection.Ref;

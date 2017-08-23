@@ -8,12 +8,13 @@ import java.util.concurrent.ConcurrentMap;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Cache;
-import org.ddd4j.infrastructure.ChannelName;
-import org.ddd4j.infrastructure.ChannelRevision;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.ColdReader;
 import org.ddd4j.infrastructure.channel.Reader;
 import org.ddd4j.infrastructure.channel.Writer;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
+import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
@@ -107,9 +108,17 @@ public enum SchemaCodec {
 			this.context = Require.nonNull(context);
 		}
 
+		public <T> Decoder<T> decoder(ChannelSpec<?, T> spec) {
+			return decoder(spec.getValueType(), spec.getName());
+		}
+
 		public <T> Decoder<T> decoder(Type<T> readerType, ChannelName channelName) {
 			Require.nonNullElements(readerType, channelName);
 			return (buf, rev) -> decodeType(buf.get()).decoder(context, readerType, channelName).decode(buf, rev);
+		}
+
+		public <T> Encoder<T> encoder(ChannelSpec<?, T> spec) {
+			return encoder(spec.getValueType(), spec.getName());
 		}
 
 		public <T> Encoder<T> encoder(Type<T> writerType, ChannelName channelName) {

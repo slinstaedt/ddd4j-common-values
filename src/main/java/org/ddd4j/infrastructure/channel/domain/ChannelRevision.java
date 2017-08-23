@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure;
+package org.ddd4j.infrastructure.channel.domain;
 
 import org.ddd4j.Require;
 import org.ddd4j.value.Value;

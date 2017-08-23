@@ -3,19 +3,17 @@ package org.ddd4j.infrastructure.channel;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TFunction;
-import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
 import org.ddd4j.infrastructure.channel.util.SchemaCodec;
 import org.ddd4j.infrastructure.channel.util.SchemaCodec.Encoder;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.repository.RepositoryDefinition;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.Value;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
@@ -25,14 +23,13 @@ public interface Committer<K, V> {
 
 	interface Factory extends DataAccessFactory {
 
-		default <K extends Value<K>, V> Committer<K, V> create(RepositoryDefinition<K, V> definition, SchemaCodec.Factory codecFactory,
-				Supplier<WriteBuffer> bufferSupplier) {
-			Encoder<V> encoder = codecFactory.encoder(definition.getValueType(), definition.getChannelName());
+		default <K, V> Committer<K, V> create(ChannelSpec<K, V> spec, SchemaCodec.Factory codecFactory, WriteBuffer.Pool bufferPool) {
+			Encoder<V> encoder = codecFactory.encoder(spec);
 			TFunction<CommitResult<?, ?>, Revision> committedRevision = r -> r.foldResult(Committed::getActual,
 					c -> Throwing.unchecked(new IllegalStateException(c.toString())));
-			return create(definition.getChannelName()).onCompleted(ReadBuffer::close, ReadBuffer::close).flatMapValue(
-					k -> bufferSupplier.get().accept(b -> definition.serializeKey(k, b)).flip(),
-					(v, p) -> encoder.encode(bufferSupplier.get(), p.thenApply(committedRevision), v).thenApply(WriteBuffer::flip));
+			return create(spec.getName()).onCompleted(ReadBuffer::close, ReadBuffer::close).flatMapValue(
+					k -> bufferPool.get().accept(b -> spec.serializeKey(k, b)).flip(),
+					(v, p) -> encoder.encode(bufferPool.get(), p.thenApply(committedRevision), v).thenApply(WriteBuffer::flip));
 		}
 
 		Committer<ReadBuffer, ReadBuffer> create(ChannelName resource);

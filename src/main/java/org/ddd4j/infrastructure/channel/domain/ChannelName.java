@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure;
+package org.ddd4j.infrastructure.channel.domain;
 
 import java.util.regex.Pattern;
 

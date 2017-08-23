@@ -10,11 +10,11 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import org.ddd4j.Require;
-import org.ddd4j.infrastructure.ChannelName;
-import org.ddd4j.infrastructure.ChannelRevision;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Promise.Cancelable;
 import org.ddd4j.infrastructure.channel.ColdSource.Callback;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;

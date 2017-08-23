@@ -1,6 +1,6 @@
 package org.ddd4j.infrastructure.channel.old;
 
-import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 
 public interface PartitionRebalanceListener {
 

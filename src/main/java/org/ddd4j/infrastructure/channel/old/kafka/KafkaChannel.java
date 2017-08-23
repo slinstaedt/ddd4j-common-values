@@ -11,7 +11,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.old.ColdChannel;
 import org.ddd4j.infrastructure.channel.old.HotChannel;
 import org.ddd4j.infrastructure.channel.old.LazyListener;

@@ -3,7 +3,7 @@ package org.ddd4j.infrastructure.channel;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.old.ColdChannel;
 import org.ddd4j.infrastructure.channel.old.HotChannel;
 import org.ddd4j.io.ReadBuffer;

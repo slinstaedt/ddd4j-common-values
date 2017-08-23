@@ -150,7 +150,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		}
 	}
 
-	default <X extends V> Optional<X> as(Class<X> type) {
+	default <X> Optional<X> as(Class<X> type) {
 		return type.isInstance(this) ? Optional.of(type.cast(this)) : Optional.empty();
 	}
 

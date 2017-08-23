@@ -3,8 +3,8 @@ package org.ddd4j.infrastructure.channel.util;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 

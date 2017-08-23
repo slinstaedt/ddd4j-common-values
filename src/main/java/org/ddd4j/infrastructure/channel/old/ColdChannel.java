@@ -2,7 +2,7 @@ package org.ddd4j.infrastructure.channel.old;
 
 import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Revision;

@@ -14,8 +14,8 @@ import javax.jms.Topic;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ChannelName;
 import org.ddd4j.infrastructure.channel.HotSource;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;

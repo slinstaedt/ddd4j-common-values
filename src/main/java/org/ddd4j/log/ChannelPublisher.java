@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.old.Channel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Publisher;

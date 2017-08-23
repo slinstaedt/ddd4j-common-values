@@ -6,7 +6,7 @@ import java.util.Map;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Props;
-import org.ddd4j.infrastructure.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
