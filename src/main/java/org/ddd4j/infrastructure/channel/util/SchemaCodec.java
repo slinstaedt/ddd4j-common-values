@@ -1,4 +1,4 @@
-package org.ddd4j.repository;
+package org.ddd4j.infrastructure.channel.util;
 
 import java.util.Objects;
 import java.util.Optional;
