@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import org.apache.avro.Conversions;
 import org.apache.avro.Schema.Parser;
 import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.io.Decoder;
@@ -16,7 +15,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
-import org.ddd4j.schema.avro.conversion.UUIDByteConversion;
+import org.ddd4j.schema.avro.conversion.UUIDConversions;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.Type;
@@ -40,18 +39,17 @@ public class AvroSchemaFactory implements SchemaFactory {
 	private final AvroCoder coder;
 
 	public AvroSchemaFactory(Context context) {
-
 		this.configuration = context.configuration();
 		this.decoderFactory = context.get(DECODER_FACTORY);
 		this.encoderFactory = context.get(ENCODER_FACTORY);
 		this.data = context.get(AVRO_DATA);
 		this.coder = context.conf(CODING);
 		if (coder.isBinary()) {
-			data.addLogicalTypeConversion(new UUIDByteConversion());
-			data.addLogicalTypeConversion(new Conversions.UUIDConversion());
+			data.addLogicalTypeConversion(UUIDConversions.BYTES);
+			data.addLogicalTypeConversion(UUIDConversions.STRING);
 		} else {
-			data.addLogicalTypeConversion(new Conversions.UUIDConversion());
-			data.addLogicalTypeConversion(new UUIDByteConversion());
+			data.addLogicalTypeConversion(UUIDConversions.STRING);
+			data.addLogicalTypeConversion(UUIDConversions.BYTES);
 		}
 	}
 
