@@ -73,8 +73,8 @@ public class JmsHotSource implements HotSource, MessageListener {
 	}
 
 	@Override
-	public Promise<Integer> subscribe(ChannelName resource) {
-		subscriptions.computeIfAbsent(resource.value(), this::subscribe);
+	public Promise<Integer> subscribe(ChannelName name) {
+		subscriptions.computeIfAbsent(name.value(), this::subscribe);
 		return Promise.completed(1);
 	}
 
@@ -86,8 +86,8 @@ public class JmsHotSource implements HotSource, MessageListener {
 	}
 
 	@Override
-	public void unsubscribe(ChannelName resource) {
-		JMSConsumer consumer = subscriptions.remove(resource.value());
+	public void unsubscribe(ChannelName name) {
+		JMSConsumer consumer = subscriptions.remove(name.value());
 		if (consumer != null) {
 			consumer.close();
 		}
