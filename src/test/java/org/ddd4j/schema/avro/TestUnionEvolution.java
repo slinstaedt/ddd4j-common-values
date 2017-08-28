@@ -26,7 +26,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.schema.avro.TestValue.X1;
 import org.ddd4j.schema.avro.TestValue.X2;
 import org.ddd4j.schema.avro.TestValue.X3;
-import org.ddd4j.schema.avro.conversion.UUIDByteConversion;
+import org.ddd4j.schema.avro.conversion.UUIDConversions;
 
 public class TestUnionEvolution {
 
@@ -34,7 +34,7 @@ public class TestUnionEvolution {
 
 	static {
 		// ReflectData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
-		ReflectData.get().addLogicalTypeConversion(new UUIDByteConversion());
+		ReflectData.get().addLogicalTypeConversion(UUIDConversions.BYTES);
 
 		Schema schema = Throwing.task(() -> new Schema.Parser().parse(TestUnionEvolution.class.getResourceAsStream("X.json"))).get();
 		List<Schema> types = new ArrayList<>(schema.getTypes());
