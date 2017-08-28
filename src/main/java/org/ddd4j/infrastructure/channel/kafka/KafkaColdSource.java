@@ -7,6 +7,7 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.ColdSource;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.Agent;
@@ -42,7 +43,8 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	@Override
 	public Promise<Trigger> onScheduled(Scheduler scheduler) {
 		return client.performBlocked((t, u) -> c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(u.toMillis(t)))
-				.whenComplete(rs -> rs.forEach(listener::onNext), callback::onError)
+				.whenComplete(rs -> rs.forEach(r -> listener.onNext(ChannelName.of(r.topic()), KafkaChannelFactory.convert(r))),
+						callback::onError)
 				.thenReturn(this::triggering);
 	}
 
