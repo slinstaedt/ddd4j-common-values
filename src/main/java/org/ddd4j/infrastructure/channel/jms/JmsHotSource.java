@@ -4,7 +4,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.jms.BytesMessage;
-import javax.jms.ConnectionFactory;
 import javax.jms.JMSConsumer;
 import javax.jms.JMSContext;
 import javax.jms.JMSException;
@@ -18,26 +17,9 @@ import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.spi.Context;
 import org.ddd4j.value.versioned.Committed;
 
 public class JmsHotSource implements HotSource, MessageListener {
-
-	public static class Factory implements HotSource.Factory {
-
-		private final ConnectionFactory factory;
-
-		public Factory(Context context) {
-			this.factory = context.get(JmsServiceConfigurer.CONNECTION_FACTORY);
-		}
-
-		@Override
-		public HotSource createHotSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
-			JMSContext jmsContext = factory.createContext(JMSContext.DUPS_OK_ACKNOWLEDGE);
-			jmsContext.setExceptionListener(callback::onError);
-			return new JmsHotSource(jmsContext, callback, listener);
-		}
-	}
 
 	static Committed<ReadBuffer, ReadBuffer> converted(BytesMessage message) throws JMSException {
 		// TODO

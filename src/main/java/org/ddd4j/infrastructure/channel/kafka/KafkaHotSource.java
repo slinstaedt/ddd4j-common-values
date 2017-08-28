@@ -5,14 +5,12 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
@@ -27,28 +25,11 @@ import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.spi.Context;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
 public class KafkaHotSource implements HotSource, ScheduledTask {
-
-	public static class Factory implements HotSource.Factory {
-
-		private final Context context;
-
-		public Factory(Context context) {
-			this.context = Require.nonNull(context);
-		}
-
-		@Override
-		public HotSource createHotSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
-			Scheduler scheduler = context.get(Scheduler.KEY);
-			Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
-			return new KafkaHotSource(scheduler, consumer, callback, listener);
-		}
-	}
 
 	private static class KafkaRebalanceCallback implements ConsumerRebalanceListener {
 
@@ -95,16 +76,6 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		// TODO deserialize header?
 		Props header = new Props(value);
 		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
-	}
-
-	static Properties propsFor(Seq<String> servers, int timeout) {
-		Properties props = new Properties();
-		props.setProperty("bootstrap.servers", String.join(",", servers));
-		props.setProperty("group.id", null);
-		props.setProperty("enable.auto.commit", "false");
-		props.setProperty("heartbeat.interval.ms", String.valueOf(timeout / 4));
-		props.setProperty("session.timeout.ms", String.valueOf(timeout));
-		return props;
 	}
 
 	private final SourceListener<ReadBuffer, ReadBuffer> listener;
