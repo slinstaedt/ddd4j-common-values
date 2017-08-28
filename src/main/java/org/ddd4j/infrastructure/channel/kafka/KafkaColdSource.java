@@ -1,10 +1,12 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
@@ -37,7 +39,7 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 
 	@Override
 	public void closeChecked() throws Exception {
-		client.execute(Consumer::close).join();
+		client.executeBlocked((t, u) -> c -> c.close(t, u)).join();
 	}
 
 	@Override
@@ -61,6 +63,10 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	@Override
 	public void resume(Seq<ChannelRevision> revisions) {
 		// TODO Auto-generated method stub
-
+		List<TopicPartition> partitions = revisions.map()
+				.to(r -> new TopicPartition(r.getName().value(), r.getPartition()))
+				.fold()
+				.toList();
+		client.execute(c -> c.assign(partitions));
 	}
 }

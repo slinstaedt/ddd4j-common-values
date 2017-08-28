@@ -31,13 +31,9 @@ public class CommitterTest {
 		provisioning.withConfigurer(b -> b.bind(Committer.FACTORY)
 				.toInstance(d -> a -> Promise.completed(a.committed(new Revision(0, 0), ZonedDateTime.now()))));
 		Context context = provisioning.createContext(Props.EMTPY);
-		Committer<Identifier, String> committer = context.get(Committer.FACTORY).create(new ChannelSpec<Identifier, String>() {
-
-			@Override
-			public ChannelName getChannelName() {
-				return ChannelName.of("test");
-			}
-		}, context.get(SchemaCodec.FACTORY), context.get(WriteBuffer.FACTORY));
+		Committer<Identifier, String> committer = context.get(Committer.FACTORY).create(
+				ChannelSpec.of(ChannelName.of("test"), null, null, null, null), context.get(SchemaCodec.FACTORY),
+				context.get(WriteBuffer.POOL));
 		committer.commit(new Uncommitted<>(new Identifier(), "xxxx", Revisions.NONE));
 	}
 }
