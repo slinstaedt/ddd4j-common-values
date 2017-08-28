@@ -1,20 +1,29 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Properties;
 
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.ddd4j.Require;
+import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.channel.ColdSource;
+import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
+import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.spi.ServiceBinder;
 import org.ddd4j.spi.ServiceConfigurer;
 import org.ddd4j.value.collection.Seq;
+import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Revision;
 
 public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factory {
 
@@ -28,6 +37,16 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	}
 
 	public static final Key<KafkaChannelFactory> KEY = Key.of(KafkaChannelFactory.class, KafkaChannelFactory::new);
+
+	static Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
+		ReadBuffer key = Bytes.wrap(record.key()).buffered();
+		ReadBuffer value = Bytes.wrap(record.value()).buffered();
+		Revision actual = new Revision(record.partition(), record.offset());
+		Revision next = actual.increment(1);
+		ZonedDateTime timestamp = Instant.ofEpochMilli(record.timestamp()).atZone(ZoneOffset.UTC);
+		Props header = Props.deserialize(value);
+		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
+	}
 
 	static Properties propsFor(Seq<String> servers, int timeout) {
 		Properties props = new Properties();

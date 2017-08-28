@@ -1,8 +1,5 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,9 +10,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
-import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
@@ -23,11 +18,8 @@ import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
-import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.collection.Seq;
-import org.ddd4j.value.versioned.Committed;
-import org.ddd4j.value.versioned.Revision;
 
 public class KafkaHotSource implements HotSource, ScheduledTask {
 
@@ -67,17 +59,6 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = ConsumerRecords.empty();
 
-	static Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
-		ReadBuffer key = Bytes.wrap(record.key()).buffered();
-		ReadBuffer value = Bytes.wrap(record.value()).buffered();
-		Revision actual = new Revision(record.partition(), record.offset());
-		Revision next = actual.increment(1);
-		ZonedDateTime timestamp = Instant.ofEpochMilli(record.timestamp()).atZone(ZoneOffset.UTC);
-		// TODO deserialize header?
-		Props header = new Props(value);
-		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
-	}
-
 	private final SourceListener<ReadBuffer, ReadBuffer> listener;
 	private final KafkaRebalanceCallback callback;
 	private final Agent<Consumer<byte[], byte[]>> client;
@@ -106,7 +87,7 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	}
 
 	private void onNext(ConsumerRecord<byte[], byte[]> record) {
-		listener.onNext(ChannelName.of(record.topic()), convert(record));
+		listener.onNext(ChannelName.of(record.topic()), KafkaChannelFactory.convert(record));
 	}
 
 	@Override
