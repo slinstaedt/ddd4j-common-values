@@ -31,14 +31,16 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 
 		private final Consumer<byte[], byte[]> consumer;
 		private final Callback callback;
+		private final SourceListener<?, ?> listener;
 
-		KafkaRebalanceCallback(Consumer<byte[], byte[]> consumer, Callback callback) {
+		KafkaRebalanceCallback(Consumer<byte[], byte[]> consumer, Callback callback, SourceListener<?, ?> listener) {
 			this.consumer = Require.nonNull(consumer);
 			this.callback = Require.nonNull(callback);
+			this.listener = Require.nonNull(listener);
 		}
 
 		void onError(Throwable throwable) {
-			callback.onError(throwable);
+			listener.onError(throwable);
 		}
 
 		@Override
@@ -68,7 +70,7 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Callback callback,
 			SourceListener<ReadBuffer, ReadBuffer> listener) {
 		this.listener = Require.nonNull(listener);
-		this.callback = new KafkaRebalanceCallback(consumer, callback);
+		this.callback = new KafkaRebalanceCallback(consumer, callback, listener);
 		this.client = scheduler.createAgent(consumer);
 		this.rescheduler = scheduler.reschedulerFor(this);
 		this.subscriptions = new ConcurrentHashMap<>();

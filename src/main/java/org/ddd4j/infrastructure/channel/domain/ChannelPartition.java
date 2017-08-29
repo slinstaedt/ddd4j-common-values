@@ -1,5 +1,7 @@
 package org.ddd4j.infrastructure.channel.domain;
 
+import java.util.function.BiFunction;
+
 import org.ddd4j.Require;
 import org.ddd4j.value.Value;
 
@@ -17,12 +19,20 @@ public class ChannelPartition implements Value<ChannelPartition> {
 		this(ChannelName.of(resource), partition);
 	}
 
+	public <V> V as(BiFunction<? super String, ? super Integer, V> mapper) {
+		return mapper.apply(name.value(), partition);
+	}
+
 	public int getPartition() {
 		return partition;
 	}
 
 	public ChannelName getName() {
 		return name;
+	}
+
+	public ChannelRevision withOffset(long offset) {
+		return new ChannelRevision(this, offset);
 	}
 
 	@Override

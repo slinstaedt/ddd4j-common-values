@@ -10,12 +10,15 @@ import org.ddd4j.value.versioned.Revision;
 
 public interface SourceListener<K, V> {
 
-	void onNext(ChannelName resource, Committed<K, V> committed);
+	default void onError(Throwable throwable) {
+		// ignore
+	}
+
+	void onNext(ChannelName name, Committed<K, V> committed);
 
 	default <X, Y> SourceListener<X, Y> mapPromised(Function<? super X, K> key, BiFunction<? super Y, Revision, Promise<V>> value) {
 		// TODO handle exception?
-		return (r, cx) -> value.apply(cx.getValue(), cx.getActual())
-				.thenApply(v -> cx.mapKey(key, v))
-				.whenCompleteSuccessfully(cv -> onNext(r, cv));
+		return (n, cx) -> value.apply(cx.getValue(), cx.getActual()).thenApply(v -> cx.mapKey(key, v)).whenComplete(cv -> onNext(n, cv),
+				this::onError);
 	}
 }

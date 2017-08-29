@@ -9,6 +9,7 @@ import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.math.Ordered.Comparison;
 
 //TODO move to log package
+//TODO immutable?
 public class Revisions implements Seq<Revision> {
 
 	public static final Revisions NONE = new Revisions(0);

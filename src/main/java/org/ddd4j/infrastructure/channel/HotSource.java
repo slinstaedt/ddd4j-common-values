@@ -16,8 +16,6 @@ public interface HotSource extends Throwing.Closeable {
 
 	interface Callback {
 
-		void onError(Throwable throwable);
-
 		void onPartitionsAssigned(Sequence<ChannelPartition> partitions);
 
 		void onPartitionsRevoked(Sequence<ChannelPartition> partitions);

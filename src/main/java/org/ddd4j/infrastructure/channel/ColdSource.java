@@ -7,6 +7,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.infrastructure.channel.util.ChannelRevisions;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
@@ -15,15 +16,12 @@ import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
-import org.h2.api.Trigger;
 
 public interface ColdSource extends Throwing.Closeable {
 
 	interface Callback {
 
 		void onComplete();
-
-		void onError(Throwable throwable);
 	}
 
 	interface Factory extends DataAccessFactory {
@@ -83,13 +81,13 @@ public interface ColdSource extends Throwing.Closeable {
 		@Override
 		public Promise<Trigger> onScheduled(Scheduler scheduler) {
 			return reader.get(channelRevisions)
-					.whenComplete(rc -> rc.forEachOrEmpty(listener::onNext, callback::onComplete), callback::onError)
+					.whenComplete(rc -> rc.forEachOrEmpty(listener::onNext, callback::onComplete), listener::onError)
 					.thenApply(rc -> channelRevisions.isNotEmpty() && rc.isNotEmpty() ? Trigger.RESCHEDULE : Trigger.NOTHING);
 		}
 
 		@Override
-		public void pause(Sequence<ChannelRevision> revisions) {
-			channelRevisions.remove(revisions);
+		public void pause(Sequence<ChannelPartition> partitions) {
+			channelRevisions.remove(partitions);
 		}
 
 		@Override
@@ -101,7 +99,7 @@ public interface ColdSource extends Throwing.Closeable {
 
 	Key<Factory> FACTORY = Key.of(Factory.class, VersionedReaderBased.Factory::new);
 
-	void pause(Sequence<ChannelRevision> revisions);
+	void pause(Sequence<ChannelPartition> partitions);
 
 	void resume(Sequence<ChannelRevision> revisions);
 }

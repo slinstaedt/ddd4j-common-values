@@ -1,5 +1,7 @@
 package org.ddd4j.infrastructure.channel.domain;
 
+import java.util.function.BiFunction;
+
 import org.ddd4j.Require;
 import org.ddd4j.value.Value;
 import org.ddd4j.value.versioned.Revision;
@@ -14,20 +16,40 @@ public class ChannelRevision extends Value.Comlex<ChannelRevision> {
 		this.revision = Require.nonNull(revision);
 	}
 
-	public ChannelRevision(String resource, int partition, long offset) {
-		this(ChannelName.of(resource), new Revision(partition, offset));
+	public ChannelRevision(ChannelPartition partition, long offset) {
+		this(partition.getName(), partition.getPartition(), offset);
+	}
+
+	public ChannelRevision(ChannelName name, int partition, long offset) {
+		this(name, new Revision(partition, offset));
+	}
+
+	public ChannelRevision(String channelName, int partition, long offset) {
+		this(ChannelName.of(channelName), new Revision(partition, offset));
+	}
+
+	public <V> V as(BiFunction<? super String, ? super Integer, V> mapper) {
+		return mapper.apply(name.value(), revision.getPartition());
 	}
 
 	public long getOffset() {
 		return revision.getOffset();
 	}
 
-	public int getPartition() {
+	public ChannelName getName() {
+		return name;
+	}
+
+	public String getNameAsString() {
+		return name.value();
+	}
+
+	public int getPartitionAsInteger() {
 		return revision.getPartition();
 	}
 
-	public ChannelName getName() {
-		return name;
+	public ChannelPartition getPartition() {
+		return new ChannelPartition(name, revision.getPartition());
 	}
 
 	public Revision getRevision() {
