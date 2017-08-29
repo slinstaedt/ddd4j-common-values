@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
@@ -12,6 +13,7 @@ import java.util.function.Supplier;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Promise.Cancelable;
+import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.ColdSource.Callback;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
@@ -20,7 +22,6 @@ import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;
 import org.ddd4j.value.versioned.Committed;
@@ -70,7 +71,7 @@ public interface ColdReader {
 			private final Supplier<Promise.Cancelable<?>> timerProvider;
 			private Cancelable<?> timer;
 
-			Listener(Scheduler scheduler, ColdSource.Factory delegate, Seq<ChannelRevision> revisions, int timeoutInMillis) {
+			Listener(Scheduler scheduler, ColdSource.Factory delegate, Sequence<ChannelRevision> revisions, int timeoutInMillis) {
 				this.deferred = scheduler.createDeferredPromise();
 				this.source = delegate.createColdSource(this, this);
 				this.records = new HashMap<>();
@@ -121,7 +122,7 @@ public interface ColdReader {
 		}
 
 		@Override
-		public Promise<CommittedRecords> get(Seq<ChannelRevision> revisions) {
+		public Promise<CommittedRecords> get(Sequence<ChannelRevision> revisions) {
 			return new Listener(scheduler, delegate, revisions, timeoutInMillis).getResult();
 		}
 	}
@@ -131,27 +132,29 @@ public interface ColdReader {
 		public static final CommittedRecords EMPTY = new CommittedRecords(Collections.emptyMap());
 
 		public static CommittedRecords copied(Map<ChannelName, List<Committed<ReadBuffer, ReadBuffer>>> values) {
-			Map<ChannelName, Seq<Committed<ReadBuffer, ReadBuffer>>> copy = new HashMap<>();
-			values.forEach((r, c) -> copy.put(r, Seq.ofCopied(c)));
+			Map<ChannelName, Sequence<Committed<ReadBuffer, ReadBuffer>>> copy = new HashMap<>();
+			values.forEach((r, c) -> copy.put(r, Sequence.ofCopied(c)));
 			return new CommittedRecords(copy);
 		}
 
-		private final Map<ChannelName, Seq<Committed<ReadBuffer, ReadBuffer>>> values;
+		private final Map<ChannelName, Sequence<Committed<ReadBuffer, ReadBuffer>>> values;
 
-		public CommittedRecords(Map<ChannelName, Seq<Committed<ReadBuffer, ReadBuffer>>> values) {
+		public CommittedRecords(Map<ChannelName, Sequence<Committed<ReadBuffer, ReadBuffer>>> values) {
 			this.values = new HashMap<>(values);
 		}
 
 		public Committed<ReadBuffer, ReadBuffer> commit(ChannelName name, Revision actual) {
-			return commits(name).filter().by(c -> c.getActual().equal(actual)).head().getNonNull();
+			return commits(name).filter(c -> c.getActual().equal(actual)).head().orElseThrow(NoSuchElementException::new);
 		}
 
 		public Committed<ReadBuffer, ReadBuffer> commit(ChannelRevision spec) {
-			return commits(spec.getName()).filter().by(c -> c.getActual().equal(spec.getRevision())).head().getNonNull();
+			return commits(spec.getName()).filter(c -> c.getActual().equal(spec.getRevision()))
+					.head()
+					.orElseThrow(NoSuchElementException::new);
 		}
 
-		public Seq<Committed<ReadBuffer, ReadBuffer>> commits(ChannelName name) {
-			return values.getOrDefault(name, Seq.empty());
+		public Sequence<Committed<ReadBuffer, ReadBuffer>> commits(ChannelName name) {
+			return values.getOrDefault(name, Sequence.empty());
 		}
 
 		public boolean isNotEmpty() {
@@ -173,10 +176,10 @@ public interface ColdReader {
 
 	Key<Factory> FACTORY = Key.of(Factory.class, ColdSourceBased.Factory::new);
 
-	Promise<CommittedRecords> get(Seq<ChannelRevision> revisions);
+	Promise<CommittedRecords> get(Sequence<ChannelRevision> revisions);
 
 	default Promise<CommittedRecords> get(ChannelRevision... revisions) {
-		return get(Seq.of(revisions));
+		return get(Sequence.of(revisions));
 	}
 
 	default Promise<Committed<ReadBuffer, ReadBuffer>> getCommitted(ChannelRevision revision) {

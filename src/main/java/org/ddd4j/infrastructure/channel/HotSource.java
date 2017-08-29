@@ -2,14 +2,14 @@ package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.util.SourceListener;
+import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.infrastructure.channel.util.Listeners;
+import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.channel.util.Subscriptions;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;
 
 public interface HotSource extends Throwing.Closeable {
@@ -18,9 +18,9 @@ public interface HotSource extends Throwing.Closeable {
 
 		void onError(Throwable throwable);
 
-		void onPartitionsAssigned(Seq<ChannelPartition> partitions);
+		void onPartitionsAssigned(Sequence<ChannelPartition> partitions);
 
-		void onPartitionsRevoked(Seq<ChannelPartition> partitions);
+		void onPartitionsRevoked(Sequence<ChannelPartition> partitions);
 
 		default void onSubscribed(int partitionCount) {
 		}

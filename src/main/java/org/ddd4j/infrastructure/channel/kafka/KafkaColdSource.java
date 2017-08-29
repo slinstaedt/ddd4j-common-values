@@ -8,6 +8,7 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
@@ -16,7 +17,6 @@ import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.collection.Seq;
 
 public class KafkaColdSource implements ColdSource, ScheduledTask {
 
@@ -55,18 +55,15 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	}
 
 	@Override
-	public void pause(Seq<ChannelRevision> revisions) {
+	public void pause(Sequence<ChannelRevision> revisions) {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public void resume(Seq<ChannelRevision> revisions) {
+	public void resume(Sequence<ChannelRevision> revisions) {
 		// TODO Auto-generated method stub
-		List<TopicPartition> partitions = revisions.map()
-				.to(r -> new TopicPartition(r.getName().value(), r.getPartition()))
-				.fold()
-				.toList();
+		List<TopicPartition> partitions = revisions.map(r -> new TopicPartition(r.getName().value(), r.getPartition())).toList();
 		client.execute(c -> c.assign(partitions));
 	}
 }

@@ -1,9 +1,9 @@
 package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.indexed.Indexed;
 import org.ddd4j.value.indexed.Indexer;
 import org.ddd4j.value.indexed.Query;
@@ -18,5 +18,5 @@ public interface IndexReader<K, V> extends Indexed, Reader<K, V> {
 
 	Key<Factory> FACTORY = Key.of(Factory.class);
 
-	Promise<Seq<Committed<K, V>>> perform(Query<V> query);
+	Promise<Sequence<Committed<K, V>>> perform(Query<V> query);
 }

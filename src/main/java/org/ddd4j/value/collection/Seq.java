@@ -885,6 +885,7 @@ public interface Seq<E> extends Iter.Able<E> {
 						r -> leftFill.applyNullable(e -> mapper.apply(e, r))));
 	}
 
+	// TODO size()?
 	default int length() {
 		long size = checkFinite().sizeIfKnown();
 		return size > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) size;

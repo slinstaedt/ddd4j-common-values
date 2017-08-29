@@ -10,6 +10,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
+import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.HotSource;
@@ -21,7 +22,6 @@ import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.spi.ServiceBinder;
 import org.ddd4j.spi.ServiceConfigurer;
-import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
@@ -48,7 +48,7 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
 	}
 
-	static Properties propsFor(Seq<String> servers, int timeout) {
+	static Properties propsFor(Sequence<String> servers, int timeout) {
 		Properties props = new Properties();
 		props.setProperty("bootstrap.servers", String.join(",", servers));
 		props.setProperty("group.id", null);

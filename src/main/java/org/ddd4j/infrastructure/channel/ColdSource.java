@@ -5,6 +5,7 @@ import java.util.Map;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.infrastructure.channel.util.ChannelRevisions;
@@ -14,7 +15,7 @@ import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.collection.Seq;
+import org.h2.api.Trigger;
 
 public interface ColdSource extends Throwing.Closeable {
 
@@ -87,12 +88,12 @@ public interface ColdSource extends Throwing.Closeable {
 		}
 
 		@Override
-		public void pause(Seq<ChannelRevision> revisions) {
+		public void pause(Sequence<ChannelRevision> revisions) {
 			channelRevisions.remove(revisions);
 		}
 
 		@Override
-		public void resume(Seq<ChannelRevision> revisions) {
+		public void resume(Sequence<ChannelRevision> revisions) {
 			channelRevisions.add(revisions);
 			rescheduler.doIfNecessary();
 		}
@@ -100,7 +101,7 @@ public interface ColdSource extends Throwing.Closeable {
 
 	Key<Factory> FACTORY = Key.of(Factory.class, VersionedReaderBased.Factory::new);
 
-	void pause(Seq<ChannelRevision> revisions);
+	void pause(Sequence<ChannelRevision> revisions);
 
-	void resume(Seq<ChannelRevision> revisions);
+	void resume(Sequence<ChannelRevision> revisions);
 }

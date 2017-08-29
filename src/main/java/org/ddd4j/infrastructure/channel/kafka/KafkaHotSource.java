@@ -11,6 +11,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
@@ -19,14 +20,13 @@ import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.collection.Seq;
 
 public class KafkaHotSource implements HotSource, ScheduledTask {
 
 	private static class KafkaRebalanceCallback implements ConsumerRebalanceListener {
 
-		private static Seq<ChannelPartition> toChannelPartitions(Collection<TopicPartition> partitions) {
-			return Seq.ofCopied(partitions).map().to(tp -> new ChannelPartition(tp.topic(), tp.partition()));
+		private static Sequence<ChannelPartition> toChannelPartitions(Collection<TopicPartition> partitions) {
+			return Sequence.ofCopied(partitions).map(tp -> new ChannelPartition(tp.topic(), tp.partition()));
 		}
 
 		private final Consumer<byte[], byte[]> consumer;
