@@ -24,10 +24,6 @@ public interface HotSource extends Throwing.Closeable {
 	interface Factory extends DataAccessFactory {
 
 		HotSource createHotSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener);
-
-		default Publisher createHotPublisher(Callback callback) {
-			return new Publisher(this, callback);
-		}
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class);

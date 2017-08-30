@@ -20,7 +20,7 @@ import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
 
-public class Publisher {
+public class HotPublisher {
 
 	public static class Factory implements DataAccessFactory {
 
@@ -30,8 +30,8 @@ public class Publisher {
 			this.factory = context.get(HotSource.FACTORY);
 		}
 
-		public Publisher createHotPublisher(Callback callback) {
-			return new Publisher(factory, callback);
+		public HotPublisher createHotPublisher(Callback callback) {
+			return new HotPublisher(factory, callback);
 		}
 
 		@Override
@@ -54,11 +54,11 @@ public class Publisher {
 			this.listeners = new ConcurrentHashMap<>();
 		}
 
-		public Publisher.Listeners add(SourceListener<ReadBuffer, ReadBuffer> listener) {
+		public HotPublisher.Listeners add(SourceListener<ReadBuffer, ReadBuffer> listener) {
 			return add(listener, listener);
 		}
 
-		public Publisher.Listeners add(Object handle, SourceListener<ReadBuffer, ReadBuffer> listener) {
+		public HotPublisher.Listeners add(Object handle, SourceListener<ReadBuffer, ReadBuffer> listener) {
 			listeners.put(Require.nonNull(handle), Require.nonNull(listener));
 			return this;
 		}
@@ -71,7 +71,7 @@ public class Publisher {
 			return partitionSize;
 		}
 
-		public Publisher.Listeners remove(Object handle) {
+		public HotPublisher.Listeners remove(Object handle) {
 			listeners.remove(handle);
 			if (listeners.isEmpty()) {
 				closer.run();
@@ -84,13 +84,13 @@ public class Publisher {
 
 	private static class Subscriptions {
 
-		private static final Publisher.Listeners NONE = new Listeners(ChannelName.of("<NONE>"), Promise.failed(new AssertionError()),
+		private static final HotPublisher.Listeners NONE = new Listeners(ChannelName.of("<NONE>"), Promise.failed(new AssertionError()),
 				Void.class::getClass);
 
-		private final Function<ChannelName, Publisher.Listeners> onSubscribe;
-		private final ConcurrentMap<ChannelName, Publisher.Listeners> listeners;
+		private final Function<ChannelName, HotPublisher.Listeners> onSubscribe;
+		private final ConcurrentMap<ChannelName, HotPublisher.Listeners> listeners;
 
-		public Subscriptions(Function<ChannelName, Publisher.Listeners> onSubscribe) {
+		public Subscriptions(Function<ChannelName, HotPublisher.Listeners> onSubscribe) {
 			this.onSubscribe = Require.nonNull(onSubscribe);
 			this.listeners = new ConcurrentHashMap<>();
 		}
@@ -121,7 +121,7 @@ public class Publisher {
 	private final HotSource source;
 	private final Subscriptions subscriptions;
 
-	public Publisher(HotSource.Factory factory, HotSource.Callback callback) {
+	public HotPublisher(HotSource.Factory factory, HotSource.Callback callback) {
 		this.source = factory.createHotSource(callback, this::onNext);
 		this.subscriptions = new Subscriptions(this::onSubscribe);
 	}
