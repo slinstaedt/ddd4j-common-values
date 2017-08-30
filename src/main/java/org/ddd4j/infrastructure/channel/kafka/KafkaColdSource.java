@@ -36,6 +36,13 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 		this.rescheduler = scheduler.reschedulerFor(this);
 	}
 
+	private Promise<Sequence<ChannelRecord>> checkCompleteness(Promise<Sequence<ChannelRecord>> promise) {
+		promise.thenCompose(rs -> client.performBlocked(
+				(t, u) -> c -> c.endOffsets(revisions.toList(TopicPartition::new)).equals(revisions.toMap(TopicPartition::new))))
+				.on(Boolean.TRUE, p -> p.thenRun(callback::onComplete).thenRun(this::close));
+		return promise;
+	}
+
 	@Override
 	public void closeChecked() {
 		revisions.clear();
@@ -46,16 +53,14 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	@Override
 	public Promise<Trigger> onScheduled(Scheduler scheduler) {
 		return client.performBlocked((t, u) -> c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(u.toMillis(t)))
-				.thenApply(rs -> rs.partitions().stream().flatMap(tp -> rs.records(tp).stream()).map(
-						r -> new ChannelRecord(r.topic(), KafkaChannelFactory.convert(r))))
+				.thenApply(rs -> Sequence.of(rs.partitions()::stream)
+						.flatMap(tp -> rs.records(tp).stream())
+						.map(r -> new ChannelRecord(r.topic(), KafkaChannelFactory.convert(r))))
+				.on(Sequence::isEmpty, this::checkCompleteness)
 				.whenCompleteSuccessfully(rs -> rs.map(ChannelRecord::getRevision).forEach(revisions::update))
-				.whenCompleteSuccessfully(rs -> rs.forEach(r -> listener.onNext(r.getName(), r.getCommitted())))
+				.whenCompleteSuccessfully(rs -> rs.forEach(r -> r.accept(listener::onNext)))
 				.whenCompleteExceptionally(listener::onError)
 				.thenReturn(this::triggering);
-	}
-
-	private boolean checkCompleteness(Consumer<?, ?> consumer) {
-		return consumer.endOffsets(revisions.keySet()).equals(revisions);
 	}
 
 	private Trigger triggering() {
@@ -65,15 +70,15 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	@Override
 	public void pause(Sequence<ChannelPartition> partitions) {
 		revisions.remove(partitions);
-		client.execute(c -> c.assign(revisions.as(TopicPartition::new).toList()));
+		client.execute(c -> c.assign(revisions.toList(TopicPartition::new)));
 	}
 
 	@Override
 	public void resume(Sequence<ChannelRevision> revisions) {
 		this.revisions.add(revisions);
 		client.execute(c -> {
-			c.assign(this.revisions.as(TopicPartition::new).toList());
-			this.revisions.forEach(r -> c.seek(r.as(TopicPartition::new), r.getOffset()));
+			c.assign(this.revisions.toList(TopicPartition::new));
+			this.revisions.forEach(r -> c.seek(r.to(TopicPartition::new), r.getOffset()));
 		});
 		rescheduler.doIfNecessary();
 	}

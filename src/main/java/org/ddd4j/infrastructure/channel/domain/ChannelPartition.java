@@ -19,7 +19,7 @@ public class ChannelPartition implements Value<ChannelPartition> {
 		this(ChannelName.of(resource), partition);
 	}
 
-	public <V> V as(BiFunction<? super String, ? super Integer, V> mapper) {
+	public <E> E to(BiFunction<? super String, ? super Integer, E> mapper) {
 		return mapper.apply(name.value(), partition);
 	}
 

@@ -1,5 +1,7 @@
 package org.ddd4j.infrastructure.channel.domain;
 
+import java.util.function.BiConsumer;
+
 import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
@@ -16,6 +18,10 @@ public class ChannelRecord {
 	public ChannelRecord(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
 		this.name = Require.nonNull(name);
 		this.committed = Require.nonNull(committed);
+	}
+
+	public void accept(BiConsumer<? super ChannelName, ? super Committed<ReadBuffer, ReadBuffer>> consumer) {
+		consumer.accept(name, committed);
 	}
 
 	public ChannelRevision getRevision() {
