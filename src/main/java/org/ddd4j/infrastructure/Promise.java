@@ -1,5 +1,6 @@
 package org.ddd4j.infrastructure;
 
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -13,6 +14,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import org.ddd4j.Require;
@@ -333,6 +336,37 @@ public interface Promise<T> {
 
 	default T join() {
 		return toCompletionStage().toCompletableFuture().join();
+	}
+
+	default Promise<T> on(T value, UnaryOperator<Promise<T>> then) {
+		return on(t -> Objects.equals(t, value), then, Function.identity());
+	}
+
+	default <X> Promise<X> on(T value, Function<Promise<T>, Promise<X>> then, Function<Promise<T>, Promise<X>> orElse) {
+		return on(t -> Objects.equals(t, value), then, orElse);
+	}
+
+	default Promise<T> on(TPredicate<? super T> condition, UnaryOperator<Promise<T>> then) {
+		return on(condition, then, Function.identity());
+	}
+
+	default <X> Promise<X> on(TPredicate<? super T> condition, Function<Promise<T>, Promise<X>> then,
+			Function<Promise<T>, Promise<X>> orElse) {
+		return thenCompose(t -> condition.test(t) ? then.apply(this) : orElse.apply(this));
+	}
+
+	default Promise<T> onVisit(T value, Consumer<Promise<T>> then) {
+		return on(t -> Objects.equals(t, value), p -> {
+			then.accept(p);
+			return p;
+		}, Function.identity());
+	}
+
+	default Promise<T> onVisit(TPredicate<? super T> condition, Consumer<Promise<T>> then) {
+		return on(condition, p -> {
+			then.accept(p);
+			return p;
+		}, Function.identity());
 	}
 
 	default Promise<T> ordered() {
