@@ -17,10 +17,10 @@ public interface Writer<K, V> extends Committer<K, V> {
 
 	interface Factory extends DataAccessFactory {
 
-		Writer<ReadBuffer, ReadBuffer> create(ChannelName resource);
+		Writer<ReadBuffer, ReadBuffer> createWriter(ChannelName name);
 
-		default Writer<ReadBuffer, ReadBuffer> createClosingBuffers(ChannelName resource) {
-			return create(resource).onCompleted(ReadBuffer::close, ReadBuffer::close);
+		default Writer<ReadBuffer, ReadBuffer> createWriterClosingBuffers(ChannelName name) {
+			return createWriter(name).onCompleted(ReadBuffer::close, ReadBuffer::close);
 		}
 	}
 
@@ -40,7 +40,7 @@ public interface Writer<K, V> extends Committer<K, V> {
 		return put(Recorded.uncommitted(key, value, Revisions.NONE));
 	}
 
-	Promise<Committed<K, V>> put(Recorded<K, V> attempt);
+	Promise<Committed<K, V>> put(Recorded<K, V> recorded);
 
 	@Override
 	default Writer<K, V> onCompleted(Consumer<? super K> key, Consumer<? super V> value) {

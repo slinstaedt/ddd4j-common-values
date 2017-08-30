@@ -23,16 +23,17 @@ public interface Committer<K, V> {
 
 	interface Factory extends DataAccessFactory {
 
-		default <K, V> Committer<K, V> create(ChannelSpec<K, V> spec, SchemaCodec.Factory codecFactory, WriteBuffer.Pool bufferPool) {
+		Committer<ReadBuffer, ReadBuffer> createCommitter(ChannelName name);
+
+		default <K, V> Committer<K, V> createCommitter(ChannelSpec<K, V> spec, SchemaCodec.Factory codecFactory,
+				WriteBuffer.Pool bufferPool) {
 			Encoder<V> encoder = codecFactory.encoder(spec);
 			TFunction<CommitResult<?, ?>, Revision> committedRevision = r -> r.foldResult(Committed::getActual,
 					c -> Throwing.unchecked(new IllegalStateException(c.toString())));
-			return create(spec.getName()).onCompleted(ReadBuffer::close, ReadBuffer::close).flatMapValue(
+			return createCommitter(spec.getName()).onCompleted(ReadBuffer::close, ReadBuffer::close).flatMapValue(
 					k -> bufferPool.get().accept(b -> spec.serializeKey(k, b)).flip(),
 					(v, p) -> encoder.encode(bufferPool.get(), p.thenApply(committedRevision), v).thenApply(WriteBuffer::flip));
 		}
-
-		Committer<ReadBuffer, ReadBuffer> create(ChannelName resource);
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class);

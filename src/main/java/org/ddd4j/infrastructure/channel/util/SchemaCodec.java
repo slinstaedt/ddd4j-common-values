@@ -179,7 +179,7 @@ public enum SchemaCodec {
 			WriteBuffer.Pool bufferPool = context.get(WriteBuffer.POOL);
 			Reader<Fingerprint, Schema<?>> reader = context.get(Reader.FACTORY).create(REPO_NAME).map(Fingerprint::asBuffer,
 					b -> Schema.deserializeFromFactory(context, b));
-			Writer<Fingerprint, Schema<?>> writer = context.get(Writer.FACTORY).createClosingBuffers(REPO_NAME).map(Fingerprint::asBuffer,
+			Writer<Fingerprint, Schema<?>> writer = context.get(Writer.FACTORY).createWriterClosingBuffers(REPO_NAME).map(Fingerprint::asBuffer,
 					s -> bufferPool.serialized(s::serializeWithFactoryName));
 			Cache.Aside<Fingerprint, Promise<Schema<?>>> cache = Cache.<Fingerprint, Promise<Schema<?>>>sharedOnEqualKey(
 					a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(context.conf(Cache.MAX_CAPACITY)));
