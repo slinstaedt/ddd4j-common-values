@@ -11,13 +11,16 @@ import org.ddd4j.Throwing.TConsumer;
 
 public class Lazy<T> implements Closeable, Supplier<T> {
 
+	public static <T extends AutoCloseable> Lazy<T> ofCloseable(Producer<? extends T> creator) {
+		return new Lazy<>(creator, AutoCloseable::close);
+	}
+
 	private final Producer<? extends T> creator;
 	private final TConsumer<? super T> destroyer;
 	private final AtomicReference<T> reference;
 
 	public Lazy(Producer<? extends T> creator) {
-		this(creator, t -> {
-		});
+		this(creator, Object::getClass);
 	}
 
 	public Lazy(Producer<? extends T> creator, TConsumer<? super T> destroyer) {
@@ -32,7 +35,7 @@ public class Lazy<T> implements Closeable, Supplier<T> {
 
 	@Override
 	public void closeChecked() {
-		destroy(destroyer);
+		destroy();
 	}
 
 	public void destroy() {

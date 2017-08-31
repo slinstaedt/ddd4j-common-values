@@ -9,11 +9,11 @@ import org.ddd4j.io.ReadBuffer;
 public interface Recorded<K, V> {
 
 	static <K, V> Uncommitted<K, V> uncommitted(K key, V value, Revisions expected) {
-		return new Uncommitted<>(key, value, expected);
+		return new Uncommitted<>(key, value, expected, Props.EMTPY);
 	}
 
 	static Uncommitted<ReadBuffer, ReadBuffer> uncommitted(ReadBuffer key, ReadBuffer value, Revisions expected) {
-		return new Uncommitted<>(key, value, expected);
+		return new Uncommitted<>(key, value, expected, Props.EMTPY);
 	}
 
 	<X> X foldRecorded(Function<Uncommitted<K, V>, X> uncommitted, Function<Committed<K, V>, X> committed);

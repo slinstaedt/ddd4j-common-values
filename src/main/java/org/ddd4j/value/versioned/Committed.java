@@ -20,12 +20,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 		}
 
 		@Override
-		public CommitResult<K, V> onCommitted(Consumer<Committed<K, V>> committed) {
-			return this;
-		}
-
-		@Override
-		public CommitResult<K, V> onCommitted(Runnable committed) {
+		public CommitResult<K, V> onCommitted(Consumer<? super Committed<K, V>> committed) {
 			return this;
 		}
 	}
@@ -112,6 +107,12 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 
 	public <X, Y> Committed<X, Y> mapValue(X key, Function<? super V, ? extends Y> valueMapper) {
 		return new Committed<>(key, valueMapper.apply(value), actual, nextExpected, timestamp, header);
+	}
+
+	@Override
+	public CommitResult<K, V> onCommitted(Consumer<? super Committed<K, V>> committed) {
+		committed.accept(this);
+		return this;
 	}
 
 	@Override

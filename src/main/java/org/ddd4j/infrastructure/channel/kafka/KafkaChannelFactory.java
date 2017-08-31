@@ -6,6 +6,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -15,12 +16,10 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serializer;
 import org.ddd4j.Require;
+import org.ddd4j.collection.Lazy;
 import org.ddd4j.collection.Props;
 import org.ddd4j.collection.Sequence;
-import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.Committer;
 import org.ddd4j.infrastructure.channel.DataAccessFactory;
@@ -35,7 +34,6 @@ import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.spi.ServiceBinder;
 import org.ddd4j.spi.ServiceConfigurer;
-import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
@@ -53,8 +51,8 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 
 	public static final Key<KafkaChannelFactory> KEY = Key.of(KafkaChannelFactory.class, KafkaChannelFactory::new);
 
-	private static final Deserializer<byte[]> DESERIALIZER = new ByteArrayDeserializer();
-	private static final Serializer<byte[]> SERIALIZER = new ByteArraySerializer();
+	private static final ByteArrayDeserializer DESERIALIZER = new ByteArrayDeserializer();
+	private static final ByteArraySerializer SERIALIZER = new ByteArraySerializer();
 
 	static ProducerRecord<byte[], byte[]> convert(ChannelName name, Recorded<ReadBuffer, ReadBuffer> recorded) {
 		int partition = recorded.partition(ReadBuffer::hash);
@@ -87,20 +85,29 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	}
 
 	private final Context context;
+	private final Lazy<Producer<byte[], byte[]>> producer;
+	private final Lazy<Consumer<byte[], byte[]>> hotConsumer;
 
 	public KafkaChannelFactory(Context context) {
 		this.context = Require.nonNull(context);
+		this.producer = Lazy.ofCloseable(() -> new KafkaProducer<>(propsFor(null, 200), SERIALIZER, SERIALIZER));
+		this.hotConsumer = Lazy.ofCloseable(() -> new KafkaConsumer<>(propsFor(null, 200), DESERIALIZER, DESERIALIZER));
 	}
 
 	@Override
 	public Map<ChannelName, Integer> knownChannelNames() {
-		// TODO Auto-generated method stub
-		return ColdSource.Factory.super.knownChannelNames();
+		// TODO
+		return hotConsumer.get()
+				.listTopics()
+				.entrySet()
+				.stream()
+				.collect(Collectors.toMap(e -> ChannelName.of(e.getKey()), e -> e.getValue().size()));
 	}
 
 	@Override
 	public void closeChecked() throws Exception {
-		// TODO Auto-generated method stub
+		producer.closeChecked();
+		hotConsumer.closeChecked();
 	}
 
 	@Override
@@ -120,26 +127,11 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 
 	@Override
 	public Committer<ReadBuffer, ReadBuffer> createCommitter(ChannelName name) {
-		Scheduler scheduler = context.get(Scheduler.KEY);
-		Producer<byte[], byte[]> client = new KafkaProducer<>(propsFor(null, 200), SERIALIZER, SERIALIZER);
-		return attempt -> {
-			Promise.Deferred<CommitResult<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
-			client.send(convert(name, attempt), (metadata, exception) -> {
-				if (metadata != null) {
-					Revision nextExpected = new Revision(metadata.partition(), metadata.offset() + 1);
-					ZonedDateTime timestamp = Instant.ofEpochMilli(metadata.timestamp()).atZone(ZoneOffset.UTC);
-					deferred.completeSuccessfully(attempt.committed(nextExpected, timestamp));
-				} else {
-					deferred.completeExceptionally(exception);
-				}
-			});
-			return deferred;
-		};
+		return new KafkaCommitter(context.get(Scheduler.KEY), producer.get(), name);
 	}
 
 	@Override
 	public Writer<ReadBuffer, ReadBuffer> createWriter(ChannelName name) {
-		// TODO Auto-generated method stub
-		return null;
+		return new KafkaWriter(context.get(Scheduler.KEY), producer.get(), name);
 	}
 }

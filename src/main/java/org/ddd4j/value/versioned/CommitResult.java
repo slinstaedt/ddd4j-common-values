@@ -11,20 +11,7 @@ public interface CommitResult<K, V> {
 
 	K getKey();
 
-	default CommitResult<K, V> onCommitted(Consumer<Committed<K, V>> committed) {
-		return foldResult(c -> {
-			committed.accept(c);
-			return this;
-		}, c -> {
-			return this;
-		});
-	}
-
-	default CommitResult<K, V> onCommitted(Runnable committed) {
-		return onCommitted(c -> {
-			committed.run();
-		});
-	}
+	CommitResult<K, V> onCommitted(Consumer<? super Committed<K, V>> committed);
 
 	<X, Y> CommitResult<X, Y> withValuesFrom(Recorded<X, Y> recorded);
 }

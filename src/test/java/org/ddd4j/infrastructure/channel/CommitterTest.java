@@ -34,6 +34,6 @@ public class CommitterTest {
 		Committer<Identifier, String> committer = context.get(Committer.FACTORY).createCommitter(
 				ChannelSpec.of(ChannelName.of("test"), null, null, null, null), context.get(SchemaCodec.FACTORY),
 				context.get(WriteBuffer.POOL));
-		committer.commit(new Uncommitted<>(new Identifier(), "xxxx", Revisions.NONE));
+		committer.commit(new Uncommitted<>(new Identifier(), "xxxx", Revisions.NONE, Props.EMTPY));
 	}
 }
