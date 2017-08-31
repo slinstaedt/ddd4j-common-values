@@ -1,6 +1,6 @@
 package org.ddd4j.infrastructure.channel;
 
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.Map;
 
@@ -14,7 +14,7 @@ import org.ddd4j.value.versioned.Revision;
 public interface DataAccessFactory extends Throwing.Closeable {
 
 	static Committed<ReadBuffer, ReadBuffer> committed(ReadBuffer key, ReadBuffer value, Revision actual, Revision next,
-			ZonedDateTime timestamp, Props header) {
+			OffsetDateTime timestamp, Props header) {
 		return new Committed<>(key.mark(), value.mark(), actual, next, timestamp, header);
 	}
 

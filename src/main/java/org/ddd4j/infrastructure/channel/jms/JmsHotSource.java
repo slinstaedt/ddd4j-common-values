@@ -1,6 +1,6 @@
 package org.ddd4j.infrastructure.channel.jms;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
@@ -14,6 +14,7 @@ import javax.jms.JMSException;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
@@ -30,10 +31,10 @@ public class JmsHotSource implements HotSource {
 		ReadBuffer value = Bytes.wrap(message.getBody(byte[].class)).buffered();
 		Revision actual = new Revision(JmsChannelFactory.PARTITION, message.getLongProperty("actual"));
 		Revision next = new Revision(JmsChannelFactory.PARTITION, message.getLongProperty("next"));
-		ZoneOffset offset = ZoneOffset.ofTotalSeconds(message.getIntProperty("zoneOfsset"));
-		OffsetDateTime timestamp = OffsetDateTime.of(LocalDateTime.ofEpochSecond(message.getJMSTimestamp(), 0, offset), offset);
+		OffsetDateTime timestamp = Instant.ofEpochSecond(message.getJMSTimestamp())
+				.atOffset(ZoneOffset.ofTotalSeconds(message.getIntProperty("zoneOfsset")));
 		Props header = Props.deserialize(value);
-		return new Committed<>(key.mark(), value.mark(), actual, next, timestamp, header);
+		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
 	}
 
 	private final Agent<JMSContext> client;
