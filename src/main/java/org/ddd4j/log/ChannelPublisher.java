@@ -1,5 +1,6 @@
 package org.ddd4j.log;
 
+import java.nio.channels.Channel;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
@@ -10,7 +11,6 @@ import org.ddd4j.Require;
 import org.ddd4j.collection.Lazy;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
-import org.ddd4j.infrastructure.channel.old.Channel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Publisher;
 import org.ddd4j.value.math.Ordered.Comparison;

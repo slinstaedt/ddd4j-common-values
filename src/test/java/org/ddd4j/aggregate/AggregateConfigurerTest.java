@@ -22,18 +22,7 @@ public class AggregateConfigurerTest {
 	@Test
 	public void initialization() {
 		AtomicReference<Log> ref = new AtomicReference<>();
-		provisioning.withConfigurer(b -> b.bind(Log.KEY).toInstance(new Log() {
-
-			@Override
-			public <K, V> Committer<K, V> committer(LogChannel<K, V> channel) {
-				return null;
-			}
-
-			@Override
-			public <K, V> Publisher<K, V> publisher(LogChannel<K, V> channel) {
-				return null;
-			}
-		}));
+		provisioning.withConfigurer(b -> b.bind(Log.KEY).toInstance(null));
 		provisioning.withConfigurer(new AggregateServiceConfigurer());
 		provisioning.withAggregate(ref::set);
 

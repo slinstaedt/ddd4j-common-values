@@ -24,19 +24,19 @@ public class HotPublisher {
 
 	public static class Factory implements DataAccessFactory {
 
-		private final HotSource.Factory factory;
+		private final Context context;
 
 		public Factory(Context context) {
-			this.factory = context.get(HotSource.FACTORY);
+			this.context = Require.nonNull(context);
 		}
 
 		public HotPublisher createHotPublisher(Callback callback) {
-			return new HotPublisher(factory, callback);
+			return new HotPublisher(context.get(SchemaCodec.FACTORY), context.get(HotSource.FACTORY), callback);
 		}
 
 		@Override
 		public Map<ChannelName, Integer> knownChannelNames() {
-			return factory.knownChannelNames();
+			return context.get(HotSource.FACTORY).knownChannelNames();
 		}
 	}
 
@@ -118,11 +118,13 @@ public class HotPublisher {
 
 	public static final Key<Factory> FACTORY = Key.of(Factory.class, Factory::new);
 
+	private final SchemaCodec.Factory codecFactory;
 	private final HotSource source;
 	private final Subscriptions subscriptions;
 
-	public HotPublisher(HotSource.Factory factory, HotSource.Callback callback) {
-		this.source = factory.createHotSource(callback, this::onNext);
+	public HotPublisher(SchemaCodec.Factory codecFactory, HotSource.Factory sourceFactory, HotSource.Callback callback) {
+		this.codecFactory = Require.nonNull(codecFactory);
+		this.source = sourceFactory.createHotSource(callback, this::onNext);
 		this.subscriptions = new Subscriptions(this::onSubscribe);
 	}
 
@@ -138,7 +140,7 @@ public class HotPublisher {
 		return subscriptions.subscribe(name, listener);
 	}
 
-	public <K, V> Promise<Integer> subscribe(ChannelSpec<K, V> spec, SourceListener<K, V> listener, SchemaCodec.Factory codecFactory) {
+	public <K, V> Promise<Integer> subscribe(ChannelSpec<K, V> spec, SourceListener<K, V> listener) {
 		Decoder<V> decoder = codecFactory.decoder(spec);
 		return subscribe(spec.getName(), listener.mapPromised(spec::deserializeKey, decoder::decode));
 	}

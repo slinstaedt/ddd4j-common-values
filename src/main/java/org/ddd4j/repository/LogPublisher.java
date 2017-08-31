@@ -8,15 +8,17 @@ import java.util.function.Function;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.Throwing.TConsumer;
+import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.ColdSource;
+import org.ddd4j.infrastructure.channel.HotPublisher;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
+import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Requesting;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
@@ -77,7 +79,7 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 		Promise<Void> saveRevisions(Revision[] revisions);
 	}
 
-	private class SubscriptionListener implements Subscription, HotSource.SourceListener<K, V> {
+	private class SubscriptionListener implements Subscription, SourceListener<K, V> {
 
 		private final Subscriber<? super Committed<K, V>> subscriber;
 		private final RevisionCallback callback;
@@ -103,18 +105,12 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 	private class CallBack implements HotSource.Callback {
 
 		@Override
-		public void onError(Throwable throwable) {
-			// TODO Auto-generated method stub
-
-		}
-
-		@Override
-		public void onPartitionsAssigned(Seq<ChannelPartition> partitions) {
+		public void onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
 			callback.loadRevisions(partitions).whenCompleteSuccessfully(r -> cold.subscribe(subscriber, descriptor, r));
 		}
 
 		@Override
-		public void onPartitionsRevoked(Seq<ChannelPartition> partitions) {
+		public void onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
 			// TODO Auto-generated method stub
 
 		}
@@ -122,14 +118,14 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 
 	interface Factory {
 
-		Key<Factory> KEY = Key.of(Factory.class);
-
-		LogPublisher<ReadBuffer, ReadBuffer> create(ChannelName descriptor);
+		LogPublisher<ReadBuffer, ReadBuffer> create(ChannelName name);
 	}
 
-	private ChannelName descriptor;
+	public static final Key<Factory> KEY = Key.of(Factory.class);
+
+	private ChannelName name;
 	private ColdSource.Factory cold;
-	private HotSource hot;
+	private HotPublisher publisher;
 	private Map<Subscriber<? super Committed<K, V>>, SubscriptionListener> subscriptions;
 
 	public LogPublisher(HotSource.Factory hot) {
@@ -143,7 +139,7 @@ public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committ
 	public void subscribe(Subscriber<? super Committed<K, V>> subscriber, RevisionCallback callback) {
 		subscriptions.computeIfAbsent(subscriber, s -> {
 			SubscriptionListener subscription = new SubscriptionListener(s, callback);
-			hot.subscribe(subscriber, subscription);
+			publisher.subscribe(subscriber, subscription);
 			s.onSubscribe(subscription);
 			return subscription;
 		});
