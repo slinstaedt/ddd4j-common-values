@@ -98,6 +98,31 @@ public class Buffer implements ReadBuffer, WriteBuffer {
 	}
 
 	@Override
+	public int hashCode() {
+		return hash();
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		} else if (o instanceof Buffer) {
+			Buffer that = (Buffer) o;
+			if (this.remaining() != that.remaining()) {
+				return false;
+			}
+			for (int i = 0; i < remaining(); i++) {
+				if (this.backing().get(this.position() + i) != that.backing().get(that.position() + i)) {
+					return false;
+				}
+			}
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	@Override
 	public int limit() {
 		return limit;
 	}
