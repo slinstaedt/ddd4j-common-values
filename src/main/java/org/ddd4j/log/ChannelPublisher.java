@@ -7,12 +7,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import org.ddd4j.Require;
+import org.ddd4j.collection.Lazy;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.old.Channel;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Log.Publisher;
-import org.ddd4j.value.Lazy;
 import org.ddd4j.value.math.Ordered.Comparison;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
@@ -48,10 +48,7 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 		}
 
 		Promise<Void> loadRevisions(int[] partitions) {
-			return callback.loadRevisions(Arrays.stream(partitions))
-					.sync()
-					.whenCompleteSuccessfully(expected::update)
-					.thenReturnValue(null);
+			return callback.loadRevisions(Arrays.stream(partitions)).whenCompleteSuccessfully(expected::update).thenReturnValue(null);
 		}
 
 		void onError(Throwable throwable) {
@@ -84,7 +81,6 @@ public class ChannelPublisher implements Publisher<ReadBuffer, ReadBuffer> {
 
 		Promise<Void> saveRevisions(int[] partitions) {
 			return callback.saveRevisions(expected.revisionsOfPartitions(Arrays.stream(partitions)))
-					.sync()
 					.thenRun(() -> expected.reset(Arrays.stream(partitions)));
 		}
 	}

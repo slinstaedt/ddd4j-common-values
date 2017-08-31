@@ -11,9 +11,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import org.ddd4j.Require;
+import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Promise.Cancelable;
-import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.ColdSource.Callback;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;

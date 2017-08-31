@@ -8,7 +8,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.ddd4j.infrastructure.Sequence;
+import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 

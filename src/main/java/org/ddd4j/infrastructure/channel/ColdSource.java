@@ -4,8 +4,8 @@ import java.util.Map;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
+import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;

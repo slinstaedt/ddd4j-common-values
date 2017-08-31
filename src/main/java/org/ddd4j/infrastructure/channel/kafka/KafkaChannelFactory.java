@@ -10,16 +10,22 @@ import java.util.Properties;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.Serializer;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
+import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.Sequence;
 import org.ddd4j.infrastructure.channel.ColdSource;
 import org.ddd4j.infrastructure.channel.Committer;
 import org.ddd4j.infrastructure.channel.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.HotSource;
+import org.ddd4j.infrastructure.channel.Writer;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -34,7 +40,7 @@ import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
 
-public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factory, Committer.Factory {
+public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factory, Committer.Factory, Writer.Factory {
 
 	public static class Configurer implements ServiceConfigurer {
 
@@ -46,6 +52,9 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	}
 
 	public static final Key<KafkaChannelFactory> KEY = Key.of(KafkaChannelFactory.class, KafkaChannelFactory::new);
+
+	private static final Deserializer<byte[]> DESERIALIZER = new ByteArrayDeserializer();
+	private static final Serializer<byte[]> SERIALIZER = new ByteArraySerializer();
 
 	static ProducerRecord<byte[], byte[]> convert(ChannelName name, Recorded<ReadBuffer, ReadBuffer> recorded) {
 		int partition = recorded.partition(ReadBuffer::hash);
@@ -90,6 +99,11 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	}
 
 	@Override
+	public void closeChecked() throws Exception {
+		// TODO Auto-generated method stub
+	}
+
+	@Override
 	public ColdSource createColdSource(ColdSource.Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
 		Scheduler scheduler = context.get(Scheduler.KEY);
 		Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
@@ -107,7 +121,7 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	@Override
 	public Committer<ReadBuffer, ReadBuffer> createCommitter(ChannelName name) {
 		Scheduler scheduler = context.get(Scheduler.KEY);
-		Producer<byte[], byte[]> client;
+		Producer<byte[], byte[]> client = new KafkaProducer<>(propsFor(null, 200), SERIALIZER, SERIALIZER);
 		return attempt -> {
 			Promise.Deferred<CommitResult<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
 			client.send(convert(name, attempt), (metadata, exception) -> {
@@ -121,5 +135,11 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 			});
 			return deferred;
 		};
+	}
+
+	@Override
+	public Writer<ReadBuffer, ReadBuffer> createWriter(ChannelName name) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }
