@@ -1,5 +1,8 @@
 package org.ddd4j.infrastructure.channel.jms;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -7,32 +10,39 @@ import javax.jms.BytesMessage;
 import javax.jms.JMSConsumer;
 import javax.jms.JMSContext;
 import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.MessageListener;
-import javax.jms.Topic;
 
 import org.ddd4j.Require;
+import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.HotSource;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
+import org.ddd4j.infrastructure.scheduler.Agent;
+import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Revision;
 
-public class JmsHotSource implements HotSource, MessageListener {
+public class JmsHotSource implements HotSource {
 
 	static Committed<ReadBuffer, ReadBuffer> converted(BytesMessage message) throws JMSException {
-		// TODO
-		return null;
+		ReadBuffer key = Bytes.wrap(message.getJMSCorrelationIDAsBytes()).buffered();
+		ReadBuffer value = Bytes.wrap(message.getBody(byte[].class)).buffered();
+		Revision actual = new Revision(JmsChannelFactory.PARTITION, message.getLongProperty("actual"));
+		Revision next = new Revision(JmsChannelFactory.PARTITION, message.getLongProperty("next"));
+		ZoneOffset offset = ZoneOffset.ofTotalSeconds(message.getIntProperty("zoneOfsset"));
+		OffsetDateTime timestamp = OffsetDateTime.of(LocalDateTime.ofEpochSecond(message.getJMSTimestamp(), 0, offset), offset);
+		Props header = Props.deserialize(value);
+		return new Committed<>(key.mark(), value.mark(), actual, next, timestamp, header);
 	}
 
-	private final JMSContext jmsContext;
+	private final Agent<JMSContext> client;
 	private final SourceListener<ReadBuffer, ReadBuffer> listener;
 	private final Callback callback;
-	private final Map<String, JMSConsumer> subscriptions;
+	private final Map<ChannelName, Promise<JMSConsumer>> subscriptions;
 
-	JmsHotSource(JMSContext jmsContext, Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
-		this.jmsContext = Require.nonNull(jmsContext);
+	JmsHotSource(Agent<JMSContext> client, Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
+		this.client = Require.nonNull(client);
 		this.callback = Require.nonNull(callback);
 		this.listener = Require.nonNull(listener);
 		this.subscriptions = new ConcurrentHashMap<>();
@@ -40,38 +50,34 @@ public class JmsHotSource implements HotSource, MessageListener {
 
 	@Override
 	public void closeChecked() {
-		jmsContext.close();
-	}
-
-	@Override
-	public void onMessage(Message message) {
-		try {
-			ChannelName resource = ChannelName.of(message.getJMSType());
-			Committed<ReadBuffer, ReadBuffer> committed = converted((BytesMessage) message);
-			listener.onNext(resource, committed);
-		} catch (Exception e) {
-			callback.onError(e);
-		}
+		// TODO remove from interface?
 	}
 
 	@Override
 	public Promise<Integer> subscribe(ChannelName name) {
-		subscriptions.computeIfAbsent(name.value(), this::subscribe);
-		return Promise.completed(1);
+		return subscriptions.computeIfAbsent(name, this::onSubscribed)
+				.thenRun(() -> callback.onSubscribed(JmsChannelFactory.PARTITION_COUNT))
+				.thenReturnValue(JmsChannelFactory.PARTITION_COUNT);
 	}
 
-	private JMSConsumer subscribe(String resource) {
-		Topic topic = jmsContext.createTopic(resource);
-		JMSConsumer consumer = jmsContext.createSharedConsumer(topic, null);
-		consumer.setMessageListener(this);
-		return consumer;
+	private Promise<JMSConsumer> onSubscribed(ChannelName name) {
+		String subscriptionName = null; // TODO
+		return client.perform(ctx -> ctx.createSharedConsumer(ctx.createTopic(name.value()), subscriptionName))
+				.whenCompleteSuccessfully(c -> c.setMessageListener(msg -> {
+					try {
+						Committed<ReadBuffer, ReadBuffer> committed = converted((BytesMessage) msg);
+						listener.onNext(name, committed);
+					} catch (Exception e) {
+						listener.onError(e);
+					}
+				}));
 	}
 
 	@Override
 	public void unsubscribe(ChannelName name) {
-		JMSConsumer consumer = subscriptions.remove(name.value());
+		Promise<JMSConsumer> consumer = subscriptions.remove(name);
 		if (consumer != null) {
-			consumer.close();
+			consumer.whenCompleteSuccessfully(JMSConsumer::close);
 		}
 	}
 }

@@ -191,6 +191,18 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		return sliceBy(0, i);
 	}
 
+	public <E extends Throwable> void forEach(ByteConsumer<E> consumer) throws E {
+		forEach(consumer, 0, length());
+	}
+
+	public <E extends Throwable> void forEach(ByteConsumer<E> consumer, int start, int length) throws E {
+		Require.that(start >= 0);
+		Require.that(length <= length());
+		for (int i = start; i < start + length; i++) {
+			consumer.accept(get(i));
+		}
+	}
+
 	@Override
 	public abstract byte get(int index);
 

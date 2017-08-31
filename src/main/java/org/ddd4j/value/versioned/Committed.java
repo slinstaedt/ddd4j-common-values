@@ -1,5 +1,6 @@
 package org.ddd4j.value.versioned;
 
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -15,7 +16,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 
 	public static class Published<K, V> extends Committed<K, V> {
 
-		Published(K key, V value, Revision actual, Revision next, ZonedDateTime timestamp, Props header) {
+		Published(K key, V value, Revision actual, Revision next, OffsetDateTime timestamp, Props header) {
 			super(key, value, actual, next, timestamp, header);
 		}
 
@@ -29,10 +30,10 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	private final V value;
 	private final Revision actual;
 	private final Revision nextExpected;
-	private final ZonedDateTime timestamp;
+	private final OffsetDateTime timestamp;
 	private final Props header;
 
-	public Committed(K key, V value, Revision actual, Revision next, ZonedDateTime timestamp, Props header) {
+	public Committed(K key, V value, Revision actual, Revision next, OffsetDateTime timestamp, Props header) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.actual = Require.nonNull(actual);
@@ -87,7 +88,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 		return key;
 	}
 
-	public ZonedDateTime getTimestamp() {
+	public OffsetDateTime getTimestamp() {
 		return timestamp;
 	}
 

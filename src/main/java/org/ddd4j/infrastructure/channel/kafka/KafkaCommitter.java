@@ -1,8 +1,8 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 
 import org.apache.kafka.clients.producer.Producer;
 import org.ddd4j.Require;
@@ -33,7 +33,7 @@ public class KafkaCommitter implements Committer<ReadBuffer, ReadBuffer> {
 		client.send(KafkaChannelFactory.convert(name, attempt), (metadata, exception) -> {
 			if (metadata != null) {
 				Revision nextExpected = new Revision(metadata.partition(), metadata.offset() + 1);
-				ZonedDateTime timestamp = Instant.ofEpochMilli(metadata.timestamp()).atZone(ZoneOffset.UTC);
+				OffsetDateTime timestamp = Instant.ofEpochMilli(metadata.timestamp()).atOffset(ZoneOffset.UTC);
 				deferred.completeSuccessfully(attempt.committed(nextExpected, timestamp));
 			} else {
 				deferred.completeExceptionally(exception);

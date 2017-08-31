@@ -8,6 +8,8 @@ import org.ddd4j.infrastructure.channel.HotSource.Callback;
 import org.ddd4j.infrastructure.channel.Writer;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.util.SourceListener;
+import org.ddd4j.infrastructure.scheduler.Agent;
+import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
@@ -27,23 +29,28 @@ public class JmsChannelFactory implements HotSource.Factory, Writer.Factory {
 
 	public static final Key<JmsChannelFactory> KEY = Key.of(JmsChannelFactory.class, JmsChannelFactory::new);
 	public static final Key<ConnectionFactory> CONNECTION_FACTORY = Key.reflective(ConnectionFactory.class);
+	static final int PARTITION = 0;
+	static final int PARTITION_COUNT = PARTITION + 1;
 
-	private final ConnectionFactory factory;
+	private final Agent<JMSContext> client;
 
 	public JmsChannelFactory(Context context) {
-		this.factory = context.get(CONNECTION_FACTORY);
+		JMSContext jmsContext = context.get(CONNECTION_FACTORY).createContext(JMSContext.DUPS_OK_ACKNOWLEDGE);
+		this.client = context.get(Scheduler.KEY).createAgent(jmsContext);
+	}
+
+	@Override
+	public void closeChecked() throws Exception {
+		client.executeBlocked((t, u) -> JMSContext::close).join();
 	}
 
 	@Override
 	public HotSource createHotSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
-		JMSContext jmsContext = factory.createContext(JMSContext.DUPS_OK_ACKNOWLEDGE);
-		jmsContext.setExceptionListener(listener::onError);
-		return new JmsHotSource(jmsContext, callback, listener);
+		return new JmsHotSource(client, callback, listener);
 	}
 
 	@Override
 	public Writer<ReadBuffer, ReadBuffer> createWriter(ChannelName name) {
-		// TODO Auto-generated method stub
-		return null;
+		return new JmsWriter(client, name);
 	}
 }

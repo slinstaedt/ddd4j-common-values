@@ -24,6 +24,10 @@ public interface ReadBuffer extends RelativeBuffer {
 
 	ReadBuffer duplicate();
 
+	default <E extends Throwable> void forEachRemaining(ByteConsumer<E> consumer) throws E {
+		backing().forEach(consumer, position(), remaining());
+	}
+
 	default byte get() {
 		return backing().get(advancePosition(Byte.BYTES));
 	}

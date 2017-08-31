@@ -1,6 +1,6 @@
 package org.ddd4j.value.versioned;
 
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
@@ -22,7 +22,7 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 		this.header = Require.nonNull(header);
 	}
 
-	public Committed<K, V> committed(Revision nextExpected, ZonedDateTime timestamp) {
+	public Committed<K, V> committed(Revision nextExpected, OffsetDateTime timestamp) {
 		Revision actual = expected.revisionOfPartition(nextExpected.getPartition());
 		return new Committed<>(key, value, actual, nextExpected, timestamp, header);
 	}
