@@ -1,11 +1,11 @@
-package org.ddd4j.infrastructure.channel;
+package org.ddd4j.infrastructure.channel.spi;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
-import org.ddd4j.infrastructure.channel.util.SourceListener;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
 

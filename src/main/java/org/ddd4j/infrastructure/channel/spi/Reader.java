@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel;
+package org.ddd4j.infrastructure.channel.spi;
 
 import java.util.Optional;
 import java.util.function.Function;

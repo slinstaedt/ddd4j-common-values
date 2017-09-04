@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel.util;
+package org.ddd4j.infrastructure.channel.api;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;

@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel;
+package org.ddd4j.infrastructure.channel.spi;
 
 import java.util.Collections;
 import java.util.Map;
@@ -9,12 +9,12 @@ import java.util.function.Function;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.HotSource.Callback;
+import org.ddd4j.infrastructure.channel.api.SchemaCodec;
+import org.ddd4j.infrastructure.channel.api.SourceListener;
+import org.ddd4j.infrastructure.channel.api.SchemaCodec.Decoder;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
-import org.ddd4j.infrastructure.channel.util.SchemaCodec;
-import org.ddd4j.infrastructure.channel.util.SchemaCodec.Decoder;
-import org.ddd4j.infrastructure.channel.util.SourceListener;
+import org.ddd4j.infrastructure.channel.spi.HotSource.Callback;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;

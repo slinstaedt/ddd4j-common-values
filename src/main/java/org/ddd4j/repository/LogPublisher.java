@@ -10,22 +10,23 @@ import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.ColdSource;
-import org.ddd4j.infrastructure.channel.HotPublisher;
-import org.ddd4j.infrastructure.channel.HotSource;
+import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
-import org.ddd4j.infrastructure.channel.util.SourceListener;
+import org.ddd4j.infrastructure.channel.spi.ColdSource;
+import org.ddd4j.infrastructure.channel.spi.HotPublisher;
+import org.ddd4j.infrastructure.channel.spi.HotSource;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.log.Requesting;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
+import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public class LogPublisher<K, V> implements org.reactivestreams.Publisher<Committed<K, V>> {
+public class LogPublisher<K, V> implements Publisher<Committed<K, V>> {
 
 	private static class Subscriptions {
 

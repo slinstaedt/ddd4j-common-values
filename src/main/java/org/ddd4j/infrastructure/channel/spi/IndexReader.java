@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel;
+package org.ddd4j.infrastructure.channel.spi;
 
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;

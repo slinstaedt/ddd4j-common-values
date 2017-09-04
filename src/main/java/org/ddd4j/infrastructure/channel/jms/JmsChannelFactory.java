@@ -3,11 +3,11 @@ package org.ddd4j.infrastructure.channel.jms;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSContext;
 
-import org.ddd4j.infrastructure.channel.HotSource;
-import org.ddd4j.infrastructure.channel.HotSource.Callback;
-import org.ddd4j.infrastructure.channel.Writer;
+import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
-import org.ddd4j.infrastructure.channel.util.SourceListener;
+import org.ddd4j.infrastructure.channel.spi.HotSource;
+import org.ddd4j.infrastructure.channel.spi.Writer;
+import org.ddd4j.infrastructure.channel.spi.HotSource.Callback;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;

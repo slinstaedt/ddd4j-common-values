@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel;
+package org.ddd4j.infrastructure.channel.spi;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -7,10 +7,10 @@ import java.util.function.Function;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.api.SchemaCodec;
+import org.ddd4j.infrastructure.channel.api.SchemaCodec.Encoder;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
-import org.ddd4j.infrastructure.channel.util.SchemaCodec;
-import org.ddd4j.infrastructure.channel.util.SchemaCodec.Encoder;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.spi.Key;

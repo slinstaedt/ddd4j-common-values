@@ -2,7 +2,7 @@ package org.ddd4j.repository;
 
 import java.util.function.BiFunction;
 
-import org.ddd4j.infrastructure.channel.Reader;
+import org.ddd4j.infrastructure.channel.spi.Reader;
 import org.ddd4j.repository.SnapshotReader.Projectable;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Committed;

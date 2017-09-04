@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel.util;
+package org.ddd4j.infrastructure.channel.api;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -9,12 +9,12 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Cache;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.ColdReader;
-import org.ddd4j.infrastructure.channel.Reader;
-import org.ddd4j.infrastructure.channel.Writer;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
+import org.ddd4j.infrastructure.channel.spi.ColdReader;
+import org.ddd4j.infrastructure.channel.spi.Reader;
+import org.ddd4j.infrastructure.channel.spi.Writer;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;

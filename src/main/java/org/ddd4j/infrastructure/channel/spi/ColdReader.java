@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel;
+package org.ddd4j.infrastructure.channel.spi;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,10 +14,10 @@ import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Promise.Cancelable;
-import org.ddd4j.infrastructure.channel.ColdSource.Callback;
+import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
-import org.ddd4j.infrastructure.channel.util.SourceListener;
+import org.ddd4j.infrastructure.channel.spi.ColdSource.Callback;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
