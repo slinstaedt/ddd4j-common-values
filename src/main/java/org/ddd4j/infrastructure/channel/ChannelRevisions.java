@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel.api;
+package org.ddd4j.infrastructure.channel;
 
 import java.util.List;
 import java.util.Map;

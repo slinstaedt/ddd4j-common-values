@@ -6,7 +6,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.api.ChannelRevisions;
+import org.ddd4j.infrastructure.channel.ChannelRevisions;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.infrastructure.channel.domain.ChannelRecord;

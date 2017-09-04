@@ -9,9 +9,9 @@ import java.util.function.Function;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.api.SchemaCodec;
+import org.ddd4j.infrastructure.channel.SchemaCodec;
+import org.ddd4j.infrastructure.channel.SchemaCodec.Decoder;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
-import org.ddd4j.infrastructure.channel.api.SchemaCodec.Decoder;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
 import org.ddd4j.infrastructure.channel.spi.HotSource.Callback;

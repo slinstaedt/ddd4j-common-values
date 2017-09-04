@@ -5,7 +5,6 @@ import java.time.ZonedDateTime;
 import org.ddd4j.aggregate.Identifier;
 import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.api.SchemaCodec;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
 import org.ddd4j.infrastructure.channel.spi.Committer;
