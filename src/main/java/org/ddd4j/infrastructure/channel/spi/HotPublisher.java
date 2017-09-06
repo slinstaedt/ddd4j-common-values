@@ -11,16 +11,19 @@ import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.SchemaCodec.Decoder;
+import org.ddd4j.infrastructure.channel.api.CompletionListener;
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
 import org.ddd4j.infrastructure.channel.spi.HotSource.Callback;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.repository.ChannelPublisher;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
 
-public class HotPublisher {
+public class HotPublisher implements ChannelPublisher {
 
 	public static class Factory implements DataAccessFactory {
 
@@ -54,11 +57,11 @@ public class HotPublisher {
 			this.listeners = new ConcurrentHashMap<>();
 		}
 
-		public HotPublisher.Listeners add(SourceListener<ReadBuffer, ReadBuffer> listener) {
+		public Listeners add(SourceListener<ReadBuffer, ReadBuffer> listener) {
 			return add(listener, listener);
 		}
 
-		public HotPublisher.Listeners add(Object handle, SourceListener<ReadBuffer, ReadBuffer> listener) {
+		public Listeners add(Object handle, SourceListener<ReadBuffer, ReadBuffer> listener) {
 			listeners.put(Require.nonNull(handle), Require.nonNull(listener));
 			return this;
 		}
@@ -71,7 +74,7 @@ public class HotPublisher {
 			return partitionSize;
 		}
 
-		public HotPublisher.Listeners remove(Object handle) {
+		public Listeners remove(Object handle) {
 			listeners.remove(handle);
 			if (listeners.isEmpty()) {
 				closer.run();
@@ -84,13 +87,13 @@ public class HotPublisher {
 
 	private static class Subscriptions {
 
-		private static final HotPublisher.Listeners NONE = new Listeners(ChannelName.of("<NONE>"), Promise.failed(new AssertionError()),
+		private static final Listeners NONE = new Listeners(ChannelName.of("<NONE>"), Promise.failed(new AssertionError()),
 				Void.class::getClass);
 
-		private final Function<ChannelName, HotPublisher.Listeners> onSubscribe;
-		private final ConcurrentMap<ChannelName, HotPublisher.Listeners> listeners;
+		private final Function<ChannelName, Listeners> onSubscribe;
+		private final ConcurrentMap<ChannelName, Listeners> listeners;
 
-		public Subscriptions(Function<ChannelName, HotPublisher.Listeners> onSubscribe) {
+		public Subscriptions(Function<ChannelName, Listeners> onSubscribe) {
 			this.onSubscribe = Require.nonNull(onSubscribe);
 			this.listeners = new ConcurrentHashMap<>();
 		}
@@ -140,9 +143,15 @@ public class HotPublisher {
 		return subscriptions.subscribe(name, listener);
 	}
 
-	public <K, V> Promise<Integer> subscribe(ChannelSpec<K, V> spec, SourceListener<K, V> listener) {
+	@Override
+	public void subscribe(ChannelName name, SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion,
+			ErrorListener error) {
+		// TODO Auto-generated method stub
+	}
+
+	public <K, V> Promise<Integer> subscribe(ChannelSpec<K, V> spec, SourceListener<K, V> source, ErrorListener error) {
 		Decoder<V> decoder = codecFactory.decoder(spec);
-		return subscribe(spec.getName(), listener.mapPromised(spec::deserializeKey, decoder::decode));
+		return subscribe(spec.getName(), source.mapPromised(spec::deserializeKey, decoder::decode, error));
 	}
 
 	public boolean isSubcribed() {
@@ -153,7 +162,8 @@ public class HotPublisher {
 		return subscriptions.channels();
 	}
 
-	public void unsubscribe(ChannelName name, SourceListener<?, ?> listener) {
+	@Override
+	public void unsubscribe(ChannelName name, SourceListener<ReadBuffer, ReadBuffer> listener) {
 		subscriptions.unsubscribe(name, listener);
 	}
 }

@@ -7,6 +7,8 @@ import org.ddd4j.Throwing;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.ChannelRevisions;
+import org.ddd4j.infrastructure.channel.api.CompletionListener;
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
@@ -19,9 +21,7 @@ import org.ddd4j.spi.Key;
 
 public interface ColdSource extends Throwing.Closeable {
 
-	interface Callback {
-
-		void onComplete();
+	interface Callback extends ErrorListener, CompletionListener {
 	}
 
 	interface Factory extends DataAccessFactory {
@@ -81,7 +81,7 @@ public interface ColdSource extends Throwing.Closeable {
 		@Override
 		public Promise<Trigger> onScheduled(Scheduler scheduler) {
 			return reader.get(channelRevisions)
-					.whenComplete(rc -> rc.forEachOrEmpty(listener::onNext, callback::onComplete), listener::onError)
+					.whenComplete(rc -> rc.forEachOrEmpty(listener::onNext, callback::onComplete), callback::onError)
 					.thenApply(rc -> channelRevisions.isNotEmpty() && rc.isNotEmpty() ? Trigger.RESCHEDULE : Trigger.NOTHING);
 		}
 

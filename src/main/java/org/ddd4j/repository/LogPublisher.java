@@ -1,109 +1,32 @@
 package org.ddd4j.repository;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
 import org.ddd4j.Require;
-import org.ddd4j.Throwing.Closeable;
-import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.api.SourceListener;
+import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
+import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.infrastructure.channel.spi.ColdSource;
-import org.ddd4j.infrastructure.channel.spi.HotPublisher;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.log.Requesting;
-import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
-import org.ddd4j.value.versioned.Revision;
-import org.ddd4j.value.versioned.Revisions;
-import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
 
-public class LogPublisher<K, V> implements Publisher<Committed<K, V>> {
-
-	private static class Subscriptions {
-
-		private final SubscriptionListener listener;
-		private final Map<ChannelName, Promise<Revisions>> hotRevisions;
-
-		Subscriptions(SubscriptionListener listener) {
-			this.listener = Require.nonNull(listener);
-			this.hotRevisions = new ConcurrentHashMap<>();
-		}
-
-		void closeCallbacksAndDelegate(Closeable otherCallback, Throwable throwable) {
-			if (otherCallback != null) {
-				otherCallback.close();
-			}
-			hotRevisions.clear();
-			listener.onError(throwable);
-		}
-
-		void onNextIfSubscribed(ChannelName topic, Committed<ReadBuffer, ReadBuffer> committed, TConsumer<Revisions> action) {
-			Promise<Revisions> promise = hotRevisions.get(topic);
-			if (promise != null) {
-				promise.whenCompleteSuccessfully(action);
-				listener.onNext(topic, committed);
-			}
-		}
-
-		void onPartitionsAssigned(ChannelName topic, int[] partitions) {
-			listener.onPartitionsAssigned(topic, partitions);
-		}
-
-		void onPartitionsRevoked(ChannelName topic, int[] partitions) {
-			listener.onPartitionsRevoked(topic, partitions);
-		}
-
-		Promise<Integer> subscribeIfNeeded(ChannelName topic, Function<ChannelName, Promise<Revisions>> subscriber) {
-			return hotRevisions.computeIfAbsent(topic, subscriber).thenApply(Revisions::getPartitionSize);
-		}
-
-		void unsubscribeIfNeeded(ChannelName topic, Consumer<ChannelName> unsubscriber) {
-			if (hotRevisions.remove(topic) != null) {
-				unsubscriber.accept(topic);
-			}
-		}
-	}
+public class LogPublisher {
 
 	public interface RevisionCallback {
 
-		Promise<Revision[]> loadRevisions(int[] partitions);
+		Promise<Sequence<ChannelRevision>> loadRevisions(Sequence<ChannelPartition> partitions);
 
-		Promise<Void> saveRevisions(Revision[] revisions);
+		Promise<Void> saveRevisions(Sequence<ChannelRevision> revisions);
 	}
 
-	private class SubscriptionListener implements Subscription, SourceListener<K, V> {
-
-		private final Subscriber<? super Committed<K, V>> subscriber;
-		private final RevisionCallback callback;
-		private final Requesting requesting;
-
-		public SubscriptionListener(Subscriber<? super Committed<K, V>> subscriber, RevisionCallback callback) {
-			this.subscriber = Require.nonNull(subscriber);
-			this.callback = Require.nonNull(callback);
-			this.requesting = new Requesting();
-		}
+	private class HotCallback implements HotSource.Callback {
 
 		@Override
-		public void request(long n) {
-			requesting.more(n);
+		public void onError(Throwable throwable) {
+			// TODO Auto-generated method stub
 		}
-
-		@Override
-		public void cancel() {
-			cancelSubscription(subscriber);
-		}
-	}
-
-	private class CallBack implements HotSource.Callback {
 
 		@Override
 		public void onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
@@ -113,40 +36,28 @@ public class LogPublisher<K, V> implements Publisher<Committed<K, V>> {
 		@Override
 		public void onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
 			// TODO Auto-generated method stub
-
 		}
 	}
 
-	interface Factory {
+	private final ColdSource.Factory coldFactory;
+	private final HotSource hotSource;
+	private final ChannelPublisher publisher;
 
-		LogPublisher<ReadBuffer, ReadBuffer> create(ChannelName name);
+	public LogPublisher(SchemaCodec.Factory codecFactory, ColdSource.Factory coldFactory, HotSource.Factory hotFactory) {
+		this.coldFactory = Require.nonNull(coldFactory);
+		this.hotSource = hotFactory.createHotSource(new HotCallback(), this::onNext);
+		this.publisher = new ChannelPublisher(this::onSubscribed, this::onUnsubscribed);
 	}
 
-	public static final Key<Factory> KEY = Key.of(Factory.class);
-
-	private ChannelName name;
-	private ColdSource.Factory cold;
-	private HotPublisher publisher;
-	private Map<Subscriber<? super Committed<K, V>>, SubscriptionListener> subscriptions;
-
-	public LogPublisher(HotSource.Factory hot) {
+	private void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+		publisher.onNext(name, committed);
 	}
 
-	@Override
-	public void subscribe(Subscriber<? super Committed<K, V>> subscriber) {
-		subscribe(subscriber, null); // TODO
+	private Promise<Integer> onSubscribed(ChannelName name) {
+		return hotSource.subscribe(name);
 	}
 
-	public void subscribe(Subscriber<? super Committed<K, V>> subscriber, RevisionCallback callback) {
-		subscriptions.computeIfAbsent(subscriber, s -> {
-			SubscriptionListener subscription = new SubscriptionListener(s, callback);
-			publisher.subscribe(subscriber, subscription);
-			s.onSubscribe(subscription);
-			return subscription;
-		});
-	}
-
-	private boolean cancelSubscription(Subscriber<? super Committed<K, V>> subscriber) {
-		return subscriptions.remove(subscriber) != null;
+	private void onUnsubscribed(ChannelName name) {
+		hotSource.unsubscribe(name);
 	}
 }

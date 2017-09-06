@@ -1,11 +1,10 @@
 package org.ddd4j.infrastructure.scheduler;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ddd4j.Require;
+import org.ddd4j.collection.RingBuffer;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.value.Nothing;
 
@@ -62,19 +61,19 @@ public class Agent<T> {
 		}
 	}
 
-	public static <T> Agent<T> create(Scheduler scheduler, T target) {
-		return new Agent<>(scheduler, target);
+	public static <T> Agent<T> create(Scheduler scheduler, T target, int jobBufferSize) {
+		return new Agent<>(scheduler, target, jobBufferSize);
 	}
 
 	private final Scheduler scheduler;
 	private final T target;
-	private final Queue<Job<?>> jobs;
+	private final RingBuffer<Job<?>> jobs;
 	private final AtomicBoolean scheduled;
 
-	public Agent(Scheduler scheduler, T target) {
+	public Agent(Scheduler scheduler, T target, int jobBufferSize) {
 		this.scheduler = Require.nonNull(scheduler);
 		this.target = Require.nonNull(target);
-		this.jobs = new ConcurrentLinkedQueue<>();
+		this.jobs = new RingBuffer<>(jobBufferSize);
 		this.scheduled = new AtomicBoolean(false);
 	}
 
@@ -98,7 +97,7 @@ public class Agent<T> {
 		try {
 			int remaining = scheduler.getBurstProcessing();
 			Job<?> job = null;
-			while (remaining-- > 0 && (job = jobs.poll()) != null) {
+			while (remaining-- > 0 && (job = jobs.getOrNull()) != null) {
 				job.executeWithTimeout(duration, unit);
 			}
 		} finally {
@@ -112,7 +111,7 @@ public class Agent<T> {
 	}
 
 	private <R> Job<R> scheduleIfNeeded(Job<R> job) {
-		jobs.offer(job);
+		jobs.put(job);
 		if (scheduled.compareAndSet(false, true)) {
 			scheduler.execute(this::run);
 		}

@@ -69,7 +69,7 @@ public class JmsHotSource implements HotSource {
 						Committed<ReadBuffer, ReadBuffer> committed = converted((BytesMessage) msg);
 						listener.onNext(name, committed);
 					} catch (Exception e) {
-						listener.onError(e);
+						callback.onError(e);
 					}
 				}));
 	}

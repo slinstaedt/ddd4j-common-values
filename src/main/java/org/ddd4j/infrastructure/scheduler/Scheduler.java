@@ -5,6 +5,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing.Producer;
@@ -53,25 +54,26 @@ public class Scheduler implements AutoCloseable {
 		public abstract Executor create(int size);
 	}
 
-	public static final ConfKey<PoolType> POOL_TYPE = Configuration.keyOfEnum(PoolType.class, "pool.type",
-			PoolType.FORK_JOIN_POOL);
-	public static final ConfKey<Integer> POOL_SIZE = Configuration.keyOfInteger("pool.size",
-			Runtime.getRuntime().availableProcessors());
+	public static final ConfKey<PoolType> POOL_TYPE = Configuration.keyOfEnum(PoolType.class, "pool.type", PoolType.FORK_JOIN_POOL);
+	public static final ConfKey<Integer> POOL_SIZE = Configuration.keyOfInteger("pool.size", Runtime.getRuntime().availableProcessors());
 	public static final ConfKey<Integer> BURST_PROCESSING = Configuration.keyOfInteger("burst", Integer.MAX_VALUE);
+	public static final ConfKey<Integer> JOB_BUFFER_SIZE = Configuration.keyOfInteger("jobBufferSize", 100);
 	public static final ConfKey<Long> MAX_BLOCKING_IN_MILLIS = Configuration.keyOfLong("maxBlockingInMillis", 2000L);
 	public static final Key<Scheduler> KEY = Key.of(Scheduler.class, Scheduler::create);
 
 	public static Scheduler create(Context context) {
 		Executor executor = context.conf(POOL_TYPE).create(context.conf(POOL_SIZE));
 		BlockingExecutor blockingExecutor = BlockingExecutor.blockingExecutor(executor, context.conf(MAX_BLOCKING_IN_MILLIS));
-		return new Scheduler(blockingExecutor, context.conf(BURST_PROCESSING));
+		return new Scheduler(blockingExecutor, context.confProvider(JOB_BUFFER_SIZE), context.conf(BURST_PROCESSING));
 	}
 
 	private final BlockingExecutor executor;
 	private final int burstProcessing;
+	private final Supplier<Integer> jobBufferSize;
 
-	public Scheduler(BlockingExecutor executor, int burstProcessing) {
+	public Scheduler(BlockingExecutor executor, Supplier<Integer> jobBufferSize, int burstProcessing) {
 		this.executor = Require.nonNull(executor);
+		this.jobBufferSize = Require.nonNull(jobBufferSize);
 		this.burstProcessing = Require.that(burstProcessing, burstProcessing > 0);
 	}
 
@@ -81,7 +83,7 @@ public class Scheduler implements AutoCloseable {
 	}
 
 	public <T> Agent<T> createAgent(T target) {
-		return Agent.create(this, target);
+		return Agent.create(this, target, jobBufferSize.get());
 	}
 
 	public <T> Promise.Deferred<T> createDeferredPromise() {

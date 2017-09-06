@@ -59,7 +59,7 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 				.on(Sequence::isEmpty, this::checkCompleteness)
 				.whenCompleteSuccessfully(rs -> rs.map(ChannelRecord::getRevision).forEach(revisions::update))
 				.whenCompleteSuccessfully(rs -> rs.forEach(r -> r.accept(listener::onNext)))
-				.whenCompleteExceptionally(listener::onError)
+				.whenCompleteExceptionally(callback::onError)
 				.thenReturn(this::triggering);
 	}
 

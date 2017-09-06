@@ -14,7 +14,7 @@ import org.ddd4j.Require;
 
 public class RingBuffer<E> implements Iterable<E>, Iterator<E> {
 
-	protected interface Holder<E> {
+	public interface Holder<E> {
 
 		class Array<E> implements Holder<E> {
 
@@ -54,6 +54,10 @@ public class RingBuffer<E> implements Iterable<E>, Iterator<E> {
 			public boolean acceptsMore(E element) {
 				this.element = element;
 				return false;
+			}
+
+			public E getOrElse(E other) {
+				return element != null ? element : other;
 			}
 
 			public <X extends Throwable> E getOrThrow(Supplier<X> exception) throws X {
@@ -99,7 +103,7 @@ public class RingBuffer<E> implements Iterable<E>, Iterator<E> {
 		return get(new Holder.Array<>(target, offset, length)).size();
 	}
 
-	protected <H extends Holder<? super E>> H get(H holder) {
+	public <H extends Holder<? super E>> H get(H holder) {
 		getIndex.getAndUpdate(i -> {
 			holder.reinit();
 			while (i != EMPTY && i != putIndex.get() && holder.acceptsMore(elements[i])) {
@@ -119,6 +123,10 @@ public class RingBuffer<E> implements Iterable<E>, Iterator<E> {
 
 	public long getOffsetStart() {
 		return getOffsetEnd() - size();
+	}
+
+	public E getOrNull() {
+		return get(new Holder.Single<>()).getOrElse(null);
 	}
 
 	@Override

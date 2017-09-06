@@ -40,7 +40,7 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		}
 
 		void onError(Throwable throwable) {
-			listener.onError(throwable);
+			callback.onError(throwable);
 		}
 
 		@Override

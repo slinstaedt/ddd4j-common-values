@@ -19,9 +19,8 @@ public interface DataAccessFactory extends Throwing.Closeable {
 	}
 
 	static Committed<ReadBuffer, ReadBuffer> resetBuffers(Committed<ReadBuffer, ReadBuffer> committed) {
-		committed.getKey().reset();
-		committed.getValue().reset();
-		return committed;
+		return new Committed<>(committed.getKey().duplicate(), committed.getValue().duplicate(), committed.getActual(),
+				committed.getNextExpected(), committed.getTimestamp(), committed.getHeader());
 	}
 
 	@Override
