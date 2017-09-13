@@ -11,19 +11,17 @@ import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.SchemaCodec.Decoder;
-import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
 import org.ddd4j.infrastructure.channel.spi.HotSource.Callback;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.repository.ChannelPublisher;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
 
-public class HotPublisher implements ChannelPublisher {
+public class HotPublisher {
 
 	public static class Factory implements DataAccessFactory {
 
@@ -143,12 +141,6 @@ public class HotPublisher implements ChannelPublisher {
 		return subscriptions.subscribe(name, listener);
 	}
 
-	@Override
-	public void subscribe(ChannelName name, SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion,
-			ErrorListener error) {
-		// TODO Auto-generated method stub
-	}
-
 	public <K, V> Promise<Integer> subscribe(ChannelSpec<K, V> spec, SourceListener<K, V> source, ErrorListener error) {
 		Decoder<V> decoder = codecFactory.decoder(spec);
 		return subscribe(spec.getName(), source.mapPromised(spec::deserializeKey, decoder::decode, error));
@@ -162,7 +154,6 @@ public class HotPublisher implements ChannelPublisher {
 		return subscriptions.channels();
 	}
 
-	@Override
 	public void unsubscribe(ChannelName name, SourceListener<ReadBuffer, ReadBuffer> listener) {
 		subscriptions.unsubscribe(name, listener);
 	}

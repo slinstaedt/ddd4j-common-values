@@ -14,6 +14,7 @@ import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.SchemaCodec.Decoder;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
+import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
@@ -31,11 +32,14 @@ public class ChannelPublisher {
 		private final SourceListener<ReadBuffer, ReadBuffer> source;
 		private final CompletionListener completion;
 		private final ErrorListener error;
+		private final RepartitioningListener repartitioning;
 
-		Listener(SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion, ErrorListener error) {
+		Listener(SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion, ErrorListener error,
+				RepartitioningListener repartitioning) {
 			this.source = Require.nonNull(source);
 			this.completion = Require.nonNull(completion);
 			this.error = Require.nonNull(error);
+			this.repartitioning = Require.nonNull(repartitioning);
 		}
 
 		void onComplete() {
@@ -158,27 +162,30 @@ public class ChannelPublisher {
 
 	public Publisher<Committed<ReadBuffer, ReadBuffer>> publisher(ChannelName name) {
 		Require.nonNull(name);
-		return s -> {
-			ReactiveListener<ReadBuffer, ReadBuffer> listener = new ReactiveListener<>(s, unsubscriber(name));
-			subscribe(name, listener, listener, listener, listener);
-		};
+		return s -> subscribe(name, new ReactiveListener<>(s, unsubscriber(name)));
+	}
+
+	<L extends SourceListener<ReadBuffer, ReadBuffer> & CompletionListener & ErrorListener & RepartitioningListener> void subscribe(
+			ChannelName name, L listener) {
+		subscribe(name, listener, listener, listener, listener, listener);
 	}
 
 	private Promise<Integer> subscribe(ChannelName name, SourceListener<?, ?> handle, SourceListener<ReadBuffer, ReadBuffer> source,
-			CompletionListener completion, ErrorListener error) {
-		Agent<Listener> listener = scheduler.createAgent(new Listener(source, completion, error));
+			CompletionListener completion, ErrorListener error, RepartitioningListener repartitioning) {
+		Agent<Listener> listener = scheduler.createAgent(new Listener(source, completion, error, repartitioning));
 		return subscriptions.subscribe(name, handle, listener);
 	}
 
 	public Promise<Integer> subscribe(ChannelName name, SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion,
-			ErrorListener error) {
-		return subscribe(name, source, source, completion, error);
+			ErrorListener error, RepartitioningListener repartitioning) {
+		return subscribe(name, source, source, completion, error, repartitioning);
 	}
 
 	public <K, V> void subscribe(SchemaCodec.Factory factory, ChannelSpec<K, V> spec, SourceListener<K, V> source,
-			CompletionListener completion, ErrorListener error) {
+			CompletionListener completion, ErrorListener error, RepartitioningListener repartitioning) {
 		Decoder<V> decoder = factory.decoder(spec);
-		subscribe(spec.getName(), source, source.mapPromised(spec::deserializeKey, decoder::decode, error), completion, error);
+		SourceListener<ReadBuffer, ReadBuffer> mappedListener = source.mapPromised(spec::deserializeKey, decoder::decode, error);
+		subscribe(spec.getName(), source, mappedListener, completion, error, repartitioning);
 	}
 
 	public Set<ChannelName> subscribed() {

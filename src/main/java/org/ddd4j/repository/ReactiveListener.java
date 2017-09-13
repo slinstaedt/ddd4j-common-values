@@ -3,15 +3,19 @@ package org.ddd4j.repository;
 import java.util.function.Consumer;
 
 import org.ddd4j.Require;
+import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
+import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
+import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.value.versioned.Committed;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-public class ReactiveListener<K, V> implements SourceListener<K, V>, CompletionListener, ErrorListener, Subscription {
+public class ReactiveListener<K, V>
+		implements SourceListener<K, V>, CompletionListener, ErrorListener, RepartitioningListener, Subscription {
 
 	private final Subscriber<? super Committed<K, V>> subscriber;
 	private final Consumer<? super SourceListener<K, V>> unsubscriber;
@@ -47,5 +51,17 @@ public class ReactiveListener<K, V> implements SourceListener<K, V>, CompletionL
 	@Override
 	public void request(long n) {
 		requesting.more(n);
+	}
+
+	@Override
+	public void onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
+		// TODO Auto-generated method stub
+
 	}
 }
