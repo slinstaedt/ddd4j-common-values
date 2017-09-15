@@ -3,12 +3,18 @@ package org.ddd4j.repository;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.ChannelRevisions;
 import org.ddd4j.infrastructure.channel.SchemaCodec;
+import org.ddd4j.infrastructure.channel.api.CompletionListener;
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
+import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
+import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.infrastructure.channel.spi.ColdSource;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
+import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 
@@ -18,39 +24,54 @@ public class LogPublisher {
 
 		Promise<Sequence<ChannelRevision>> loadRevisions(Sequence<ChannelPartition> partitions);
 
-		Promise<Void> saveRevisions(Sequence<ChannelRevision> revisions);
+		Promise<?> saveRevisions(Sequence<ChannelRevision> revisions);
 	}
 
-	private class HotCallback implements HotSource.Callback {
+	private class XXX implements SourceListener<ReadBuffer, ReadBuffer>, ErrorListener, RepartitioningListener {
+
+		private final SourceListener<ReadBuffer, ReadBuffer> source;
+		private final ErrorListener error;
+		private final RevisionCallback callback;
+		private final ChannelRevisions state;
+
+		public XXX(SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error, RevisionCallback callback) {
+			this.source = Require.nonNull(source);
+			this.error = Require.nonNull(error);
+			this.callback = Require.nonNull(callback);
+			this.state = new ChannelRevisions();
+		}
+
+		@Override
+		public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+			state.update(name, committed.getNextExpected());
+			source.onNext(name, committed);
+		}
+
+		@Override
+		public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
+			return callback.loadRevisions(partitions).thenAccept(state::add).whenCompleteExceptionally(error::onError);
+		}
+
+		@Override
+		public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
+			return callback.saveRevisions(state.remove(partitions)).whenCompleteExceptionally(error::onError);
+		}
 
 		@Override
 		public void onError(Throwable throwable) {
-			// TODO Auto-generated method stub
-		}
-
-		@Override
-		public void onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
-			callback.loadRevisions(partitions).whenCompleteSuccessfully(r -> cold.subscribe(subscriber, descriptor, r));
-		}
-
-		@Override
-		public void onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-			// TODO Auto-generated method stub
+			error.onError(throwable);
 		}
 	}
 
 	private final ColdSource.Factory coldFactory;
-	private final HotSource hotSource;
 	private final ChannelPublisher publisher;
+	private final HotSource hotSource;
 
-	public LogPublisher(SchemaCodec.Factory codecFactory, ColdSource.Factory coldFactory, HotSource.Factory hotFactory) {
+	public LogPublisher(Scheduler scheduler, SchemaCodec.Factory codecFactory, ColdSource.Factory coldFactory,
+			HotSource.Factory hotFactory) {
 		this.coldFactory = Require.nonNull(coldFactory);
-		this.hotSource = hotFactory.createHotSource(new HotCallback(), this::onNext);
-		this.publisher = new ChannelPublisher(this::onSubscribed, this::onUnsubscribed);
-	}
-
-	private void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
-		publisher.onNext(name, committed);
+		this.publisher = new ChannelPublisher(scheduler, this::onSubscribed, this::onUnsubscribed);
+		this.hotSource = hotFactory.createHotSource(publisher, publisher);
 	}
 
 	private Promise<Integer> onSubscribed(ChannelName name) {
@@ -59,5 +80,11 @@ public class LogPublisher {
 
 	private void onUnsubscribed(ChannelName name) {
 		hotSource.unsubscribe(name);
+	}
+
+	public void subscribe(ChannelName name, SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion,
+			ErrorListener error, RevisionCallback callback) {
+		XXX listener = new XXX(source, error, callback);
+		publisher.subscribe(name, listener, completion, listener, listener);
 	}
 }

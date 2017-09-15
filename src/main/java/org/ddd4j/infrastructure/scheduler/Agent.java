@@ -24,7 +24,11 @@ public class Agent<T> {
 	public interface Task<T, R> {
 
 		default Blocked<Task<T, R>> asBlocked() {
-			return (t, u) -> this;
+			return (d, u) -> this;
+		}
+
+		default Task<T, Promise<R>> asPromised() {
+			return t -> Promise.completed(perform(t));
 		}
 
 		R perform(T target) throws Exception;
@@ -32,10 +36,10 @@ public class Agent<T> {
 
 	private class Job<R> {
 
-		private final Blocked<? extends R> task;
+		private final Blocked<Promise<R>> task;
 		private final Promise.Deferred<R> deferred;
 
-		Job(Blocked<? extends Task<? super T, ? extends R>> task, boolean blocked) {
+		Job(Blocked<? extends Task<? super T, Promise<R>>> task, boolean blocked) {
 			this.task = blocked ? task.managed(t -> t.perform(target), this::isDoneWithAll) : task.map(t -> t.perform(target));
 			this.deferred = scheduler.createDeferredPromise();
 		}
@@ -48,15 +52,14 @@ public class Agent<T> {
 			return deferred.isDone() && jobs.isEmpty();
 		}
 
-		boolean executeWithTimeout(long duration, TimeUnit unit) {
+		void executeWithTimeout(long duration, TimeUnit unit) {
 			if (deferred.isDone()) {
-				return true;
+				return;
 			}
 			try {
-				R value = task.execute(duration, unit);
-				return deferred.completeSuccessfully(value);
+				task.execute(duration, unit).whenComplete(deferred::complete);
 			} catch (Throwable e) {
-				return deferred.completeExceptionally(e);
+				deferred.completeExceptionally(e);
 			}
 		}
 	}
@@ -85,12 +88,16 @@ public class Agent<T> {
 		return performBlocked(action);
 	}
 
-	public <R> Promise.Cancelable<R> perform(Task<? super T, ? extends R> task) {
-		return scheduleIfNeeded(new Job<R>(task.asBlocked(), false)).getPromise();
+	public <R> Promise.Cancelable<R> perform(Task<? super T, R> task) {
+		return scheduleIfNeeded(new Job<>(task.asPromised().asBlocked(), false)).getPromise();
 	}
 
-	public <R> Promise.Cancelable<R> performBlocked(Blocked<? extends Task<? super T, R>> task) {
-		return scheduleIfNeeded(new Job<>(task, true)).getPromise();
+	public <R> Promise.Cancelable<R> performBlocked(Blocked<? extends Task<? super T, R>> blocked) {
+		return scheduleIfNeeded(new Job<R>(blocked.map(Task::asPromised), true)).getPromise();
+	}
+
+	public <R> Promise.Cancelable<R> performFlat(Task<? super T, Promise<R>> task) {
+		return scheduleIfNeeded(new Job<>(task.asBlocked(), false)).getPromise();
 	}
 
 	private boolean run(long duration, TimeUnit unit) {

@@ -4,11 +4,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -38,12 +41,26 @@ public interface Sequence<E> extends Iterable<E> {
 		return new ArrayList<>(collection)::stream;
 	}
 
+	default Sequence<E> copy() {
+		return toList()::stream;
+	}
+
 	default Sequence<E> filter(Predicate<? super E> predicate) {
 		return () -> stream().filter(predicate);
 	}
 
 	default <X> Sequence<X> flatMap(Function<? super E, Stream<? extends X>> mapper) {
 		return () -> stream().flatMap(mapper);
+	}
+
+	default <K> Map<K, Sequence<E>> groupBy(Function<? super E, K> key) {
+		return groupBy(key, Function.identity());
+	}
+
+	default <K, V> Map<K, Sequence<V>> groupBy(Function<? super E, ? extends K> key, Function<? super E, ? extends V> value) {
+		Collector<? super E, ?, List<V>> c1 = Collectors.mapping(value, Collectors.<V>toList());
+		Collector<? super E, ?, Sequence<V>> c2 = Collectors.collectingAndThen(c1, l -> of(l::stream));
+		return stream().collect(Collectors.groupingBy(key, c2));
 	}
 
 	default Optional<E> head() {
@@ -80,5 +97,10 @@ public interface Sequence<E> extends Iterable<E> {
 
 	default List<E> toList() {
 		return stream().collect(Collectors.toList());
+	}
+
+	default Sequence<E> visit(Consumer<? super E> consumer) {
+		forEach(consumer);
+		return this;
 	}
 }

@@ -11,6 +11,7 @@ import org.ddd4j.spi.Key;
 
 public interface HotSource extends Throwing.Closeable {
 
+	// TODO remove
 	interface Callback extends ErrorListener, RepartitioningListener {
 
 		default void onSubscribed(int partitionCount) {

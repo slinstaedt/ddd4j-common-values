@@ -1,6 +1,7 @@
 package org.ddd4j.infrastructure.channel.api;
 
 import org.ddd4j.collection.Sequence;
+import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 
 public interface RepartitioningListener {
@@ -8,17 +9,17 @@ public interface RepartitioningListener {
 	RepartitioningListener VOID = new RepartitioningListener() {
 
 		@Override
-		public void onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-			// ignore
+		public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
+			return Promise.completed();
 		}
 
 		@Override
-		public void onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
-			// ignore
+		public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
+			return Promise.completed();
 		}
 	};
 
-	void onPartitionsAssigned(Sequence<ChannelPartition> partitions);
+	Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions);
 
-	void onPartitionsRevoked(Sequence<ChannelPartition> partitions);
+	Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions);
 }

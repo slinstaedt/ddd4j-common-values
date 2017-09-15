@@ -21,6 +21,7 @@ import org.ddd4j.spi.Key;
 
 public interface ColdSource extends Throwing.Closeable {
 
+	// TODO remove
 	interface Callback extends ErrorListener, CompletionListener {
 	}
 

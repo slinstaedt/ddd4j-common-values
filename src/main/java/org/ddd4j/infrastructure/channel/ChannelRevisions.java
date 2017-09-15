@@ -9,8 +9,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.ddd4j.collection.Sequence;
+import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
+import org.ddd4j.value.versioned.Revision;
 
 public class ChannelRevisions implements Sequence<ChannelRevision> {
 
@@ -20,8 +22,12 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 		this.values = new ConcurrentHashMap<>();
 	}
 
+	public void add(ChannelName name, Revision revision) {
+		values.put(new ChannelPartition(name, revision.getPartition()), revision.getOffset());
+	}
+
 	public void add(Sequence<ChannelRevision> revisions) {
-		revisions.forEach(r -> values.put(r.getPartition(), r.getOffset()));
+		revisions.forEach(r -> add(r.getName(), r.getRevision()));
 	}
 
 	public <E> Sequence<E> as(BiFunction<? super String, ? super Integer, E> mapper) {
@@ -53,8 +59,9 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 		return Sequence.of(values.keySet()::stream);
 	}
 
-	public void remove(Sequence<ChannelPartition> partitions) {
-		partitions.forEach(values::remove);
+	public Sequence<ChannelRevision> remove(Sequence<ChannelPartition> partitions) {
+		return partitions.map(p -> new ChannelRevision(p, values.getOrDefault(p, Revision.UNKNOWN_OFFSET))).copy().visit(
+				r -> values.remove(r.getPartition()));
 	}
 
 	@Override
@@ -62,8 +69,12 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 		return values.entrySet().stream().map(e -> e.getKey().withOffset(e.getValue()));
 	}
 
+	public void update(ChannelName name, Revision revision) {
+		values.computeIfPresent(new ChannelPartition(name, revision.getPartition()), (p, o) -> revision.getOffset());
+	}
+
 	public void update(ChannelRevision revision) {
-		values.computeIfPresent(revision.getPartition(), (p, o) -> revision.getOffset());
+		update(revision.getName(), revision.getRevision());
 	}
 
 	public void update(Sequence<ChannelRevision> revisions) {

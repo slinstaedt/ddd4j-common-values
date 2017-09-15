@@ -5,7 +5,7 @@ import java.util.Iterator;
 import java.util.function.IntFunction;
 import java.util.stream.Stream;
 
-public class Array<E> implements Iterable<E> {
+public class Array<E> implements Iterable<E>, Sequence<E> {
 
 	private final ArrayList<E> elements;
 
@@ -62,10 +62,12 @@ public class Array<E> implements Iterable<E> {
 		return elements.set(index, element);
 	}
 
+	@Override
 	public int size() {
 		return elements.size();
 	}
 
+	@Override
 	public Stream<E> stream() {
 		return elements.stream();
 	}

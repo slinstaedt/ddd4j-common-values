@@ -95,17 +95,6 @@ public interface Promise<T> {
 			}
 		}
 
-		public boolean completeWithConsumer(TConsumer<? super T> fn, T var) {
-			return completeWith(() -> {
-				fn.acceptChecked(var);
-				return var;
-			});
-		}
-
-		public <V> boolean completeWithFunction(TFunction<? super V, ? extends T> fn, V var) {
-			return completeWith(() -> fn.applyChecked(var));
-		}
-
 		@Override
 		public boolean isDone() {
 			return stage.isDone();
@@ -288,7 +277,7 @@ public interface Promise<T> {
 	static <T> Promise.Delayed<T> ofDelayed(Executor executor, ScheduledFuture<T> future) {
 		Require.nonNullElements(executor, future);
 		if (future instanceof Promise.Delayed) {
-			return ((Promise.Delayed<T>) future);
+			return (Promise.Delayed<T>) future;
 		} else {
 			return new Delayed<>(executor, future);
 		}
@@ -382,7 +371,7 @@ public interface Promise<T> {
 	}
 
 	default Promise<Void> runAfterBoth(Promise<?> other) {
-		return runAfterBoth(other, this::hashCode);
+		return runAfterBoth(other, this::getClass);
 	}
 
 	default Promise<Void> runAfterBoth(Promise<?> other, Runnable action) {
@@ -390,7 +379,7 @@ public interface Promise<T> {
 	}
 
 	default Promise<Void> runAfterEither(Promise<?> other) {
-		return runAfterEither(other, this::hashCode);
+		return runAfterEither(other, this::getClass);
 	}
 
 	default Promise<Void> runAfterEither(Promise<?> other, Runnable action) {
