@@ -65,12 +65,14 @@ public class LogPublisher {
 
 	private final ColdSource.Factory coldFactory;
 	private final ChannelPublisher publisher;
+	private final ChannelRevisions hotState;
 	private final HotSource hotSource;
 
 	public LogPublisher(Scheduler scheduler, SchemaCodec.Factory codecFactory, ColdSource.Factory coldFactory,
 			HotSource.Factory hotFactory) {
 		this.coldFactory = Require.nonNull(coldFactory);
 		this.publisher = new ChannelPublisher(scheduler, this::onSubscribed, this::onUnsubscribed);
+		this.hotState = new ChannelRevisions();
 		this.hotSource = hotFactory.createHotSource(publisher, publisher);
 	}
 
