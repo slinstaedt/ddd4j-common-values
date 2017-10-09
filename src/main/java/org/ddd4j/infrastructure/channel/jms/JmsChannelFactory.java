@@ -6,8 +6,8 @@ import javax.jms.JMSContext;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
-import org.ddd4j.infrastructure.channel.spi.Writer;
 import org.ddd4j.infrastructure.channel.spi.HotSource.Callback;
+import org.ddd4j.infrastructure.channel.spi.Writer;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
@@ -18,7 +18,7 @@ import org.ddd4j.spi.ServiceConfigurer;
 
 public class JmsChannelFactory implements HotSource.Factory, Writer.Factory {
 
-	public static class JmsServiceConfigurer implements ServiceConfigurer {
+	public static class Configurer implements ServiceConfigurer {
 
 		@Override
 		public void bindServices(ServiceBinder binder) {
