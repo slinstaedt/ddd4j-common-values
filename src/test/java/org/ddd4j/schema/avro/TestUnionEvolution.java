@@ -36,7 +36,7 @@ public class TestUnionEvolution {
 		// ReflectData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
 		ReflectData.get().addLogicalTypeConversion(UUIDConversions.BYTES);
 
-		Schema schema = Throwing.task(() -> new Schema.Parser().parse(TestUnionEvolution.class.getResourceAsStream("X.json"))).get();
+		Schema schema = Throwing.Producer.of(() -> new Schema.Parser().parse(TestUnionEvolution.class.getResourceAsStream("X.json"))).get();
 		List<Schema> types = new ArrayList<>(schema.getTypes());
 		List<Field> fields = Collections.singletonList(new Schema.Field("value", Schema.create(Schema.Type.INT), null, (Object) null));
 		fields = Collections.emptyList();

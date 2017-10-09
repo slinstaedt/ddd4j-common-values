@@ -34,6 +34,10 @@ public interface Throwing {
 	@FunctionalInterface
 	interface Producer<T> extends java.util.function.Supplier<T>, Callable<T> {
 
+		static <T> Producer<T> of(Producer<T> producer) {
+			return Require.nonNull(producer);
+		}
+
 		default Producer<Either<T, Exception>> asEither() {
 			return () -> {
 				try {
@@ -92,6 +96,10 @@ public interface Throwing {
 	@FunctionalInterface
 	interface Task extends Runnable {
 
+		static Task of(Task task) {
+			return Require.nonNull(task);
+		}
+
 		default <T> Producer<T> andThen(Producer<T> producer) {
 			return () -> {
 				perform();
@@ -143,6 +151,10 @@ public interface Throwing {
 	@FunctionalInterface
 	interface TBiFunction<T, U, R> extends BiFunction<T, U, R> {
 
+		static <T, U, R> TBiFunction<T, U, R> of(TBiFunction<T, U, R> function) {
+			return Require.nonNull(function);
+		}
+
 		@Override
 		default R apply(T t, U u) {
 			try {
@@ -177,6 +189,10 @@ public interface Throwing {
 
 	@FunctionalInterface
 	interface TConsumer<T> extends Consumer<T> {
+
+		static <T> TConsumer<T> of(TConsumer<T> consumer) {
+			return Require.nonNull(consumer);
+		}
 
 		@Override
 		default void accept(T t) {
@@ -249,6 +265,10 @@ public interface Throwing {
 	@FunctionalInterface
 	interface TFunction<T, R> extends Function<T, R> {
 
+		static <T, R> TFunction<T, R> of(TFunction<T, R> function) {
+			return Require.nonNull(function);
+		}
+
 		@Override
 		default R apply(T t) {
 			try {
@@ -288,6 +308,10 @@ public interface Throwing {
 
 	@FunctionalInterface
 	interface TPredicate<T> extends Predicate<T> {
+
+		static <T> TPredicate<T> of(TPredicate<T> predicate) {
+			return Require.nonNull(predicate);
+		}
 
 		default TPredicate<T> returningFalseOn(Class<? extends Exception> exceptionType) {
 			return t -> {
@@ -362,22 +386,10 @@ public interface Throwing {
 
 	String EXCEPTION_MESSAGE_TEMPLATE = "Could not invoke this with arguments %s";
 
-	static Task action(Task action) {
-		return Require.nonNull(action);
-	}
-
 	@SuppressWarnings("unchecked")
 	static <X, E extends Throwable> X any(Throwable throwable) throws E {
 		Require.nonNull(throwable);
 		throw (E) throwable;
-	}
-
-	static <T, U, R> TBiFunction<T, U, R> applied(TBiFunction<T, U, R> function) {
-		return Require.nonNull(function);
-	}
-
-	static <T, R> TFunction<T, R> applied(TFunction<T, R> function) {
-		return Require.nonNull(function);
 	}
 
 	@SafeVarargs
@@ -391,26 +403,8 @@ public interface Throwing {
 		}
 	}
 
-	static <T> TConsumer<T> consumed(TConsumer<T> consumer) {
-		return Require.nonNull(consumer);
-	}
-
 	static Throwing of(Function<? super String, ? extends Throwable> exceptionFactory) {
 		return Require.nonNull(exceptionFactory)::apply;
-	}
-
-	static <E extends Exception, R> TFunction<E, R> rethrow() {
-		return e -> {
-			throw e;
-		};
-	}
-
-	static <T> Producer<T> task(Producer<T> supplier) {
-		return Require.nonNull(supplier);
-	}
-
-	static <T> TPredicate<T> tested(TPredicate<T> predicate) {
-		return Require.nonNull(predicate);
 	}
 
 	static <X> X unchecked(Throwable exception) {

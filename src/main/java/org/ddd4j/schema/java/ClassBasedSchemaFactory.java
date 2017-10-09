@@ -31,7 +31,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 
 		@Override
 		public <X> Reader<X> createReader(Type<X> readerType) {
-			return buf -> Throwing.task(Throwing.applied(ObjectInputStream::new).apply(buf.asInputStream())::readObject)
+			return buf -> Throwing.Producer.of(Throwing.TFunction.of(ObjectInputStream::new).apply(buf.asInputStream())::readObject)
 					.map(readerType::cast)
 					.get();
 
@@ -39,7 +39,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 
 		@Override
 		public Writer<T> createWriter() {
-			return (buf, val) -> Throwing.applied(ObjectOutputStream::new).apply(buf.asOutputStream()).writeObject(val);
+			return (buf, val) -> Throwing.TFunction.of(ObjectOutputStream::new).apply(buf.asOutputStream()).writeObject(val);
 		}
 
 		@Override
@@ -80,6 +80,8 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 
 	@Override
 	public Schema<?> readSchema(ReadBuffer buffer) {
-		return new JavaSchema<>(SchemaFactory.classForName(buffer.getUTF(), Throwing.rethrow()));
+		return new JavaSchema<>(SchemaFactory.classForName(buffer.getUTF(), e -> {
+			throw e;
+		}));
 	}
 }

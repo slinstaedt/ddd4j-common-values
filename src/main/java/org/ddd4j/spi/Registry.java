@@ -92,8 +92,8 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		private <T> Optional<ServiceFactory<T>> configuredFactory(Key<T> key) {
 			return configuration.getString(key.getName())
 					.map(s -> s.isEmpty() ? null : s)
-					.map(Throwing.applied(Class::forName))
-					.map(Throwing.applied(c -> newInstance(c, key)))
+					.map(Throwing.TFunction.of(Class::forName))
+					.map(Throwing.TFunction.of(c -> newInstance(c, key)))
 					.map(ServiceFactory.class::cast);
 		}
 
@@ -176,12 +176,8 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		@SuppressWarnings("unchecked")
 		public <T extends Named> Optional<T> specific(Key<T> key, String name) {
 			Context child = child(key);
-			T service = (T) named
-					.acquire(key,
-							k -> boundFactories(key).stream()
-									.map(f -> f.createUnchecked(child))
-									.collect(Collectors.toMap(Named::getName, Function.identity())))
-					.get(name);
+			T service = (T) named.acquire(key, k -> boundFactories(key).stream().map(f -> f.createUnchecked(child)).collect(
+					Collectors.toMap(Named::getName, Function.identity()))).get(name);
 			return Optional.ofNullable(service);
 		}
 
