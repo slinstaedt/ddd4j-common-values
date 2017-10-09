@@ -1,5 +1,7 @@
 package org.ddd4j.repository;
 
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.function.Consumer;
 
 import org.ddd4j.Require;
@@ -9,8 +11,6 @@ import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.value.versioned.Committed;
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
 
 public class ReactiveListener<K, V>
 		implements SourceListener<K, V>, CompletionListener, ErrorListener, RepartitioningListener, Subscription {

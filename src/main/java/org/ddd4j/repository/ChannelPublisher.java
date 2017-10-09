@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Flow.Publisher;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -12,7 +13,6 @@ import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.SchemaCodec;
-import org.ddd4j.infrastructure.channel.SchemaCodec.Decoder;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
@@ -26,7 +26,6 @@ import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
-import org.reactivestreams.Publisher;
 
 public class ChannelPublisher implements SourceListener<ReadBuffer, ReadBuffer>, ErrorListener, HotSource.Callback {
 
@@ -224,7 +223,7 @@ public class ChannelPublisher implements SourceListener<ReadBuffer, ReadBuffer>,
 
 	public <K, V> void subscribe(SchemaCodec.Factory factory, ChannelSpec<K, V> spec, SourceListener<K, V> source,
 			CompletionListener completion, ErrorListener error, RepartitioningListener repartitioning) {
-		Decoder<V> decoder = factory.decoder(spec);
+		SchemaCodec.Decoder<V> decoder = factory.decoder(spec);
 		SourceListener<ReadBuffer, ReadBuffer> mappedListener = source.mapPromised(spec::deserializeKey, decoder::decode, error);
 		subscribe(spec.getName(), source, mappedListener, completion, error, repartitioning);
 	}
