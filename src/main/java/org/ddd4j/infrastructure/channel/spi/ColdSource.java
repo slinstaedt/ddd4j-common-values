@@ -49,8 +49,8 @@ public interface ColdSource extends Throwing.Closeable {
 		}
 
 		@Override
-		public void onComplete(Sequence<ChannelRevision> revisions) {
-			state.remove(revisions.map(ChannelRevision::getPartition));
+		public void onComplete() {
+			state.clear();
 			checkCompleteness();
 		}
 
@@ -144,7 +144,7 @@ public interface ColdSource extends Throwing.Closeable {
 		public Promise<Trigger> onScheduled(Scheduler scheduler) {
 			return reader.get(state)
 					.whenCompleteSuccessfully(cr -> cr.forEach(state::tryUpdate))
-					.whenCompleteSuccessfully(cr -> cr.forEachOrEmpty(source::onNext, () -> completion.onComplete(state)))
+					.whenCompleteSuccessfully(cr -> cr.forEachOrEmpty(source::onNext, completion::onComplete))
 					.whenCompleteExceptionally(error::onError)
 					.thenApply(rc -> state.isNotEmpty() && rc.isNotEmpty() ? Trigger.RESCHEDULE : Trigger.NOTHING);
 		}

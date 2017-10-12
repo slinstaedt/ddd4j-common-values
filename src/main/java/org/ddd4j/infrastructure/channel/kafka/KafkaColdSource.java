@@ -49,7 +49,7 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 						.stream()
 						.map(e -> new ChannelRevision(e.getKey().topic(), e.getKey().partition(), e.getValue()))
 						.collect(Collectors.toList())::contains)))
-				.on(Sequence::isNotEmpty, p -> p.whenCompleteSuccessfully(completion::onComplete));
+				.on(Sequence::isNotEmpty, p -> p.thenRun(completion::onComplete));
 		return promise;
 	}
 

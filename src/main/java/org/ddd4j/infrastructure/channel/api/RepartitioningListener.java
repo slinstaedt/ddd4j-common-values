@@ -7,13 +7,19 @@ import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 public interface RepartitioningListener {
 
 	RepartitioningListener VOID = new RepartitioningListener() {
+
+		@Override
+		public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
+			return Promise.completed();
+		}
+
+		@Override
+		public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
+			return Promise.completed();
+		}
 	};
 
-	default Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-		return Promise.completed();
-	}
+	Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions);
 
-	default Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
-		return Promise.completed();
-	}
+	Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions);
 }

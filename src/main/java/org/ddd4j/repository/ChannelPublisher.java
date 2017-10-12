@@ -18,33 +18,24 @@ import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.spi.DataAccessFactory;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
-import org.ddd4j.infrastructure.domain.value.ChannelRevision;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.repository.log.LogPublisher;
 import org.ddd4j.value.versioned.Committed;
 
-public class ChannelPublisher
-		implements LogPublisher, SourceListener<ReadBuffer, ReadBuffer>, ErrorListener, CompletionListener, RepartitioningListener {
+public class ChannelPublisher implements LogPublisher, SourceListener<ReadBuffer, ReadBuffer>, ErrorListener, RepartitioningListener {
 
 	private static class Listener {
 
 		private final SourceListener<ReadBuffer, ReadBuffer> source;
-		private final CompletionListener completion;
 		private final ErrorListener error;
 		private final RepartitioningListener repartitioning;
 
-		Listener(SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion, ErrorListener error,
-				RepartitioningListener repartitioning) {
+		Listener(SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error, RepartitioningListener repartitioning) {
 			this.source = Require.nonNull(source);
-			this.completion = Require.nonNull(completion);
 			this.error = Require.nonNull(error);
 			this.repartitioning = Require.nonNull(repartitioning);
-		}
-
-		void onComplete(Sequence<ChannelRevision> revisions) {
-			completion.onComplete(revisions);
 		}
 
 		void onError(Throwable throwable) {
@@ -79,10 +70,6 @@ public class ChannelPublisher
 		Listeners add(SourceListener<?, ?> handle, Agent<Listener> listener) {
 			listeners.put(handle, listener);
 			return this;
-		}
-
-		void onComplete(Sequence<ChannelRevision> revisions) {
-			listeners.values().forEach(a -> a.execute(l -> l.onComplete(revisions)));
 		}
 
 		void onError(Throwable throwable) {
@@ -134,10 +121,6 @@ public class ChannelPublisher
 			return Collections.unmodifiableSet(listeners.keySet());
 		}
 
-		void onComplete(Sequence<ChannelRevision> revisions) {
-			revisions.groupBy(ChannelRevision::getName).forEach((name, revs) -> listeners.getOrDefault(name, NONE).onComplete(revs));
-		}
-
 		void onError(Throwable throwable) {
 			listeners.values().forEach(l -> l.onError(throwable));
 			listeners.clear();
@@ -177,11 +160,6 @@ public class ChannelPublisher
 	}
 
 	@Override
-	public void onComplete(Sequence<ChannelRevision> revisions) {
-		subscriptions.onComplete(revisions);
-	}
-
-	@Override
 	public void onError(Throwable throwable) {
 		subscriptions.onError(throwable);
 	}
@@ -192,9 +170,19 @@ public class ChannelPublisher
 	}
 
 	@Override
+	public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
+		return subscriptions.onPartitionsAssigned(partitions);
+	}
+
+	@Override
+	public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
+		return subscriptions.onPartitionsRevoked(partitions);
+	}
+
+	@Override
 	public Promise<Integer> subscribe(ChannelName name, SourceListener<?, ?> handle, SourceListener<ReadBuffer, ReadBuffer> source,
 			CompletionListener completion, ErrorListener error, RepartitioningListener repartitioning) {
-		Agent<Listener> listener = scheduler.createAgent(new Listener(source, completion, error, repartitioning));
+		Agent<Listener> listener = scheduler.createAgent(new Listener(source, error, repartitioning));
 		return subscriptions.subscribe(name, handle, listener);
 	}
 

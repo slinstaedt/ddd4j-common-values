@@ -47,7 +47,7 @@ public class LogPublisher implements SourceListener<ReadBuffer, ReadBuffer> {
 		}
 
 		@Override
-		public void onComplete(Sequence<ChannelRevision> revisions) {
+		public void onComplete() {
 			coldSource.destroy();
 		}
 

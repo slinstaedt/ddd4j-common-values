@@ -99,8 +99,7 @@ public interface ColdReader {
 			}
 
 			@Override
-			public void onComplete(Sequence<ChannelRevision> revisions) {
-				// TODO use revisions
+			public void onComplete() {
 				deferred.completeSuccessfully(CommittedRecords.copied(records));
 			}
 
