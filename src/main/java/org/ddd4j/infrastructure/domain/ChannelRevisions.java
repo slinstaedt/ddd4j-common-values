@@ -121,6 +121,10 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 		values.clear();
 	}
 
+	public boolean contains(Sequence<ChannelRevision> revisions) {
+		return revisions.stream().allMatch(r -> map(r.getName(), o -> r.getOffset() == o.offset(r.getPartitionAsInteger()), Boolean.FALSE));
+	}
+
 	private <R> R map(ChannelName name, Function<Offsets, R> function, R defaultValue) {
 		Offsets offsets = values.get(name);
 		return offsets != null ? function.apply(offsets) : defaultValue;

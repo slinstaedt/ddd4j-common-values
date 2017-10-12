@@ -4,7 +4,6 @@ import org.ddd4j.Require;
 import org.ddd4j.collection.Lazy;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
@@ -70,13 +69,19 @@ public class LogPublisher implements SourceListener<ReadBuffer, ReadBuffer> {
 		public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
 			return callback.loadRevisions(partitions)
 					.whenCompleteSuccessfully(state::add)
-					.whenCompleteSuccessfully(coldFactory.createAutoClosingColdSource(this, this)::resume)
+					.whenCompleteSuccessfully(this::resumeIfNecessary)
 					.whenCompleteExceptionally(error::onError);
 		}
 
 		@Override
 		public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
 			return callback.saveRevisions(state.remove(partitions)).whenCompleteExceptionally(error::onError);
+		}
+
+		private void resumeIfNecessary(Sequence<ChannelRevision> revisions) {
+			if (!hotState.contains(revisions)) {
+				coldSource.get().resume(revisions);
+			}
 		}
 	}
 
@@ -85,8 +90,7 @@ public class LogPublisher implements SourceListener<ReadBuffer, ReadBuffer> {
 	private final ChannelRevisions hotState;
 	private final HotSource hotSource;
 
-	public LogPublisher(Scheduler scheduler, SchemaCodec.Factory codecFactory, ColdSource.Factory coldFactory,
-			HotSource.Factory hotFactory) {
+	public LogPublisher(Scheduler scheduler, ColdSource.Factory coldFactory, HotSource.Factory hotFactory) {
 		this.coldFactory = Require.nonNull(coldFactory);
 		this.publisher = new ChannelPublisher(scheduler, this::onSubscribed, this::onUnsubscribed);
 		this.hotState = new ChannelRevisions();
