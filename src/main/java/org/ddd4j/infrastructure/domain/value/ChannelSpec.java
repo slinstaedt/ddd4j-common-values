@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel.domain;
+package org.ddd4j.infrastructure.domain.value;
 
 import java.util.function.BiConsumer;
 import java.util.function.Function;

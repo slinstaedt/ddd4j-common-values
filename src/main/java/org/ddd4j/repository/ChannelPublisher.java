@@ -5,29 +5,28 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Flow.Publisher;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
-import org.ddd4j.infrastructure.channel.domain.ChannelName;
-import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
-import org.ddd4j.infrastructure.channel.domain.ChannelSpec;
 import org.ddd4j.infrastructure.channel.spi.DataAccessFactory;
-import org.ddd4j.infrastructure.channel.spi.HotSource;
+import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.infrastructure.domain.value.ChannelPartition;
+import org.ddd4j.infrastructure.domain.value.ChannelRevision;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.repository.log.LogPublisher;
 import org.ddd4j.value.versioned.Committed;
 
-public class ChannelPublisher implements SourceListener<ReadBuffer, ReadBuffer>, ErrorListener, HotSource.Callback {
+public class ChannelPublisher
+		implements LogPublisher, SourceListener<ReadBuffer, ReadBuffer>, ErrorListener, CompletionListener, RepartitioningListener {
 
 	private static class Listener {
 
@@ -44,8 +43,8 @@ public class ChannelPublisher implements SourceListener<ReadBuffer, ReadBuffer>,
 			this.repartitioning = Require.nonNull(repartitioning);
 		}
 
-		void onComplete() {
-			completion.onComplete();
+		void onComplete(Sequence<ChannelRevision> revisions) {
+			completion.onComplete(revisions);
 		}
 
 		void onError(Throwable throwable) {
@@ -82,8 +81,8 @@ public class ChannelPublisher implements SourceListener<ReadBuffer, ReadBuffer>,
 			return this;
 		}
 
-		void onComplete() {
-			listeners.values().forEach(a -> a.execute(l -> l.onComplete()));
+		void onComplete(Sequence<ChannelRevision> revisions) {
+			listeners.values().forEach(a -> a.execute(l -> l.onComplete(revisions)));
 		}
 
 		void onError(Throwable throwable) {
@@ -135,12 +134,8 @@ public class ChannelPublisher implements SourceListener<ReadBuffer, ReadBuffer>,
 			return Collections.unmodifiableSet(listeners.keySet());
 		}
 
-		boolean isEmpty() {
-			return listeners.isEmpty();
-		}
-
-		void onComplete(ChannelName name) {
-			listeners.getOrDefault(name, NONE).onComplete();
+		void onComplete(Sequence<ChannelRevision> revisions) {
+			revisions.groupBy(ChannelRevision::getName).forEach((name, revs) -> listeners.getOrDefault(name, NONE).onComplete(revs));
 		}
 
 		void onError(Throwable throwable) {
@@ -181,8 +176,9 @@ public class ChannelPublisher implements SourceListener<ReadBuffer, ReadBuffer>,
 		this.subscriptions = new Subscriptions(name -> new Listeners(onSubscribed.apply(name), onUnsubscribed));
 	}
 
-	public boolean isSubcribed() {
-		return !subscriptions.isEmpty();
+	@Override
+	public void onComplete(Sequence<ChannelRevision> revisions) {
+		subscriptions.onComplete(revisions);
 	}
 
 	@Override
@@ -196,53 +192,19 @@ public class ChannelPublisher implements SourceListener<ReadBuffer, ReadBuffer>,
 	}
 
 	@Override
-	public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
-		return subscriptions.onPartitionsAssigned(partitions);
-	}
-
-	@Override
-	public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-		return subscriptions.onPartitionsRevoked(partitions);
-	}
-
-	<L extends SourceListener<ReadBuffer, ReadBuffer> & CompletionListener & ErrorListener & RepartitioningListener> void subscribe(
-			ChannelName name, L listener) {
-		subscribe(name, listener, listener, listener, listener, listener);
-	}
-
-	private Promise<Integer> subscribe(ChannelName name, SourceListener<?, ?> handle, SourceListener<ReadBuffer, ReadBuffer> source,
+	public Promise<Integer> subscribe(ChannelName name, SourceListener<?, ?> handle, SourceListener<ReadBuffer, ReadBuffer> source,
 			CompletionListener completion, ErrorListener error, RepartitioningListener repartitioning) {
 		Agent<Listener> listener = scheduler.createAgent(new Listener(source, completion, error, repartitioning));
 		return subscriptions.subscribe(name, handle, listener);
 	}
 
-	public Promise<Integer> subscribe(ChannelName name, SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion,
-			ErrorListener error, RepartitioningListener repartitioning) {
-		return subscribe(name, source, source, completion, error, repartitioning);
-	}
-
-	public <K, V> void subscribe(SchemaCodec.Factory factory, ChannelSpec<K, V> spec, SourceListener<K, V> source,
-			CompletionListener completion, ErrorListener error, RepartitioningListener repartitioning) {
-		SchemaCodec.Decoder<V> decoder = factory.decoder(spec);
-		SourceListener<ReadBuffer, ReadBuffer> mappedListener = source.mapPromised(spec::deserializeKey, decoder::decode, error);
-		subscribe(spec.getName(), source, mappedListener, completion, error, repartitioning);
-	}
-
+	@Override
 	public Set<ChannelName> subscribed() {
 		return subscriptions.channels();
 	}
 
-	public Publisher<Committed<ReadBuffer, ReadBuffer>> subscriber(ChannelName name) {
-		Require.nonNull(name);
-		return s -> subscribe(name, new ReactiveListener<>(s, unsubscriber(name)));
-	}
-
+	@Override
 	public void unsubscribe(ChannelName name, SourceListener<?, ?> listener) {
 		subscriptions.unsubscribe(name, listener);
-	}
-
-	public Consumer<? super SourceListener<?, ?>> unsubscriber(ChannelName name) {
-		Require.nonNull(name);
-		return l -> unsubscribe(name, l);
 	}
 }

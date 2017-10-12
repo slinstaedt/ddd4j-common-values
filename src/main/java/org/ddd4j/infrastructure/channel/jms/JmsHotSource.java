@@ -14,10 +14,12 @@ import javax.jms.JMSException;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
+import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
-import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.spi.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
+import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
@@ -38,14 +40,17 @@ public class JmsHotSource implements HotSource {
 	}
 
 	private final Agent<JMSContext> client;
-	private final SourceListener<ReadBuffer, ReadBuffer> listener;
-	private final Callback callback;
+	private final SourceListener<ReadBuffer, ReadBuffer> source;
 	private final Map<ChannelName, Promise<JMSConsumer>> subscriptions;
+	private final ErrorListener error;
+	private final RepartitioningListener repartitioning;
 
-	JmsHotSource(Agent<JMSContext> client, Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
+	JmsHotSource(Agent<JMSContext> client, SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error,
+			RepartitioningListener repartitioning) {
 		this.client = Require.nonNull(client);
-		this.callback = Require.nonNull(callback);
-		this.listener = Require.nonNull(listener);
+		this.source = Require.nonNull(source);
+		this.error = Require.nonNull(error);
+		this.repartitioning = Require.nonNull(repartitioning);
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
@@ -56,9 +61,7 @@ public class JmsHotSource implements HotSource {
 
 	@Override
 	public Promise<Integer> subscribe(ChannelName name) {
-		return subscriptions.computeIfAbsent(name, this::onSubscribed)
-				.thenRun(() -> callback.onSubscribed(JmsChannelFactory.PARTITION_COUNT))
-				.thenReturnValue(JmsChannelFactory.PARTITION_COUNT);
+		return subscriptions.computeIfAbsent(name, this::onSubscribed).thenReturnValue(JmsChannelFactory.PARTITION_COUNT);
 	}
 
 	private Promise<JMSConsumer> onSubscribed(ChannelName name) {
@@ -67,9 +70,9 @@ public class JmsHotSource implements HotSource {
 				.whenCompleteSuccessfully(c -> c.setMessageListener(msg -> {
 					try {
 						Committed<ReadBuffer, ReadBuffer> committed = converted((BytesMessage) msg);
-						listener.onNext(name, committed);
+						source.onNext(name, committed);
 					} catch (Exception e) {
-						callback.onError(e);
+						error.onError(e);
 					}
 				}));
 	}

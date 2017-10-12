@@ -1,24 +1,26 @@
 package org.ddd4j.repository;
 
 import org.ddd4j.Require;
+import org.ddd4j.collection.Lazy;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.ChannelRevisions;
 import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
-import org.ddd4j.infrastructure.channel.domain.ChannelName;
-import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
-import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.infrastructure.channel.spi.ColdSource;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
+import org.ddd4j.infrastructure.domain.ChannelRevisions;
+import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.infrastructure.domain.value.ChannelPartition;
+import org.ddd4j.infrastructure.domain.value.ChannelRevision;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Position;
 
-public class LogPublisher {
+public class LogPublisher implements SourceListener<ReadBuffer, ReadBuffer> {
 
 	public interface RevisionCallback {
 
@@ -27,39 +29,54 @@ public class LogPublisher {
 		Promise<?> saveRevisions(Sequence<ChannelRevision> revisions);
 	}
 
-	private class XXX implements SourceListener<ReadBuffer, ReadBuffer>, ErrorListener, RepartitioningListener {
+	private class RevisionAwareListener
+			implements SourceListener<ReadBuffer, ReadBuffer>, CompletionListener, ErrorListener, RepartitioningListener {
 
 		private final SourceListener<ReadBuffer, ReadBuffer> source;
 		private final ErrorListener error;
 		private final RevisionCallback callback;
 		private final ChannelRevisions state;
+		private final Lazy<ColdSource> coldSource;
 
-		public XXX(SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error, RevisionCallback callback) {
+		public RevisionAwareListener(SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error, RevisionCallback callback) {
 			this.source = Require.nonNull(source);
 			this.error = Require.nonNull(error);
 			this.callback = Require.nonNull(callback);
 			this.state = new ChannelRevisions();
+			this.coldSource = Lazy.ofCloseable(() -> coldFactory.createColdSource(this, this, this));
 		}
 
 		@Override
-		public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
-			state.update(name, committed.getNextExpected());
-			source.onNext(name, committed);
-		}
-
-		@Override
-		public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
-			return callback.loadRevisions(partitions).thenAccept(state::add).whenCompleteExceptionally(error::onError);
-		}
-
-		@Override
-		public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-			return callback.saveRevisions(state.remove(partitions)).whenCompleteExceptionally(error::onError);
+		public void onComplete(Sequence<ChannelRevision> revisions) {
+			coldSource.destroy();
 		}
 
 		@Override
 		public void onError(Throwable throwable) {
 			error.onError(throwable);
+		}
+
+		@Override
+		public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+			Position position = state.tryUpdate(name, committed);
+			if (position == Position.UPTODATE) {
+				source.onNext(name, committed);
+			} else if (position == Position.BEHIND) {
+				coldSource.get().resume(state.revision(name, committed));
+			}
+		}
+
+		@Override
+		public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
+			return callback.loadRevisions(partitions)
+					.whenCompleteSuccessfully(state::add)
+					.whenCompleteSuccessfully(coldFactory.createAutoClosingColdSource(this, this)::resume)
+					.whenCompleteExceptionally(error::onError);
+		}
+
+		@Override
+		public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
+			return callback.saveRevisions(state.remove(partitions)).whenCompleteExceptionally(error::onError);
 		}
 	}
 
@@ -73,20 +90,27 @@ public class LogPublisher {
 		this.coldFactory = Require.nonNull(coldFactory);
 		this.publisher = new ChannelPublisher(scheduler, this::onSubscribed, this::onUnsubscribed);
 		this.hotState = new ChannelRevisions();
-		this.hotSource = hotFactory.createHotSource(publisher, publisher);
+		this.hotSource = hotFactory.createHotSource(publisher, publisher, publisher);
+	}
+
+	@Override
+	public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+		hotState.tryUpdate(name, committed);
 	}
 
 	private Promise<Integer> onSubscribed(ChannelName name) {
+		publisher.subscribe(name, this, CompletionListener.VOID, ErrorListener.VOID, RepartitioningListener.VOID);
 		return hotSource.subscribe(name);
 	}
 
 	private void onUnsubscribed(ChannelName name) {
+		publisher.unsubscribe(name, this);
 		hotSource.unsubscribe(name);
 	}
 
-	public void subscribe(ChannelName name, SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion,
-			ErrorListener error, RevisionCallback callback) {
-		XXX listener = new XXX(source, error, callback);
-		publisher.subscribe(name, listener, completion, listener, listener);
+	public void subscribe(ChannelName name, SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error, RevisionCallback callback) {
+		// TODO override ChannelPublisher
+		RevisionAwareListener listener = new RevisionAwareListener(source, error, callback);
+		publisher.subscribe(name, source, listener, listener, listener, listener);
 	}
 }

@@ -12,10 +12,12 @@ import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
+import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
-import org.ddd4j.infrastructure.channel.domain.ChannelName;
-import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
+import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -30,32 +32,31 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		}
 
 		private final Consumer<byte[], byte[]> consumer;
-		private final Callback callback;
-		private final SourceListener<?, ?> listener;
+		private final SourceListener<?, ?> source;
+		private final ErrorListener error;
+		private final RepartitioningListener repartitioning;
 
-		KafkaRebalanceCallback(Consumer<byte[], byte[]> consumer, Callback callback, SourceListener<?, ?> listener) {
+		KafkaRebalanceCallback(Consumer<byte[], byte[]> consumer, SourceListener<?, ?> source, ErrorListener error,
+				RepartitioningListener repartitioning) {
 			this.consumer = Require.nonNull(consumer);
-			this.callback = Require.nonNull(callback);
-			this.listener = Require.nonNull(listener);
+			this.source = Require.nonNull(source);
+			this.error = Require.nonNull(error);
+			this.repartitioning = Require.nonNull(repartitioning);
 		}
 
 		void onError(Throwable throwable) {
-			callback.onError(throwable);
+			error.onError(throwable);
 		}
 
 		@Override
 		public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
 			consumer.seekToEnd(partitions);
-			callback.onPartitionsAssigned(toChannelPartitions(partitions));
+			repartitioning.onPartitionsAssigned(toChannelPartitions(partitions));
 		}
 
 		@Override
 		public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-			callback.onPartitionsRevoked(toChannelPartitions(partitions));
-		}
-
-		void onSubscribed(int partitionCount) {
-			callback.onSubscribed(partitionCount);
+			repartitioning.onPartitionsRevoked(toChannelPartitions(partitions));
 		}
 	}
 
@@ -67,10 +68,10 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	private final Rescheduler rescheduler;
 	private final Map<String, Promise<Integer>> subscriptions;
 
-	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Callback callback,
-			SourceListener<ReadBuffer, ReadBuffer> listener) {
-		this.listener = Require.nonNull(listener);
-		this.callback = new KafkaRebalanceCallback(consumer, callback, listener);
+	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, SourceListener<ReadBuffer, ReadBuffer> source,
+			ErrorListener error, RepartitioningListener repartitioning) {
+		this.listener = Require.nonNull(source);
+		this.callback = new KafkaRebalanceCallback(consumer, source, error, repartitioning);
 		this.client = scheduler.createAgent(consumer);
 		this.rescheduler = scheduler.reschedulerFor(this);
 		this.subscriptions = new ConcurrentHashMap<>();
@@ -99,7 +100,7 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 
 	private Promise<Integer> subscribe(String topic) {
 		Promise<Integer> partitionSize = client.perform(c -> c.partitionsFor(topic).size());
-		partitionSize.whenComplete(callback::onSubscribed, callback::onError);
+		partitionSize.whenCompleteExceptionally(callback::onError);
 		updateSubscription();
 		rescheduler.doIfNecessary();
 		return partitionSize;

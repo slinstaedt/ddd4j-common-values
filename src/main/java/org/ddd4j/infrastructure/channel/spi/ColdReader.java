@@ -1,23 +1,22 @@
 package org.ddd4j.infrastructure.channel.spi;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Promise.Cancelable;
+import org.ddd4j.infrastructure.channel.api.CompletionListener;
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
-import org.ddd4j.infrastructure.channel.domain.ChannelName;
-import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
-import org.ddd4j.infrastructure.channel.spi.ColdSource.Callback;
+import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.infrastructure.domain.value.ChannelRevision;
+import org.ddd4j.infrastructure.domain.value.CommittedRecords;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
@@ -25,7 +24,6 @@ import org.ddd4j.spi.Key;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;
 import org.ddd4j.value.versioned.Committed;
-import org.ddd4j.value.versioned.Revision;
 
 public interface ColdReader {
 
@@ -63,7 +61,7 @@ public interface ColdReader {
 			}
 		}
 
-		private static class Listener implements Callback, SourceListener<ReadBuffer, ReadBuffer> {
+		private static class Listener implements SourceListener<ReadBuffer, ReadBuffer>, ErrorListener, CompletionListener {
 
 			private final Promise.Deferred<CommittedRecords> deferred;
 			private final ColdSource source;
@@ -73,7 +71,7 @@ public interface ColdReader {
 
 			Listener(Scheduler scheduler, ColdSource.Factory delegate, Sequence<ChannelRevision> revisions, int timeoutInMillis) {
 				this.deferred = scheduler.createDeferredPromise();
-				this.source = delegate.createColdSource(this, this);
+				this.source = delegate.createColdSource(this, this, this);
 				this.records = new HashMap<>();
 				this.timerProvider = () -> scheduler.schedule(this::timeout, timeoutInMillis, TimeUnit.MILLISECONDS);
 				source.resume(revisions);
@@ -101,7 +99,8 @@ public interface ColdReader {
 			}
 
 			@Override
-			public void onComplete() {
+			public void onComplete(Sequence<ChannelRevision> revisions) {
+				// TODO use revisions
 				deferred.completeSuccessfully(CommittedRecords.copied(records));
 			}
 
@@ -124,53 +123,6 @@ public interface ColdReader {
 		@Override
 		public Promise<CommittedRecords> get(Sequence<ChannelRevision> revisions) {
 			return new Listener(scheduler, delegate, revisions, timeoutInMillis).getResult();
-		}
-	}
-
-	class CommittedRecords {
-
-		public static final CommittedRecords EMPTY = new CommittedRecords(Collections.emptyMap());
-
-		public static CommittedRecords copied(Map<ChannelName, List<Committed<ReadBuffer, ReadBuffer>>> values) {
-			Map<ChannelName, Sequence<Committed<ReadBuffer, ReadBuffer>>> copy = new HashMap<>();
-			values.forEach((r, c) -> copy.put(r, Sequence.ofCopied(c)));
-			return new CommittedRecords(copy);
-		}
-
-		private final Map<ChannelName, Sequence<Committed<ReadBuffer, ReadBuffer>>> values;
-
-		public CommittedRecords(Map<ChannelName, Sequence<Committed<ReadBuffer, ReadBuffer>>> values) {
-			this.values = new HashMap<>(values);
-		}
-
-		public Committed<ReadBuffer, ReadBuffer> commit(ChannelName name, Revision actual) {
-			return commits(name).filter(c -> c.getActual().equal(actual)).head().orElseThrow(NoSuchElementException::new);
-		}
-
-		public Committed<ReadBuffer, ReadBuffer> commit(ChannelRevision spec) {
-			return commits(spec.getName()).filter(c -> c.getActual().equal(spec.getRevision()))
-					.head()
-					.orElseThrow(NoSuchElementException::new);
-		}
-
-		public Sequence<Committed<ReadBuffer, ReadBuffer>> commits(ChannelName name) {
-			return values.getOrDefault(name, Sequence.empty());
-		}
-
-		public boolean isNotEmpty() {
-			return !values.isEmpty();
-		}
-
-		public void forEach(BiConsumer<ChannelName, Committed<ReadBuffer, ReadBuffer>> consumer) {
-			values.forEach((r, s) -> s.forEach(c -> consumer.accept(r, c)));
-		}
-
-		public void forEachOrEmpty(BiConsumer<ChannelName, Committed<ReadBuffer, ReadBuffer>> consumer, Runnable empty) {
-			if (values.isEmpty()) {
-				empty.run();
-			} else {
-				forEach(consumer);
-			}
 		}
 	}
 

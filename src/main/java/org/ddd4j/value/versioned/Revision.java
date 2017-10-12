@@ -23,6 +23,10 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 		this.offset = Require.that(offset, offset != UNKNOWN_OFFSET);
 	}
 
+	public Position comparePosition(Revision other) {
+		return Position.of(this.compareTo(other));
+	}
+
 	@Override
 	public int compareTo(Revision other) {
 		Require.that(this.partition == other.partition);

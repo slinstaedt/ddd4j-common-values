@@ -1,17 +1,21 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
+import java.util.stream.Collectors;
+
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.ChannelRevisions;
+import org.ddd4j.infrastructure.channel.api.CompletionListener;
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
-import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
-import org.ddd4j.infrastructure.channel.domain.ChannelRecord;
-import org.ddd4j.infrastructure.channel.domain.ChannelRevision;
 import org.ddd4j.infrastructure.channel.spi.ColdSource;
+import org.ddd4j.infrastructure.domain.ChannelRevisions;
+import org.ddd4j.infrastructure.domain.value.ChannelPartition;
+import org.ddd4j.infrastructure.domain.value.ChannelRevision;
+import org.ddd4j.infrastructure.domain.value.CommittedRecords;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -22,30 +26,36 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = ConsumerRecords.empty();
 
 	private final Agent<Consumer<byte[], byte[]>> client;
-	private final Callback callback;
-	private final SourceListener<ReadBuffer, ReadBuffer> listener;
-	private final ChannelRevisions revisions;
+	private final SourceListener<ReadBuffer, ReadBuffer> source;
+	private final ErrorListener error;
+	private final CompletionListener completion;
+	private final ChannelRevisions state;
 	private final Rescheduler rescheduler;
 
-	KafkaColdSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, Callback callback,
-			SourceListener<ReadBuffer, ReadBuffer> listener) {
+	KafkaColdSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, SourceListener<ReadBuffer, ReadBuffer> source,
+			ErrorListener error, CompletionListener completion) {
 		this.client = scheduler.createAgent(consumer);
-		this.callback = Require.nonNull(callback);
-		this.listener = Require.nonNull(listener);
-		this.revisions = new ChannelRevisions();
+		this.source = Require.nonNull(source);
+		this.error = Require.nonNull(error);
+		this.completion = Require.nonNull(completion);
+		this.state = new ChannelRevisions();
 		this.rescheduler = scheduler.reschedulerFor(this);
 	}
 
-	private Promise<Sequence<ChannelRecord>> checkCompleteness(Promise<Sequence<ChannelRecord>> promise) {
-		promise.thenCompose(rs -> client.performBlocked(
-				(t, u) -> c -> c.endOffsets(revisions.toList(TopicPartition::new)).equals(revisions.toMap(TopicPartition::new))))
-				.on(Boolean.TRUE, p -> p.thenRun(callback::onComplete).thenRun(this::close));
+	private Promise<CommittedRecords> checkCompleteness(Promise<CommittedRecords> promise) {
+		promise.thenCompose(rs -> client.performBlocked((t,
+				u) -> c -> state.filter(c.endOffsets(state.toList(TopicPartition::new))
+						.entrySet()
+						.stream()
+						.map(e -> new ChannelRevision(e.getKey().topic(), e.getKey().partition(), e.getValue()))
+						.collect(Collectors.toList())::contains)))
+				.on(Sequence::isNotEmpty, p -> p.whenCompleteSuccessfully(completion::onComplete));
 		return promise;
 	}
 
 	@Override
 	public void closeChecked() {
-		revisions.clear();
+		state.clear();
 		client.execute(Consumer::unsubscribe);
 		client.executeBlocked((t, u) -> c -> c.close(t, u)).join();
 	}
@@ -53,33 +63,31 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	@Override
 	public Promise<Trigger> onScheduled(Scheduler scheduler) {
 		return client.performBlocked((t, u) -> c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(u.toMillis(t)))
-				.thenApply(rs -> Sequence.of(rs.partitions()::stream)
-						.flatMap(tp -> rs.records(tp).stream())
-						.map(r -> new ChannelRecord(r.topic(), KafkaChannelFactory.convert(r))))
-				.on(Sequence::isEmpty, this::checkCompleteness)
-				.whenCompleteSuccessfully(rs -> rs.map(ChannelRecord::getRevision).forEach(revisions::update))
-				.whenCompleteSuccessfully(rs -> rs.forEach(r -> r.accept(listener::onNext)))
-				.whenCompleteExceptionally(callback::onError)
+				.thenApply(KafkaChannelFactory::convert)
+				.on(CommittedRecords::isEmpty, this::checkCompleteness)
+				.whenCompleteSuccessfully(cr -> cr.forEach(state::tryUpdate))
+				.whenCompleteSuccessfully(cr -> cr.forEach(source::onNext))
+				.whenCompleteExceptionally(error::onError)
 				.thenReturn(this::triggering);
 	}
 
 	private Trigger triggering() {
-		return !revisions.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
-	}
-
-	@Override
-	public void pause(Sequence<ChannelPartition> partitions) {
-		revisions.remove(partitions);
-		client.execute(c -> c.assign(revisions.toList(TopicPartition::new)));
+		return !state.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
 	}
 
 	@Override
 	public void resume(Sequence<ChannelRevision> revisions) {
-		this.revisions.add(revisions);
+		this.state.add(revisions);
 		client.execute(c -> {
-			c.assign(this.revisions.toList(TopicPartition::new));
-			this.revisions.forEach(r -> c.seek(r.to(TopicPartition::new), r.getOffset()));
+			c.assign(this.state.toList(TopicPartition::new));
+			this.state.forEach(r -> c.seek(r.to(TopicPartition::new), r.getOffset()));
 		});
 		rescheduler.doIfNecessary();
+	}
+
+	@Override
+	public void stop(Sequence<ChannelPartition> partitions) {
+		state.remove(partitions);
+		client.execute(c -> c.assign(state.toList(TopicPartition::new)));
 	}
 }

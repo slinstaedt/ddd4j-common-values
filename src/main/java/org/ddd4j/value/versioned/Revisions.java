@@ -1,24 +1,16 @@
 package org.ddd4j.value.versioned;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.ddd4j.Require;
-import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.math.Ordered.Comparison;
 
-//TODO move to log package
-//TODO immutable?
-public class Revisions implements Seq<Revision> {
+public class Revisions {
 
 	public static final Revisions NONE = new Revisions(0);
-
-	public static Revisions create(int partitionSize, IntStream partitions, long offset) {
-		Revisions revisions = new Revisions(partitionSize);
-		partitions.forEach(p -> revisions.updateWithPartition(p, offset));
-		return revisions;
-	}
 
 	private final long[] offsets;
 
@@ -36,7 +28,7 @@ public class Revisions implements Seq<Revision> {
 		this(copy.offsets);
 	}
 
-	public Revisions(Seq<Revision> revisions) {
+	public Revisions(Collection<Revision> revisions) {
 		this(revisions.stream().mapToInt(Revision::getPartition).max().orElse(0));
 		revisions.forEach(r -> offsets[r.getPartition()] = r.getOffset());
 	}
@@ -79,14 +71,6 @@ public class Revisions implements Seq<Revision> {
 		return IntStream.range(0, offsets.length).filter(p -> offsets[p] != Revision.UNKNOWN_OFFSET);
 	}
 
-	public long reset(int partition) {
-		return updateWithPartition(partition, Revision.UNKNOWN_OFFSET);
-	}
-
-	public void reset(IntStream partitions) {
-		partitions.forEach(this::reset);
-	}
-
 	public Revision revisionOfHash(int hash) {
 		return revisionOfPartition(partition(hash));
 	}
@@ -95,41 +79,11 @@ public class Revisions implements Seq<Revision> {
 		return new Revision(partition, offset(partition));
 	}
 
-	@Override
 	public Stream<Revision> stream() {
 		return partitions().mapToObj(this::revisionOfPartition);
 	}
 
 	public Stream<Revision> revisionsOfPartitions(IntStream partitions) {
 		return partitions.mapToObj(this::revisionOfPartition);
-	}
-
-	public long update(Revision revision) {
-		return updateWithPartition(revision.getPartition(), revision.getOffset());
-	}
-
-	public void update(Stream<Revision> revisions) {
-		revisions.forEachOrdered(this::update);
-	}
-
-	public void updateIfEarlier(Revisions other) {
-		partitions().filter(p -> this.offset(p) > other.offset(p)).forEach(p -> updateWithPartition(p, other.offset(p)));
-	}
-
-	public void updateIfLater(Revision other) {
-		int partition = other.getPartition();
-		if (!hasOffset(partition) || offset(partition) < other.getOffset()) {
-			update(other);
-		}
-	}
-
-	public long updateWithHash(int hash, long nextOffset) {
-		return updateWithPartition(partition(hash), nextOffset);
-	}
-
-	public long updateWithPartition(int partition, long nextOffset) {
-		long value = offsets[partition];
-		offsets[partition] = nextOffset;
-		return value;
 	}
 }

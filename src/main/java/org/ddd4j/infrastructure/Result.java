@@ -1,7 +1,7 @@
 package org.ddd4j.infrastructure;
 
-import org.reactivestreams.Publisher;
+import java.util.concurrent.Flow;
 
 //TODO needed?
-public interface Result<T> extends Publisher<T> {
+public interface Result<T> extends Flow.Publisher<T> {
 }

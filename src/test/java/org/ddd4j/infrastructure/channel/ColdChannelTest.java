@@ -3,9 +3,9 @@ package org.ddd4j.infrastructure.channel;
 import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
 
-import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.old.ColdChannel;
 import org.ddd4j.infrastructure.channel.old.ColdChannel.Callback;
+import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.CommitResult;

@@ -71,6 +71,10 @@ public interface Sequence<E> extends Iterable<E> {
 		return size() == 0;
 	}
 
+	default boolean isNotEmpty() {
+		return !isEmpty();
+	}
+
 	@Override
 	default Iterator<E> iterator() {
 		return stream().iterator();

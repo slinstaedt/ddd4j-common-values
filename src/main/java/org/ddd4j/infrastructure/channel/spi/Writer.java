@@ -4,8 +4,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.domain.ChannelName;
-import org.ddd4j.infrastructure.channel.domain.ChannelPartition;
+import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Recorded;

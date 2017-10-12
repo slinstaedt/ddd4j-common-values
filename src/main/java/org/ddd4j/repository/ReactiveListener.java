@@ -9,11 +9,12 @@ import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
-import org.ddd4j.infrastructure.channel.domain.ChannelName;
+import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.repository.log.LogPublisher;
 import org.ddd4j.value.versioned.Committed;
 
 public class ReactiveListener<K, V>
-		implements SourceListener<K, V>, CompletionListener, ErrorListener, RepartitioningListener, Subscription {
+		implements LogPublisher.Listener<K, V>, SourceListener<K, V>, CompletionListener, ErrorListener, RepartitioningListener, Subscription {
 
 	private final Subscriber<? super Committed<K, V>> subscriber;
 	private final Consumer<? super SourceListener<K, V>> unsubscriber;
@@ -29,11 +30,6 @@ public class ReactiveListener<K, V>
 	@Override
 	public void cancel() {
 		unsubscriber.accept(this);
-	}
-
-	@Override
-	public void onComplete() {
-		subscriber.onComplete();
 	}
 
 	@Override

@@ -34,9 +34,7 @@ import com.querydsl.core.types.dsl.NumberPath;
 import com.querydsl.core.types.dsl.SimplePath;
 import com.querydsl.core.types.dsl.StringPath;
 
-import lombok.Value;
-
-public class Lucene {
+public class LuceneTest {
 
 	public static void main(String[] args) throws IOException, ParseException {
 		Directory directory = buildIndex();
@@ -88,11 +86,9 @@ public class Lucene {
 	}
 }
 
-@Value
 @QueryEntity
 class Shipment {
 
-	@Value
 	static class Port {
 
 		String name;

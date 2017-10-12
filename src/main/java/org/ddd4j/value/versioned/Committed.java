@@ -1,10 +1,10 @@
 package org.ddd4j.value.versioned;
 
 import java.time.OffsetDateTime;
-import java.time.ZonedDateTime;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
 import org.ddd4j.Require;
@@ -74,10 +74,6 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 		return actual;
 	}
 
-	public Revision getNextExpected() {
-		return nextExpected;
-	}
-
 	@Override
 	public Props getHeader() {
 		return header;
@@ -86,6 +82,10 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	@Override
 	public K getKey() {
 		return key;
+	}
+
+	public Revision getNextExpected() {
+		return nextExpected;
 	}
 
 	public OffsetDateTime getTimestamp() {
@@ -119,6 +119,11 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	@Override
 	public int partition(ToIntFunction<? super K> keyHasher) {
 		return actual.getPartition();
+	}
+
+	public Position position(IntFunction<Revision> state) {
+		Revision expected = state.apply(actual.getPartition());
+		return expected.comparePosition(actual);
 	}
 
 	public Published<K, V> published() {

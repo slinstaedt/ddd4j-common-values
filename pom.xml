@@ -121,5 +121,15 @@
             <artifactId>aws-java-sdk-lambda</artifactId>
             <version>1.11.172</version>
         </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty.websocket</groupId>
+            <artifactId>javax-websocket-server-impl</artifactId>
+            <version>9.4.7.v20170914</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty.websocket</groupId>
+            <artifactId>javax-websocket-client-impl</artifactId>
+            <version>9.4.7.v20170914</version>
+        </dependency>
     </dependencies>
 </project>

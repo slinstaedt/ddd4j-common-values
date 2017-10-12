@@ -3,11 +3,12 @@ package org.ddd4j.infrastructure.channel.jms;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSContext;
 
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
+import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
 import org.ddd4j.infrastructure.channel.api.SourceListener;
-import org.ddd4j.infrastructure.channel.domain.ChannelName;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
-import org.ddd4j.infrastructure.channel.spi.HotSource.Callback;
 import org.ddd4j.infrastructure.channel.spi.Writer;
+import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
@@ -45,8 +46,9 @@ public class JmsChannelFactory implements HotSource.Factory, Writer.Factory {
 	}
 
 	@Override
-	public HotSource createHotSource(Callback callback, SourceListener<ReadBuffer, ReadBuffer> listener) {
-		return new JmsHotSource(client, callback, listener);
+	public HotSource createHotSource(SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error,
+			RepartitioningListener repartitioning) {
+		return new JmsHotSource(client, source, error, repartitioning);
 	}
 
 	@Override

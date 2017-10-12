@@ -1,4 +1,4 @@
-package org.ddd4j.infrastructure.channel.domain;
+package org.ddd4j.infrastructure.domain.value;
 
 import java.util.function.BiFunction;
 
@@ -29,10 +29,6 @@ public class ChannelPartition implements Value<ChannelPartition> {
 
 	public ChannelName getName() {
 		return name;
-	}
-
-	public ChannelRevision withOffset(long offset) {
-		return new ChannelRevision(this, offset);
 	}
 
 	@Override
