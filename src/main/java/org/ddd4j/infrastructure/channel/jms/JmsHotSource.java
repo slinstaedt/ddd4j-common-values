@@ -12,7 +12,6 @@ import javax.jms.JMSContext;
 import javax.jms.JMSException;
 
 import org.ddd4j.Require;
-import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
@@ -23,6 +22,7 @@ import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.util.Props;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 

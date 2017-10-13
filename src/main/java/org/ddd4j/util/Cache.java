@@ -1,4 +1,4 @@
-package org.ddd4j.collection;
+package org.ddd4j.util;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -36,12 +36,12 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.Producer;
 import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.collection.Cache.Access.Exclusive;
-import org.ddd4j.collection.Cache.Access.Shared;
-import org.ddd4j.collection.Cache.Decorating.Blocking;
-import org.ddd4j.collection.Cache.Decorating.Evicting;
-import org.ddd4j.collection.Cache.Decorating.Listening;
-import org.ddd4j.collection.Cache.Decorating.Retrying;
+import org.ddd4j.util.Cache.Access.Exclusive;
+import org.ddd4j.util.Cache.Access.Shared;
+import org.ddd4j.util.Cache.Decorating.Blocking;
+import org.ddd4j.util.Cache.Decorating.Evicting;
+import org.ddd4j.util.Cache.Decorating.Listening;
+import org.ddd4j.util.Cache.Decorating.Retrying;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;
 

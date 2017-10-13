@@ -3,7 +3,6 @@ package org.ddd4j.infrastructure.channel;
 import java.time.ZonedDateTime;
 
 import org.ddd4j.aggregate.Identifier;
-import org.ddd4j.collection.Props;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.spi.Committer;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
@@ -11,6 +10,7 @@ import org.ddd4j.infrastructure.domain.value.ChannelSpec;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.TestProvisioning;
+import org.ddd4j.util.Props;
 import org.ddd4j.value.versioned.Revision;
 import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Uncommitted;

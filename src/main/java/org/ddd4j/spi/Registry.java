@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
-import org.ddd4j.collection.Cache;
+import org.ddd4j.util.Cache;
 import org.ddd4j.value.Named;
 import org.ddd4j.value.config.Configuration;
 

@@ -8,7 +8,7 @@ import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
 import org.ddd4j.Require;
-import org.ddd4j.collection.Props;
+import org.ddd4j.util.Props;
 import org.ddd4j.value.math.Ordered;
 
 //TODO add actual date beside transaction date

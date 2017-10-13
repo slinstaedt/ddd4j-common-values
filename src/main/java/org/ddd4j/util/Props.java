@@ -1,4 +1,4 @@
-package org.ddd4j.collection;
+package org.ddd4j.util;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;

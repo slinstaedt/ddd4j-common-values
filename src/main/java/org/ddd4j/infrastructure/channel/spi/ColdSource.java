@@ -4,7 +4,6 @@ import java.util.Map;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
-import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
@@ -18,6 +17,7 @@ import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
+import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 
 public interface ColdSource extends Throwing.Closeable {

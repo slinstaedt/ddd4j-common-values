@@ -1,4 +1,4 @@
-package org.ddd4j.collection;
+package org.ddd4j.util;
 
 import java.util.ArrayList;
 import java.util.Collection;

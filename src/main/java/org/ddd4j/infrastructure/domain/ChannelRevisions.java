@@ -12,10 +12,10 @@ import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.infrastructure.domain.value.ChannelRevision;
+import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Position;
 import org.ddd4j.value.versioned.Revision;

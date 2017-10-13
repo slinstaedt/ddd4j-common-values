@@ -11,7 +11,6 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import org.ddd4j.Require;
-import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
@@ -23,6 +22,7 @@ import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.infrastructure.domain.value.ChannelSpec;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.repository.ReactiveListener;
+import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 
 public class LogPublisher<C> implements CommitListener<ReadBuffer, ReadBuffer>, ErrorListener, RepartitioningListener {

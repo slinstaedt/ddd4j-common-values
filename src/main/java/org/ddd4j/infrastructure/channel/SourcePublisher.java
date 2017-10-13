@@ -1,8 +1,6 @@
 package org.ddd4j.infrastructure.channel;
 
 import org.ddd4j.Require;
-import org.ddd4j.collection.Lazy;
-import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
@@ -16,6 +14,8 @@ import org.ddd4j.infrastructure.domain.value.ChannelRevision;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.repository.log.LogPublisher;
 import org.ddd4j.repository.log.LogPublisher.Listener;
+import org.ddd4j.util.Lazy;
+import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Position;
 

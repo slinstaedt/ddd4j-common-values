@@ -10,9 +10,9 @@ import java.util.TreeMap;
 import java.util.function.Supplier;
 
 import org.ddd4j.Require;
-import org.ddd4j.collection.Cache;
-import org.ddd4j.collection.Cache.Pool;
 import org.ddd4j.spi.Key;
+import org.ddd4j.util.Cache;
+import org.ddd4j.util.Cache.Pool;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;
 

@@ -3,8 +3,8 @@ package org.ddd4j.value.versioned;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
-import org.ddd4j.collection.Props;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.util.Props;
 
 public interface Recorded<K, V> {
 

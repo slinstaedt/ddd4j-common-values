@@ -7,7 +7,6 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
-import org.ddd4j.collection.Cache;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.spi.ColdReader;
 import org.ddd4j.infrastructure.channel.spi.Reader;
@@ -22,6 +21,7 @@ import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
+import org.ddd4j.util.Cache;
 import org.ddd4j.value.Type;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;

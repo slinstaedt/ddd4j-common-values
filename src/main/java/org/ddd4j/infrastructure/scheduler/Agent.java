@@ -4,8 +4,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ddd4j.Require;
-import org.ddd4j.collection.RingBuffer;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.util.RingBuffer;
 import org.ddd4j.value.Nothing;
 
 public class Agent<T> {

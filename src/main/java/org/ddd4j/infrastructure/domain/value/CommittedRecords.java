@@ -8,8 +8,8 @@ import java.util.NoSuchElementException;
 import java.util.function.BiConsumer;
 
 import org.ddd4j.Require;
-import org.ddd4j.collection.Sequence;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
