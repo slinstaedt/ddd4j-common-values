@@ -12,9 +12,9 @@ import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
-import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
@@ -32,14 +32,14 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		}
 
 		private final Consumer<byte[], byte[]> consumer;
-		private final SourceListener<?, ?> source;
+		private final CommitListener<?, ?> commit;
 		private final ErrorListener error;
 		private final RepartitioningListener repartitioning;
 
-		KafkaRebalanceCallback(Consumer<byte[], byte[]> consumer, SourceListener<?, ?> source, ErrorListener error,
+		KafkaRebalanceCallback(Consumer<byte[], byte[]> consumer, CommitListener<?, ?> commit, ErrorListener error,
 				RepartitioningListener repartitioning) {
 			this.consumer = Require.nonNull(consumer);
-			this.source = Require.nonNull(source);
+			this.commit = Require.nonNull(commit);
 			this.error = Require.nonNull(error);
 			this.repartitioning = Require.nonNull(repartitioning);
 		}
@@ -62,16 +62,16 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = ConsumerRecords.empty();
 
-	private final SourceListener<ReadBuffer, ReadBuffer> listener;
+	private final CommitListener<ReadBuffer, ReadBuffer> commit;
 	private final KafkaRebalanceCallback callback;
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final Rescheduler rescheduler;
 	private final Map<String, Promise<Integer>> subscriptions;
 
-	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, SourceListener<ReadBuffer, ReadBuffer> source,
+	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, CommitListener<ReadBuffer, ReadBuffer> commit,
 			ErrorListener error, RepartitioningListener repartitioning) {
-		this.listener = Require.nonNull(source);
-		this.callback = new KafkaRebalanceCallback(consumer, source, error, repartitioning);
+		this.commit = Require.nonNull(commit);
+		this.callback = new KafkaRebalanceCallback(consumer, commit, error, repartitioning);
 		this.client = scheduler.createAgent(consumer);
 		this.rescheduler = scheduler.reschedulerFor(this);
 		this.subscriptions = new ConcurrentHashMap<>();
@@ -90,7 +90,7 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	}
 
 	private void onNext(ConsumerRecord<byte[], byte[]> record) {
-		listener.onNext(ChannelName.of(record.topic()), KafkaChannelFactory.convert(record));
+		commit.onNext(ChannelName.of(record.topic()), KafkaChannelFactory.convert(record));
 	}
 
 	@Override

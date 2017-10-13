@@ -6,9 +6,9 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
-import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.domain.ChannelRevisions;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
@@ -22,15 +22,15 @@ import org.ddd4j.value.versioned.Committed;
 
 public interface ColdSource extends Throwing.Closeable {
 
-	class AutoClosing implements ColdSource, SourceListener<ReadBuffer, ReadBuffer>, CompletionListener, ErrorListener {
+	class AutoClosing implements ColdSource, CommitListener<ReadBuffer, ReadBuffer>, CompletionListener, ErrorListener {
 
-		private final SourceListener<ReadBuffer, ReadBuffer> source;
+		private final CommitListener<ReadBuffer, ReadBuffer> commit;
 		private final ErrorListener error;
 		private final ChannelRevisions state;
 		private final ColdSource delegate;
 
-		public AutoClosing(Factory factory, SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error) {
-			this.source = Require.nonNull(source);
+		public AutoClosing(Factory factory, CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error) {
+			this.commit = Require.nonNull(commit);
 			this.error = Require.nonNull(error);
 			this.state = new ChannelRevisions();
 			this.delegate = factory.createColdSource(this, this, this);
@@ -62,7 +62,7 @@ public interface ColdSource extends Throwing.Closeable {
 		@Override
 		public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
 			state.tryUpdate(name, committed);
-			source.onNext(name, committed);
+			commit.onNext(name, committed);
 		}
 
 		@Override
@@ -81,11 +81,11 @@ public interface ColdSource extends Throwing.Closeable {
 
 	interface Factory extends DataAccessFactory {
 
-		default ColdSource createAutoClosingColdSource(SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error) {
-			return new AutoClosing(this, source, error);
+		default ColdSource createAutoClosingColdSource(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error) {
+			return new AutoClosing(this, commit, error);
 		}
 
-		ColdSource createColdSource(SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion, ErrorListener error);
+		ColdSource createColdSource(CommitListener<ReadBuffer, ReadBuffer> commit, CompletionListener completion, ErrorListener error);
 	}
 
 	class VersionedReaderBased implements ColdSource, ScheduledTask {
@@ -105,11 +105,11 @@ public interface ColdSource extends Throwing.Closeable {
 			}
 
 			@Override
-			public ColdSource createColdSource(SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion,
+			public ColdSource createColdSource(CommitListener<ReadBuffer, ReadBuffer> commit, CompletionListener completion,
 					ErrorListener error) {
 				Scheduler scheduler = context.get(Scheduler.KEY);
 				ColdReader reader = context.get(ColdReader.FACTORY).createColdReader();
-				return new VersionedReaderBased(scheduler, reader, source, completion, error);
+				return new VersionedReaderBased(scheduler, reader, commit, completion, error);
 			}
 
 			@Override
@@ -118,16 +118,16 @@ public interface ColdSource extends Throwing.Closeable {
 			}
 		}
 
-		private final SourceListener<ReadBuffer, ReadBuffer> source;
+		private final CommitListener<ReadBuffer, ReadBuffer> commit;
 		private final CompletionListener completion;
 		private final ErrorListener error;
 		private final ColdReader reader;
 		private final Rescheduler rescheduler;
 		private final ChannelRevisions state;
 
-		public VersionedReaderBased(Scheduler scheduler, ColdReader reader, SourceListener<ReadBuffer, ReadBuffer> source,
+		public VersionedReaderBased(Scheduler scheduler, ColdReader reader, CommitListener<ReadBuffer, ReadBuffer> commit,
 				CompletionListener completion, ErrorListener error) {
-			this.source = Require.nonNull(source);
+			this.commit = Require.nonNull(commit);
 			this.completion = Require.nonNull(completion);
 			this.error = Require.nonNull(error);
 			this.reader = Require.nonNull(reader);
@@ -144,7 +144,7 @@ public interface ColdSource extends Throwing.Closeable {
 		public Promise<Trigger> onScheduled(Scheduler scheduler) {
 			return reader.get(state)
 					.whenCompleteSuccessfully(cr -> cr.forEach(state::tryUpdate))
-					.whenCompleteSuccessfully(cr -> cr.forEachOrEmpty(source::onNext, completion::onComplete))
+					.whenCompleteSuccessfully(cr -> cr.forEachOrEmpty(commit::onNext, completion::onComplete))
 					.whenCompleteExceptionally(error::onError)
 					.thenApply(rc -> state.isNotEmpty() && rc.isNotEmpty() ? Trigger.RESCHEDULE : Trigger.NOTHING);
 		}

@@ -8,9 +8,9 @@ import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.collection.Sequence;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
-import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.spi.ColdSource;
 import org.ddd4j.infrastructure.domain.ChannelRevisions;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
@@ -26,16 +26,16 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = ConsumerRecords.empty();
 
 	private final Agent<Consumer<byte[], byte[]>> client;
-	private final SourceListener<ReadBuffer, ReadBuffer> source;
+	private final CommitListener<ReadBuffer, ReadBuffer> commit;
 	private final ErrorListener error;
 	private final CompletionListener completion;
 	private final ChannelRevisions state;
 	private final Rescheduler rescheduler;
 
-	KafkaColdSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, SourceListener<ReadBuffer, ReadBuffer> source,
+	KafkaColdSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, CommitListener<ReadBuffer, ReadBuffer> commit,
 			ErrorListener error, CompletionListener completion) {
 		this.client = scheduler.createAgent(consumer);
-		this.source = Require.nonNull(source);
+		this.commit = Require.nonNull(commit);
 		this.error = Require.nonNull(error);
 		this.completion = Require.nonNull(completion);
 		this.state = new ChannelRevisions();
@@ -66,7 +66,7 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 				.thenApply(KafkaChannelFactory::convert)
 				.on(CommittedRecords::isEmpty, this::checkCompleteness)
 				.whenCompleteSuccessfully(cr -> cr.forEach(state::tryUpdate))
-				.whenCompleteSuccessfully(cr -> cr.forEach(source::onNext))
+				.whenCompleteSuccessfully(cr -> cr.forEach(commit::onNext))
 				.whenCompleteExceptionally(error::onError)
 				.thenReturn(this::triggering);
 	}

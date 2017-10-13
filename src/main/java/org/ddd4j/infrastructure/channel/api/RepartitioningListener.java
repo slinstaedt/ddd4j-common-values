@@ -6,20 +6,26 @@ import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 
 public interface RepartitioningListener {
 
-	RepartitioningListener VOID = new RepartitioningListener() {
+	@FunctionalInterface
+	interface Mapper<C> {
 
-		@Override
-		public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-			return Promise.completed();
-		}
+		Promise<?> apply(C callback, Sequence<ChannelPartition> partitions);
+	}
+
+	RepartitioningListener VOID = new RepartitioningListener() {
 
 		@Override
 		public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
 			return Promise.completed();
 		}
+
+		@Override
+		public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
+			return Promise.completed();
+		}
 	};
 
-	Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions);
-
 	Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions);
+
+	Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions);
 }

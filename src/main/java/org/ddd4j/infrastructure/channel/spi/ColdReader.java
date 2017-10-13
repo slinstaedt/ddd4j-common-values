@@ -13,7 +13,7 @@ import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Promise.Cancelable;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
-import org.ddd4j.infrastructure.channel.api.SourceListener;
+import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelRevision;
 import org.ddd4j.infrastructure.domain.value.CommittedRecords;
@@ -61,7 +61,7 @@ public interface ColdReader {
 			}
 		}
 
-		private static class Listener implements SourceListener<ReadBuffer, ReadBuffer>, ErrorListener, CompletionListener {
+		private static class Listener implements CommitListener<ReadBuffer, ReadBuffer>, ErrorListener, CompletionListener {
 
 			private final Promise.Deferred<CommittedRecords> deferred;
 			private final ColdSource source;

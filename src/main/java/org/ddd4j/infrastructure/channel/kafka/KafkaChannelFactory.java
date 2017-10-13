@@ -24,10 +24,10 @@ import org.ddd4j.Require;
 import org.ddd4j.collection.Lazy;
 import org.ddd4j.collection.Props;
 import org.ddd4j.collection.Sequence;
+import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
-import org.ddd4j.infrastructure.channel.api.SourceListener;
 import org.ddd4j.infrastructure.channel.spi.ColdSource;
 import org.ddd4j.infrastructure.channel.spi.Committer;
 import org.ddd4j.infrastructure.channel.spi.DataAccessFactory;
@@ -122,7 +122,7 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	}
 
 	@Override
-	public ColdSource createColdSource(SourceListener<ReadBuffer, ReadBuffer> source, CompletionListener completion, ErrorListener error) {
+	public ColdSource createColdSource(CommitListener<ReadBuffer, ReadBuffer> commit, CompletionListener completion, ErrorListener error) {
 		Scheduler scheduler = context.get(Scheduler.KEY);
 		Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
 		// TODO
@@ -130,11 +130,11 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	}
 
 	@Override
-	public HotSource createHotSource(SourceListener<ReadBuffer, ReadBuffer> source, ErrorListener error,
+	public HotSource createHotSource(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error,
 			RepartitioningListener repartitioning) {
 		Scheduler scheduler = context.get(Scheduler.KEY);
 		Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
-		return new KafkaHotSource(scheduler, consumer, source, error, repartitioning);
+		return new KafkaHotSource(scheduler, consumer, commit, error, repartitioning);
 	}
 
 	@Override

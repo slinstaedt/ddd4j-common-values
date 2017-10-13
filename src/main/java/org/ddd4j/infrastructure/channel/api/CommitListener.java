@@ -10,11 +10,11 @@ import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
 @FunctionalInterface
-public interface SourceListener<K, V> {
+public interface CommitListener<K, V> {
 
 	void onNext(ChannelName name, Committed<K, V> committed);
 
-	default <X, Y> SourceListener<X, Y> mapPromised(Function<? super X, K> key, BiFunction<? super Y, Revision, Promise<V>> value,
+	default <X, Y> CommitListener<X, Y> mapPromised(Function<? super X, K> key, BiFunction<? super Y, Revision, Promise<V>> value,
 			ErrorListener listener) {
 		Require.nonNullElements(key, value, listener);
 		return (n, cx) -> value.apply(cx.getValue(), cx.getActual()).thenApply(v -> cx.mapKey(key, v)).whenComplete(cv -> onNext(n, cv),
