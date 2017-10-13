@@ -28,44 +28,6 @@ import org.ddd4j.value.versioned.Committed;
 public class LogPublisher<C> implements CommitListener<ReadBuffer, ReadBuffer>, ErrorListener, RepartitioningListener {
 
 	public interface Listener extends CommitListener<ReadBuffer, ReadBuffer>, ErrorListener, RepartitioningListener {
-
-		class Mapped<C> implements Listener {
-
-			private final CommitListener<ReadBuffer, ReadBuffer> commit;
-			private final ErrorListener error;
-			private final C callback;
-			private final Mapper<C> onAssigned;
-			private final Mapper<C> onRevoked;
-
-			public Mapped(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error, C callback, Mapper<C> onAssigned,
-					Mapper<C> onRevoked) {
-				this.commit = Require.nonNull(commit);
-				this.error = Require.nonNull(error);
-				this.callback = Require.nonNull(callback);
-				this.onAssigned = Require.nonNull(onAssigned);
-				this.onRevoked = Require.nonNull(onRevoked);
-			}
-
-			@Override
-			public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
-				commit.onNext(name, committed);
-			}
-
-			@Override
-			public void onError(Throwable throwable) {
-				error.onError(throwable);
-			}
-
-			@Override
-			public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
-				return onAssigned.apply(callback, partitions);
-			}
-
-			@Override
-			public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-				return onRevoked.apply(callback, partitions);
-			}
-		}
 	}
 
 	public interface ListenerFactory<C> {

@@ -6,12 +6,6 @@ import org.ddd4j.util.Sequence;
 
 public interface RepartitioningListener {
 
-	@FunctionalInterface
-	interface Mapper<C> {
-
-		Promise<?> apply(C callback, Sequence<ChannelPartition> partitions);
-	}
-
 	RepartitioningListener VOID = new RepartitioningListener() {
 
 		@Override
