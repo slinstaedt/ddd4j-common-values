@@ -19,7 +19,7 @@ import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Position;
 
-public class SourcePublisher {
+public class SourcePublisher implements CommitListener<ReadBuffer, ReadBuffer> {
 
 	public interface RevisionCallback {
 
@@ -109,13 +109,18 @@ public class SourcePublisher {
 		this.hotSource = hotFactory.createHotSource(publisher, publisher, publisher);
 	}
 
+	@Override
+	public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+		hotState.tryUpdate(name, committed);
+	}
+
 	private Promise<Integer> onSubscribed(ChannelName name) {
-		publisher.subscribe(name, hotState::tryUpdate, ErrorListener.VOID, RevisionCallback.VOID);
+		publisher.subscribe(name, this, ErrorListener.VOID, RevisionCallback.VOID);
 		return hotSource.subscribe(name);
 	}
 
 	private void onUnsubscribed(ChannelName name) {
-		publisher.unsubscribe(name, hotState::tryUpdate);
+		publisher.unsubscribe(name, this);
 		hotSource.unsubscribe(name);
 	}
 }
