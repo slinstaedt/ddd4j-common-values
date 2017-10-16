@@ -30,9 +30,17 @@ public interface Committer<K, V> {
 			Encoder<V> encoder = codecFactory.encoder(spec);
 			TFunction<CommitResult<?, ?>, Revision> committedRevision = r -> r.foldResult(Committed::getActual,
 					c -> Throwing.unchecked(new IllegalStateException(c.toString())));
-			return createCommitter(spec.getName()).onCompleted(ReadBuffer::close, ReadBuffer::close).flatMapValue(
+			return createCommitterClosingBuffers(spec.getName()).flatMapValue(
 					k -> bufferPool.get().accept(b -> spec.serializeKey(k, b)).flip(),
 					(v, p) -> encoder.encode(bufferPool.get(), p.thenApply(committedRevision), v).thenApply(WriteBuffer::flip));
+		}
+
+		default Committer<ReadBuffer, ReadBuffer> createCommitterClosingBuffers(ChannelName name) {
+			return createCommitter(name).onCompleted(ReadBuffer::close, ReadBuffer::close);
+		}
+
+		default Factory writeCommitted(Writer.Factory factory) {
+
 		}
 	}
 

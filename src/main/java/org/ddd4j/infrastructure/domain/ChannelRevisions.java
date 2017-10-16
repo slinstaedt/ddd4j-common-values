@@ -15,6 +15,7 @@ import java.util.stream.Stream;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.infrastructure.domain.value.ChannelRevision;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Position;
@@ -27,11 +28,11 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 
 		private final AtomicReference<long[]> values;
 
-		public Offsets() {
+		Offsets() {
 			this.values = new AtomicReference<>(new long[0]);
 		}
 
-		public void add(Revision revision) {
+		void add(Revision revision) {
 			long[] offsets;
 			while (revision.getPartition() >= (offsets = values.get()).length) {
 				long[] arr = Arrays.copyOf(offsets, revision.getPartition() + 1);
@@ -41,23 +42,23 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 			set(revision.getPartition(), revision.getOffset());
 		}
 
-		public int getPartitionSize() {
+		int getPartitionSize() {
 			return values.get().length;
 		}
 
-		public Revisions getRevisions() {
+		Revisions getRevisions() {
 			return new Revisions(values.get());
 		}
 
-		public boolean isKnown(int partition) {
+		boolean isKnown(int partition) {
 			return map(partition, a -> a[partition] != Revision.UNKNOWN_OFFSET, Boolean.FALSE);
 		}
 
-		public IntStream knownPartitions() {
+		IntStream knownPartitions() {
 			return map(-1, a -> IntStream.range(0, a.length).filter(i -> a[i] != Revision.UNKNOWN_OFFSET), IntStream.empty());
 		}
 
-		public Stream<Revision> knownRevisions() {
+		Stream<Revision> knownRevisions() {
 			return map(-1, a -> knownPartitions().mapToObj(p -> new Revision(p, a[p])), Stream.empty());
 		}
 
@@ -66,18 +67,18 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 			return partition < offsets.length ? function.apply(offsets) : defaultValue;
 		}
 
-		public long offset(int partition) {
+		long offset(int partition) {
 			return map(partition, a -> a[partition], Revision.UNKNOWN_OFFSET);
 		}
 
-		public Offsets remove(int partition) {
+		Offsets remove(int partition) {
 			if (isKnown(partition)) {
 				set(partition, Revision.UNKNOWN_OFFSET);
 			}
 			return LongStream.of(values.get()).anyMatch(o -> o != Revision.UNKNOWN_OFFSET) ? this : null;
 		}
 
-		public Revision revision(int partition) {
+		Revision revision(int partition) {
 			return new Revision(partition, offset(partition));
 		}
 
@@ -85,11 +86,11 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 			values.get()[partition] = offset;
 		}
 
-		public Position update(Committed<?, ?> committed) {
+		Position trySet(Committed<?, ?> committed, Function<Committed<?, ?>, Revision> revision, Position exptected) {
 			Position position = committed.position(this::revision);
-			if (position == Position.UPTODATE) {
-				Revision next = committed.getNextExpected();
-				set(next.getPartition(), next.getOffset());
+			if (position == exptected) {
+				Revision rev = revision.apply(committed);
+				set(rev.getPartition(), rev.getOffset());
 			}
 			return position;
 		}
@@ -170,7 +171,11 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 		return stream().collect(Collectors.toMap(rev -> rev.to(mapper), ChannelRevision::getOffset));
 	}
 
+	public boolean rollback(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+		return map(name, o -> o.trySet(committed, Committed::getActual, Position.AHEAD) == Position.AHEAD, Boolean.FALSE);
+	}
+
 	public Position tryUpdate(ChannelName name, Committed<?, ?> committed) {
-		return map(name, o -> o.update(committed), Position.FAILED);
+		return map(name, o -> o.trySet(committed, Committed::getNextExpected, Position.UPTODATE), Position.FAILED);
 	}
 }

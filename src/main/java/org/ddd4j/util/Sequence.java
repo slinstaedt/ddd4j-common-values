@@ -80,6 +80,10 @@ public interface Sequence<E> extends Iterable<E> {
 		return stream().iterator();
 	}
 
+	default Optional<E> last() {
+		return stream().reduce((e1, e2) -> e2);
+	}
+
 	default <X> Sequence<X> map(Function<? super E, ? extends X> mapper) {
 		return () -> stream().map(mapper);
 	}

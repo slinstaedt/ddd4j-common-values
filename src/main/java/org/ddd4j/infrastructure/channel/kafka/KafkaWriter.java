@@ -1,14 +1,18 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
+
 import org.apache.kafka.clients.producer.Producer;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.spi.Writer;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
-import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;
+import org.ddd4j.value.versioned.Revision;
 
 public class KafkaWriter implements Writer<ReadBuffer, ReadBuffer> {
 
@@ -23,12 +27,13 @@ public class KafkaWriter implements Writer<ReadBuffer, ReadBuffer> {
 	}
 
 	@Override
-	public Promise<ChannelPartition> put(Recorded<ReadBuffer, ReadBuffer> recorded) {
-		Promise.Deferred<ChannelPartition> deferred = scheduler.createDeferredPromise();
+	public Promise<Committed<ReadBuffer, ReadBuffer>> put(Recorded<ReadBuffer, ReadBuffer> recorded) {
+		Promise.Deferred<Committed<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
 		client.send(KafkaChannelFactory.convert(name, recorded), (metadata, exception) -> {
 			if (metadata != null) {
-				ChannelPartition partition = new ChannelPartition(name, metadata.partition());
-				deferred.completeSuccessfully(partition);
+				Revision nextExpected = new Revision(metadata.partition(), metadata.offset() + 1);
+				OffsetDateTime timestamp = Instant.ofEpochMilli(metadata.timestamp()).atOffset(KafkaChannelFactory.ZONE_OFFSET);
+				deferred.completeSuccessfully(recorded.committed(nextExpected, timestamp));
 			} else {
 				deferred.completeExceptionally(exception);
 			}

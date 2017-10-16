@@ -33,11 +33,11 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	private final OffsetDateTime timestamp;
 	private final Props header;
 
-	public Committed(K key, V value, Revision actual, Revision next, OffsetDateTime timestamp, Props header) {
+	public Committed(K key, V value, Revision actual, Revision nextExpected, OffsetDateTime timestamp, Props header) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.actual = Require.nonNull(actual);
-		this.nextExpected = Require.nonNull(next);
+		this.nextExpected = Require.nonNull(nextExpected);
 		this.timestamp = Require.nonNull(timestamp);
 		this.header = Require.nonNull(header);
 	}
@@ -51,17 +51,17 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	}
 
 	@Override
+	public Committed<K, V> committed(Revision nextExpected, OffsetDateTime timestamp) {
+		return this;
+	}
+
+	@Override
 	public int compareTo(Committed<K, V> other) {
 		if (this.actual.equals(other.actual)) {
 			return Long.compareUnsigned(this.actual.getOffset(), other.actual.getOffset());
 		} else {
 			return this.timestamp.compareTo(other.timestamp);
 		}
-	}
-
-	@Override
-	public <X> X foldRecorded(Function<Uncommitted<K, V>, X> uncommitted, Function<Committed<K, V>, X> committed) {
-		return committed.apply(this);
 	}
 
 	@Override
@@ -128,6 +128,11 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 
 	public Published<K, V> published() {
 		return new Published<>(key, value, actual, nextExpected, timestamp, header);
+	}
+
+	@Override
+	public <X, Y> Committed<X, Y> with(Function<? super K, ? extends X> keyMapper, Y value) {
+		return new Committed<>(keyMapper.apply(key), value, actual, nextExpected, timestamp, header);
 	}
 
 	@Override

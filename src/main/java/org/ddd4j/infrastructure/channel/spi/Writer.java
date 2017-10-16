@@ -1,13 +1,18 @@
 package org.ddd4j.infrastructure.channel.spi;
 
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.SchemaCodec;
+import org.ddd4j.infrastructure.channel.SchemaCodec.Encoder;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
-import org.ddd4j.infrastructure.domain.value.ChannelPartition;
+import org.ddd4j.infrastructure.domain.value.ChannelSpec;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.spi.Key;
+import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revisions;
 
@@ -17,6 +22,13 @@ public interface Writer<K, V> {
 
 		Writer<ReadBuffer, ReadBuffer> createWriter(ChannelName name);
 
+		default <K, V> Writer<K, V> createWriter(ChannelSpec<K, V> spec, SchemaCodec.Factory codecFactory, WriteBuffer.Pool bufferPool) {
+			Encoder<V> encoder = codecFactory.encoder(spec);
+			return createWriterClosingBuffers(spec.getName()).flatMapValue(
+					k -> bufferPool.get().accept(b -> spec.serializeKey(k, b)).flip(),
+					(v, p) -> encoder.encode(bufferPool.get(), p.thenApply(Committed::getActual), v).thenApply(WriteBuffer::flip));
+		}
+
 		default Writer<ReadBuffer, ReadBuffer> createWriterClosingBuffers(ChannelName name) {
 			return createWriter(name).onCompleted(ReadBuffer::close, ReadBuffer::close);
 		}
@@ -24,20 +36,30 @@ public interface Writer<K, V> {
 
 	Key<Factory> FACTORY = Key.of(Factory.class);
 
-	default <X, Y> Writer<X, Y> map(Function<? super X, K> key, Function<? super Y, V> value) {
-		return r -> put(r.map(key, value));
+	default <X, Y> Writer<X, Y> flatMapValue(Function<? super X, K> key,
+			BiFunction<? super Y, Promise<Committed<K, V>>, Promise<V>> value) {
+		Promise.Deferred<Committed<K, V>> result = Promise.deferred(Runnable::run);
+		return r -> value.apply(r.getValue(), result)
+				.thenApply(v -> r.with(key, v))
+				.thenCompose(this::put)
+				.whenComplete(result::complete)
+				.thenApply(c -> c.withValuesFrom(r));
 	}
 
-	default Promise<ChannelPartition> put(K key, V value) {
+	default <X, Y> Writer<X, Y> map(Function<? super X, K> key, Function<? super Y, V> value) {
+		return r -> put(r.map(key, value)).thenApply(c -> c.withValuesFrom(r));
+	}
+
+	default Writer<K, V> onCompleted(Consumer<? super K> key, Consumer<? super V> value) {
+		return r -> put(r).thenRun(() -> {
+			key.accept(r.getKey());
+			value.accept(r.getValue());
+		});
+	}
+
+	default Promise<Committed<K, V>> put(K key, V value) {
 		return put(Recorded.uncommitted(key, value, Revisions.NONE));
 	}
 
-	Promise<ChannelPartition> put(Recorded<K, V> recorded);
-
-	default Writer<K, V> onCompleted(Consumer<? super K> key, Consumer<? super V> value) {
-		return a -> put(a).thenRun(() -> {
-			key.accept(a.getKey());
-			value.accept(a.getValue());
-		});
-	}
+	Promise<Committed<K, V>> put(Recorded<K, V> recorded);
 }

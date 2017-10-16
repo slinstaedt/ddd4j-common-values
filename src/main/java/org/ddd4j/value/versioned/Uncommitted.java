@@ -22,6 +22,7 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 		this.header = Require.nonNull(header);
 	}
 
+	@Override
 	public Committed<K, V> committed(Revision nextExpected, OffsetDateTime timestamp) {
 		Revision actual = expected.revisionOfPartition(nextExpected.getPartition());
 		return new Committed<>(key, value, actual, nextExpected, timestamp, header);
@@ -29,11 +30,6 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 
 	public Conflicting<K, V> conflicts(Revision actual) {
 		return new Conflicting<>(key, expected, actual);
-	}
-
-	@Override
-	public <X> X foldRecorded(Function<Uncommitted<K, V>, X> uncommitted, Function<Committed<K, V>, X> committed) {
-		return uncommitted.apply(this);
 	}
 
 	@Override
@@ -62,6 +58,7 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 		return expected.partition(hash);
 	}
 
+	@Override
 	public <X, Y> Uncommitted<X, Y> with(Function<? super K, ? extends X> keyMapper, Y value) {
 		return new Uncommitted<>(keyMapper.apply(key), value, expected, header);
 	}

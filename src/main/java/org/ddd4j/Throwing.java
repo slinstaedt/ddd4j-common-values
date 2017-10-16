@@ -100,6 +100,9 @@ public interface Throwing {
 			return Require.nonNull(task);
 		}
 
+		Task NONE = () -> {
+		};
+
 		default <T> Producer<T> andThen(Producer<T> producer) {
 			return () -> {
 				perform();

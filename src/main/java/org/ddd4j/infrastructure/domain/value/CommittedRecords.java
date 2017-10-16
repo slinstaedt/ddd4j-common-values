@@ -30,7 +30,7 @@ public class CommittedRecords {
 	}
 
 	public Committed<ReadBuffer, ReadBuffer> commit(ChannelName name, Revision actual) {
-		return commits(name).filter(c -> c.getActual().equal(actual)).head().orElseThrow(NoSuchElementException::new);
+		return commits(name).filter(c -> c.getActual().equals(actual)).head().orElseThrow(NoSuchElementException::new);
 	}
 
 	public Committed<ReadBuffer, ReadBuffer> commit(ChannelRevision spec) {
@@ -39,6 +39,10 @@ public class CommittedRecords {
 
 	public Sequence<Committed<ReadBuffer, ReadBuffer>> commits(ChannelName name) {
 		return values.getOrDefault(name, Sequence.empty());
+	}
+
+	public Sequence<Committed<ReadBuffer, ReadBuffer>> commits(ChannelName name, ReadBuffer key) {
+		return commits(name).filter(c -> c.getKey().equals(key)); // TODO
 	}
 
 	public void forEach(BiConsumer<ChannelName, Committed<ReadBuffer, ReadBuffer>> consumer) {

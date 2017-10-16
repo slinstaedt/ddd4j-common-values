@@ -1,5 +1,6 @@
 package org.ddd4j.value.versioned;
 
+import java.time.OffsetDateTime;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
@@ -16,7 +17,7 @@ public interface Recorded<K, V> {
 		return new Uncommitted<>(key, value, expected, Props.EMTPY);
 	}
 
-	<X> X foldRecorded(Function<Uncommitted<K, V>, X> uncommitted, Function<Committed<K, V>, X> committed);
+	Committed<K, V> committed(Revision nextExpected, OffsetDateTime timestamp);
 
 	Props getHeader();
 
@@ -27,4 +28,6 @@ public interface Recorded<K, V> {
 	<X, Y> Recorded<X, Y> map(Function<? super K, ? extends X> keyMapper, Function<? super V, ? extends Y> valueMapper);
 
 	int partition(ToIntFunction<? super K> keyHasher);
+
+	<X, Y> Recorded<X, Y> with(Function<? super K, ? extends X> keyMapper, Y value);
 }

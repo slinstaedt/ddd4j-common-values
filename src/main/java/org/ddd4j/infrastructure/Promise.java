@@ -362,6 +362,10 @@ public interface Promise<T> {
 		return new Ordered<>(this);
 	}
 
+	default <X> X returning(X value) {
+		return value;
+	}
+
 	default Promise<?> runAfterAll(Stream<Promise<?>> others) {
 		return others.reduce(this, Promise::runAfterBoth);
 	}

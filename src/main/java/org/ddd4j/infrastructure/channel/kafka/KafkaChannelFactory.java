@@ -59,6 +59,8 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 
 	public static final Key<KafkaChannelFactory> KEY = Key.of(KafkaChannelFactory.class, KafkaChannelFactory::new);
 
+	static final ZoneOffset ZONE_OFFSET = ZoneOffset.UTC; // TODO
+
 	private static final ByteArrayDeserializer DESERIALIZER = new ByteArrayDeserializer();
 	private static final ByteArraySerializer SERIALIZER = new ByteArraySerializer();
 
@@ -77,7 +79,7 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 		ReadBuffer value = Bytes.wrap(record.value()).buffered();
 		Revision actual = new Revision(record.partition(), record.offset());
 		Revision next = actual.increment(1);
-		OffsetDateTime timestamp = Instant.ofEpochSecond(record.timestamp()).atOffset(ZoneOffset.UTC); // TODO
+		OffsetDateTime timestamp = Instant.ofEpochSecond(record.timestamp()).atOffset(ZONE_OFFSET);
 		Props header = Props.deserialize(value);
 		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
 	}

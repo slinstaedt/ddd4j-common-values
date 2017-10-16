@@ -79,8 +79,8 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	public void resume(Sequence<ChannelRevision> revisions) {
 		this.state.add(revisions);
 		client.execute(c -> {
-			c.assign(this.state.toList(TopicPartition::new));
-			this.state.forEach(r -> c.seek(r.to(TopicPartition::new), r.getOffset()));
+			c.assign(state.toList(TopicPartition::new));
+			state.forEach(r -> c.seek(r.to(TopicPartition::new), r.getOffset()));
 		});
 		rescheduler.doIfNecessary();
 	}

@@ -61,8 +61,8 @@ public interface ColdSource extends Throwing.Closeable {
 
 		@Override
 		public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
-			state.tryUpdate(name, committed);
 			commit.onNext(name, committed);
+			state.tryUpdate(name, committed);
 		}
 
 		@Override
@@ -88,7 +88,7 @@ public interface ColdSource extends Throwing.Closeable {
 		ColdSource createColdSource(CommitListener<ReadBuffer, ReadBuffer> commit, CompletionListener completion, ErrorListener error);
 	}
 
-	class VersionedReaderBased implements ColdSource, ScheduledTask {
+	class ColdReaderBased implements ColdSource, ScheduledTask {
 
 		public static class Factory implements ColdSource.Factory {
 
@@ -109,7 +109,7 @@ public interface ColdSource extends Throwing.Closeable {
 					ErrorListener error) {
 				Scheduler scheduler = context.get(Scheduler.KEY);
 				ColdReader reader = context.get(ColdReader.FACTORY).createColdReader();
-				return new VersionedReaderBased(scheduler, reader, commit, completion, error);
+				return new ColdReaderBased(scheduler, reader, commit, completion, error);
 			}
 
 			@Override
@@ -125,7 +125,7 @@ public interface ColdSource extends Throwing.Closeable {
 		private final Rescheduler rescheduler;
 		private final ChannelRevisions state;
 
-		public VersionedReaderBased(Scheduler scheduler, ColdReader reader, CommitListener<ReadBuffer, ReadBuffer> commit,
+		public ColdReaderBased(Scheduler scheduler, ColdReader reader, CommitListener<ReadBuffer, ReadBuffer> commit,
 				CompletionListener completion, ErrorListener error) {
 			this.commit = Require.nonNull(commit);
 			this.completion = Require.nonNull(completion);
@@ -161,7 +161,7 @@ public interface ColdSource extends Throwing.Closeable {
 		}
 	}
 
-	Key<Factory> FACTORY = Key.of(Factory.class, VersionedReaderBased.Factory::new);
+	Key<Factory> FACTORY = Key.of(Factory.class, ColdReaderBased.Factory::new);
 
 	void resume(Sequence<ChannelRevision> revisions);
 

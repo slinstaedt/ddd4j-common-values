@@ -10,6 +10,7 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 
 	public static final long END_OFFSET = Long.MAX_VALUE;
 	public static final long UNKNOWN_OFFSET = -1;
+	public static final Revision UNKNOWN = new Revision(0, UNKNOWN_OFFSET);
 
 	public static Revision deserialize(ReadBuffer buffer) {
 		return new Revision(buffer.getInt(), buffer.getLong());

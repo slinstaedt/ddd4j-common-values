@@ -13,7 +13,7 @@ public interface Reader<K, V> {
 
 	interface Factory extends DataAccessFactory {
 
-		Reader<ReadBuffer, ReadBuffer> create(ChannelName resource);
+		Reader<ReadBuffer, ReadBuffer> create(ChannelName name);
 	}
 
 	Key<Factory> FACTORY = Key.of(Factory.class);

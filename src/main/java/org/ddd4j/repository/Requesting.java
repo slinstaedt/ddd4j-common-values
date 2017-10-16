@@ -28,23 +28,24 @@ public class Requesting {
 		return value != 0;
 	}
 
-	public Requesting more(long n) {
+	public boolean more(long n) {
 		Require.that(n > 0);
+		boolean hadRemaining = hasRemaining();
 		if (value < 0 || n == Long.MAX_VALUE) {
 			value = -1;
 		} else {
 			value += n;
 		}
-		return this;
+		return hadRemaining;
 	}
 
-	public Requesting processed() {
+	public boolean processed() {
 		return processed(1);
 	}
 
-	public Requesting processed(int n) {
+	public boolean processed(int n) {
 		Require.that(n >= value);
 		value -= n;
-		return this;
+		return hasRemaining();
 	}
 }
