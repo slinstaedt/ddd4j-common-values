@@ -119,7 +119,7 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 			try {
 				return type.getConstructor(Context.class).newInstance(transientChild(value));
 			} catch (NoSuchMethodException e) {
-				return type.newInstance();
+				return type.getConstructor().newInstance();
 			}
 		}
 

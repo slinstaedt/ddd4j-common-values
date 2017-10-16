@@ -386,12 +386,6 @@ public interface Throwing {
 
 	String EXCEPTION_MESSAGE_TEMPLATE = "Could not invoke this with arguments %s";
 
-	@SuppressWarnings("unchecked")
-	static <X, E extends Throwable> X any(Throwable throwable) throws E {
-		Require.nonNull(throwable);
-		throw (E) throwable;
-	}
-
 	@SafeVarargs
 	static <T> T[] arrayConcat(T[] array, T... append) {
 		if (append.length == 0) {
@@ -407,8 +401,10 @@ public interface Throwing {
 		return Require.nonNull(exceptionFactory)::apply;
 	}
 
-	static <X> X unchecked(Throwable exception) {
-		return Throwing.<X, RuntimeException>any(exception);
+	@SuppressWarnings("unchecked")
+	static <X, E extends Throwable> X unchecked(Throwable throwable) throws E {
+		Require.nonNull(throwable);
+		throw (E) throwable;
 	}
 
 	default <T, U, R> TBiFunction<T, U, R> asBiFunction(Object... args) {
@@ -435,7 +431,7 @@ public interface Throwing {
 	}
 
 	default <X> X throwChecked(Object... args) throws Exception {
-		return any(createException(formatMessage(args)));
+		return unchecked(createException(formatMessage(args)));
 	}
 
 	default <X> X throwUnchecked(Object... args) {

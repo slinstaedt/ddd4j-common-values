@@ -55,7 +55,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 	}
 
 	public static <T> Key<T> of(String name, ServiceFactory<? extends T> creator) {
-		return new Key<>(name, creator, Object::getClass, Context.class::isInstance);
+		return new Key<>(name, creator, Object::getClass, Object.class::isInstance);
 	}
 
 	public static <T> Key<T> reflective(Class<T> serviceType) {
