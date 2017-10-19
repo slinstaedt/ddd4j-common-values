@@ -1,9 +1,7 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -66,7 +64,7 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 
 	static ProducerRecord<byte[], byte[]> convert(ChannelName name, Recorded<ReadBuffer, ReadBuffer> recorded) {
 		int partition = recorded.partition(ReadBuffer::hash);
-		long timestamp = ZonedDateTime.now().toEpochSecond();
+		long timestamp = recorded.getTimestamp().toEpochMilli();
 		byte[] key = recorded.getKey().toByteArray();
 		byte[] value = recorded.getValue().toByteArray();
 		// TODO serialize header?
@@ -79,7 +77,7 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 		ReadBuffer value = Bytes.wrap(record.value()).buffered();
 		Revision actual = new Revision(record.partition(), record.offset());
 		Revision next = actual.increment(1);
-		OffsetDateTime timestamp = Instant.ofEpochSecond(record.timestamp()).atOffset(ZONE_OFFSET);
+		Instant timestamp = Instant.ofEpochMilli(record.timestamp());
 		Props header = Props.deserialize(value);
 		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
 	}

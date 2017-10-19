@@ -1,5 +1,6 @@
 package org.ddd4j.infrastructure.channel.spi;
 
+import java.time.Instant;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -58,7 +59,7 @@ public interface Writer<K, V> {
 	}
 
 	default Promise<Committed<K, V>> put(K key, V value) {
-		return put(Recorded.uncommitted(key, value, Revisions.NONE));
+		return put(Recorded.uncommitted(key, value, Revisions.NONE, Instant.now()));
 	}
 
 	Promise<Committed<K, V>> put(Recorded<K, V> recorded);

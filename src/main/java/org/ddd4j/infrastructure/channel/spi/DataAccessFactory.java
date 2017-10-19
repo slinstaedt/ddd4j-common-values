@@ -1,6 +1,6 @@
 package org.ddd4j.infrastructure.channel.spi;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
 
@@ -13,8 +13,8 @@ import org.ddd4j.value.versioned.Revision;
 
 public interface DataAccessFactory extends Throwing.Closeable {
 
-	static Committed<ReadBuffer, ReadBuffer> committed(ReadBuffer key, ReadBuffer value, Revision actual, Revision next,
-			OffsetDateTime timestamp, Props header) {
+	static Committed<ReadBuffer, ReadBuffer> committed(ReadBuffer key, ReadBuffer value, Revision actual, Revision next, Instant timestamp,
+			Props header) {
 		return new Committed<>(key.mark(), value.mark(), actual, next, timestamp, header);
 	}
 

@@ -1,6 +1,6 @@
 package org.ddd4j.value.versioned;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -16,7 +16,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 
 	public static class Published<K, V> extends Committed<K, V> {
 
-		Published(K key, V value, Revision actual, Revision next, OffsetDateTime timestamp, Props header) {
+		Published(K key, V value, Revision actual, Revision next, Instant timestamp, Props header) {
 			super(key, value, actual, next, timestamp, header);
 		}
 
@@ -30,10 +30,10 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	private final V value;
 	private final Revision actual;
 	private final Revision nextExpected;
-	private final OffsetDateTime timestamp;
+	private final Instant timestamp;
 	private final Props header;
 
-	public Committed(K key, V value, Revision actual, Revision nextExpected, OffsetDateTime timestamp, Props header) {
+	public Committed(K key, V value, Revision actual, Revision nextExpected, Instant timestamp, Props header) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.actual = Require.nonNull(actual);
@@ -51,7 +51,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	}
 
 	@Override
-	public Committed<K, V> committed(Revision nextExpected, OffsetDateTime timestamp) {
+	public Committed<K, V> committed(Revision nextExpected) {
 		return this;
 	}
 
@@ -88,7 +88,8 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 		return nextExpected;
 	}
 
-	public OffsetDateTime getTimestamp() {
+	@Override
+	public Instant getTimestamp() {
 		return timestamp;
 	}
 

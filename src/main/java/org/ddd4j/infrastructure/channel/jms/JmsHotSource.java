@@ -1,8 +1,6 @@
 package org.ddd4j.infrastructure.channel.jms;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -33,8 +31,7 @@ public class JmsHotSource implements HotSource {
 		ReadBuffer value = Bytes.wrap(message.getBody(byte[].class)).buffered();
 		Revision actual = new Revision(JmsChannelFactory.PARTITION, message.getLongProperty("actual"));
 		Revision next = new Revision(JmsChannelFactory.PARTITION, message.getLongProperty("next"));
-		OffsetDateTime timestamp = Instant.ofEpochSecond(message.getJMSTimestamp())
-				.atOffset(ZoneOffset.ofTotalSeconds(message.getIntProperty("zoneOfsset")));
+		Instant timestamp = Instant.ofEpochMilli(message.getJMSTimestamp());
 		Props header = Props.deserialize(value);
 		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
 	}

@@ -1,7 +1,5 @@
 package org.ddd4j.infrastructure.channel.jms;
 
-import java.time.OffsetDateTime;
-
 import javax.jms.BytesMessage;
 import javax.jms.JMSContext;
 import javax.jms.JMSException;
@@ -39,7 +37,7 @@ public class JmsWriter implements Writer<ReadBuffer, ReadBuffer> {
 		BytesMessage message = ctx.createBytesMessage();
 		convert(recorded, message);
 		ctx.createProducer().send(topic, message);
-		return recorded.committed(Revision.UNKNOWN, OffsetDateTime.now());
+		return recorded.committed(Revision.UNKNOWN);
 	}
 
 	@Override

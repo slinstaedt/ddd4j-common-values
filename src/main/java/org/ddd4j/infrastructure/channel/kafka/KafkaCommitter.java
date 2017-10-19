@@ -1,8 +1,5 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
-import java.time.Instant;
-import java.time.OffsetDateTime;
-
 import org.apache.kafka.clients.producer.Producer;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
@@ -32,8 +29,7 @@ public class KafkaCommitter implements Committer<ReadBuffer, ReadBuffer> {
 		client.send(KafkaChannelFactory.convert(name, attempt), (metadata, exception) -> {
 			if (metadata != null) {
 				Revision nextExpected = new Revision(metadata.partition(), metadata.offset() + 1);
-				OffsetDateTime timestamp = Instant.ofEpochMilli(metadata.timestamp()).atOffset(KafkaChannelFactory.ZONE_OFFSET);
-				deferred.completeSuccessfully(attempt.committed(nextExpected, timestamp));
+				deferred.completeSuccessfully(attempt.committed(nextExpected));
 			} else {
 				deferred.completeExceptionally(exception);
 			}
