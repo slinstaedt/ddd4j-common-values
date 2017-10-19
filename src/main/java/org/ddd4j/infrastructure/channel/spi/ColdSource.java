@@ -66,9 +66,9 @@ public interface ColdSource extends Throwing.Closeable {
 		}
 
 		@Override
-		public void resume(Sequence<ChannelRevision> revisions) {
+		public void start(Sequence<ChannelRevision> revisions) {
 			state.add(revisions);
-			delegate.resume(revisions);
+			delegate.start(revisions);
 		}
 
 		@Override
@@ -150,7 +150,7 @@ public interface ColdSource extends Throwing.Closeable {
 		}
 
 		@Override
-		public void resume(Sequence<ChannelRevision> revisions) {
+		public void start(Sequence<ChannelRevision> revisions) {
 			state.add(revisions);
 			rescheduler.doIfNecessary();
 		}
@@ -163,7 +163,7 @@ public interface ColdSource extends Throwing.Closeable {
 
 	Key<Factory> FACTORY = Key.of(Factory.class, ColdReaderBased.Factory::new);
 
-	void resume(Sequence<ChannelRevision> revisions);
+	void start(Sequence<ChannelRevision> revisions);
 
 	void stop(Sequence<ChannelPartition> partitions);
 }

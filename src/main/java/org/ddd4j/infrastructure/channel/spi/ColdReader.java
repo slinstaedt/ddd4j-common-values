@@ -69,7 +69,7 @@ public interface ColdReader {
 				this.source = delegate.createColdSource(this, this, this);
 				this.records = new HashMap<>();
 				this.timerProvider = () -> scheduler.schedule(this::timeout, timeoutInMillis, TimeUnit.MILLISECONDS);
-				source.resume(revisions);
+				source.start(revisions);
 				timer = timerProvider.get();
 			}
 

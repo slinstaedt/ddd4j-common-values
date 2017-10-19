@@ -1,5 +1,7 @@
 package org.ddd4j.repository;
 
+import java.util.function.IntConsumer;
+
 import org.ddd4j.Require;
 
 public class Requesting {
@@ -28,24 +30,29 @@ public class Requesting {
 		return value != 0;
 	}
 
-	public boolean more(long n) {
+	public void more(long n) {
 		Require.that(n > 0);
-		boolean hadRemaining = hasRemaining();
 		if (value < 0 || n == Long.MAX_VALUE) {
 			value = -1;
 		} else {
 			value += n;
 		}
-		return hadRemaining;
 	}
 
-	public boolean processed() {
-		return processed(1);
+	public void more(long n, IntConsumer requestor) {
+		boolean hadRemaining = hasRemaining();
+		more(n);
+		if (hadRemaining) {
+			requestor.accept(asInt());
+		}
 	}
 
-	public boolean processed(int n) {
+	public void processed() {
+		processed(1);
+	}
+
+	public void processed(int n) {
 		Require.that(n >= value);
 		value -= n;
-		return hasRemaining();
 	}
 }

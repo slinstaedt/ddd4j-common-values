@@ -53,8 +53,6 @@ public class FlowListener<K, V> implements CommitListener<K, V>, ErrorListener, 
 
 	@Override
 	public void request(long n) {
-		if (!requesting.more(n)) {
-			requestor.accept(requesting.asInt());
-		}
+		requesting.more(n, requestor);
 	}
 }

@@ -76,7 +76,7 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	}
 
 	@Override
-	public void resume(Sequence<ChannelRevision> revisions) {
+	public void start(Sequence<ChannelRevision> revisions) {
 		this.state.add(revisions);
 		client.execute(c -> {
 			c.assign(state.toList(TopicPartition::new));

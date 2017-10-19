@@ -60,7 +60,7 @@ public interface RevisionCallback {
 				if (position == Position.UPTODATE) {
 					commit.onNext(name, committed);
 				} else if (position == Position.BEHIND) {
-					coldSource.get().resume(state.revision(name, committed));
+					coldSource.get().start(state.revision(name, committed));
 				}
 			}
 
@@ -79,7 +79,7 @@ public interface RevisionCallback {
 
 			private void resumeIfNecessary(Sequence<ChannelRevision> revisions) {
 				if (!hotState.contains(revisions)) {
-					coldSource.get().resume(revisions);
+					coldSource.get().start(revisions);
 				}
 			}
 		}
