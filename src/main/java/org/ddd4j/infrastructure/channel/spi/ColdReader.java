@@ -1,5 +1,6 @@
 package org.ddd4j.infrastructure.channel.spi;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.infrastructure.domain.value.ChannelRevision;
 import org.ddd4j.infrastructure.domain.value.CommittedRecords;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -25,7 +27,7 @@ import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;
 import org.ddd4j.value.versioned.Committed;
 
-public interface ColdReader {
+public interface ColdReader extends TimeIndexed {
 
 	class ColdSourceBased implements ColdReader {
 
@@ -38,11 +40,6 @@ public interface ColdReader {
 			public Factory(Context context) {
 				this.context = Require.nonNull(context);
 				Require.that(context.get(ColdSource.FACTORY), ColdSource.ColdReaderBased.Factory.class::isInstance);
-			}
-
-			@Override
-			public void closeChecked() throws Exception {
-				context.get(ColdSource.FACTORY).closeChecked();
 			}
 
 			@Override
@@ -117,6 +114,13 @@ public interface ColdReader {
 		@Override
 		public Promise<CommittedRecords> get(Sequence<ChannelRevision> revisions) {
 			return new Listener(scheduler, delegate, revisions, timeoutInMillis).getResult();
+		}
+
+		@Override
+		public Promise<ChannelRevision> revision(ChannelPartition partition, Instant timestamp, Direction direction) {
+			try (ColdSource source = delegate.createColdSource(CommitListener.VOID, CompletionListener.VOID, ErrorListener.VOID)) {
+				return source.revision(partition, timestamp, direction);
+			}
 		}
 	}
 

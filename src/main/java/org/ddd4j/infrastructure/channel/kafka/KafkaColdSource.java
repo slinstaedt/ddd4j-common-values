@@ -1,5 +1,8 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collections;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.Consumer;
@@ -71,8 +74,14 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 				.thenReturn(this::triggering);
 	}
 
-	private Trigger triggering() {
-		return !state.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
+	@Override
+	public Promise<ChannelRevision> revision(ChannelPartition partition, Instant timestamp, Direction direction) {
+		Duration diff = Duration.ofHours(12);
+		TopicPartition tp = partition.to(TopicPartition::new);
+		return client.performBlocked((t, u) -> c -> c.offsetsForTimes(Collections.singletonMap(tp, timestamp.toEpochMilli())).get(tp))//
+				.on(ots -> direction.check(timestamp, ots.timestamp()),
+						p -> p.thenApply(ots -> new ChannelRevision(partition, ots.offset())),
+						p -> revision(partition, direction.apply(timestamp, diff), direction));
 	}
 
 	@Override
@@ -89,5 +98,9 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	public void stop(Sequence<ChannelPartition> partitions) {
 		state.remove(partitions);
 		client.execute(c -> c.assign(state.toList(TopicPartition::new)));
+	}
+
+	private Trigger triggering() {
+		return !state.isEmpty() ? Trigger.NOTHING : Trigger.RESCHEDULE;
 	}
 }

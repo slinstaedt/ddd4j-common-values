@@ -6,11 +6,15 @@ import java.util.function.Function;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
 @FunctionalInterface
 public interface CommitListener<K, V> {
+
+	CommitListener<ReadBuffer, ReadBuffer> VOID = (n, c) -> {
+	};
 
 	void onNext(ChannelName name, Committed<K, V> committed);
 
