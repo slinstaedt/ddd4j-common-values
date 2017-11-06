@@ -33,12 +33,16 @@ public interface Sequence<E> extends Iterable<E> {
 		return Require.nonNull(source)::get;
 	}
 
+	static <E> Sequence<E> ofCopied(Collection<E> collection) {
+		return new ArrayList<>(collection)::stream;
+	}
+
 	static <E> Sequence<E> ofCopied(Supplier<Stream<E>> source) {
 		return source.get().collect(Collectors.toList())::stream;
 	}
 
-	static <E> Sequence<E> ofCopied(Collection<E> collection) {
-		return new ArrayList<>(collection)::stream;
+	default boolean contains(Object candidate) {
+		return stream().anyMatch(candidate::equals);
 	}
 
 	default Sequence<E> copy() {
@@ -53,14 +57,14 @@ public interface Sequence<E> extends Iterable<E> {
 		return () -> stream().flatMap(mapper);
 	}
 
-	default <K> Map<K, Sequence<E>> groupBy(Function<? super E, K> key) {
-		return groupBy(key, Function.identity());
-	}
-
 	default <K, V> Map<K, Sequence<V>> groupBy(Function<? super E, ? extends K> key, Function<? super E, ? extends V> value) {
 		Collector<? super E, ?, List<V>> c1 = Collectors.mapping(value, Collectors.<V>toList());
 		Collector<? super E, ?, Sequence<V>> c2 = Collectors.collectingAndThen(c1, l -> of(l::stream));
 		return stream().collect(Collectors.groupingBy(key, c2));
+	}
+
+	default <K> Map<K, Sequence<E>> groupBy(Function<? super E, K> key) {
+		return groupBy(key, Function.identity());
 	}
 
 	default Optional<E> head() {

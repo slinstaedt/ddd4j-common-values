@@ -11,7 +11,7 @@ import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.value.versioned.Committed;
 
-public class ReactiveSubscriber<K, V> implements Subscriber<Committed<K, V>> {
+public class FlowSubscriber<K, V> implements Subscriber<Committed<K, V>> {
 
 	private final ChannelName name;
 	private final CommitListener<K, V> commit;
@@ -19,7 +19,7 @@ public class ReactiveSubscriber<K, V> implements Subscriber<Committed<K, V>> {
 	private final ErrorListener error;
 	private final Consumer<? super Subscription> onSubscribed;
 
-	public ReactiveSubscriber(ChannelName name, CommitListener<K, V> commit, CompletionListener completion, ErrorListener error,
+	public FlowSubscriber(ChannelName name, CommitListener<K, V> commit, CompletionListener completion, ErrorListener error,
 			Consumer<? super Subscription> onSubscribed) {
 		this.name = Require.nonNull(name);
 		this.commit = Require.nonNull(commit);

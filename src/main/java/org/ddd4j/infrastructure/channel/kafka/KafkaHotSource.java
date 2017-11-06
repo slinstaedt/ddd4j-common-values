@@ -13,7 +13,8 @@ import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
-import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
+import org.ddd4j.infrastructure.channel.api.RebalanceListener;
+import org.ddd4j.infrastructure.channel.api.RebalanceListener.Mode;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
@@ -34,14 +35,14 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		private final Consumer<byte[], byte[]> consumer;
 		private final CommitListener<?, ?> commit;
 		private final ErrorListener error;
-		private final RepartitioningListener repartitioning;
+		private final RebalanceListener rebalance;
 
 		KafkaRebalanceCallback(Consumer<byte[], byte[]> consumer, CommitListener<?, ?> commit, ErrorListener error,
-				RepartitioningListener repartitioning) {
+				RebalanceListener rebalance) {
 			this.consumer = Require.nonNull(consumer);
 			this.commit = Require.nonNull(commit);
 			this.error = Require.nonNull(error);
-			this.repartitioning = Require.nonNull(repartitioning);
+			this.rebalance = Require.nonNull(rebalance);
 		}
 
 		void onError(Throwable throwable) {
@@ -51,12 +52,12 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		@Override
 		public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
 			consumer.seekToEnd(partitions);
-			repartitioning.onPartitionsAssigned(toChannelPartitions(partitions));
+			rebalance.onRebalance(Mode.ASSIGNED, toChannelPartitions(partitions));
 		}
 
 		@Override
 		public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-			repartitioning.onPartitionsRevoked(toChannelPartitions(partitions));
+			rebalance.onRebalance(Mode.REVOKED, toChannelPartitions(partitions));
 		}
 	}
 
@@ -69,9 +70,9 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 	private final Map<String, Promise<Integer>> subscriptions;
 
 	KafkaHotSource(Scheduler scheduler, Consumer<byte[], byte[]> consumer, CommitListener<ReadBuffer, ReadBuffer> commit,
-			ErrorListener error, RepartitioningListener repartitioning) {
+			ErrorListener error, RebalanceListener rebalance) {
 		this.commit = Require.nonNull(commit);
-		this.callback = new KafkaRebalanceCallback(consumer, commit, error, repartitioning);
+		this.callback = new KafkaRebalanceCallback(consumer, commit, error, rebalance);
 		this.client = scheduler.createAgent(consumer);
 		this.rescheduler = scheduler.reschedulerFor(this);
 		this.subscriptions = new ConcurrentHashMap<>();
@@ -82,15 +83,15 @@ public class KafkaHotSource implements HotSource, ScheduledTask {
 		client.executeBlocked((t, u) -> c -> c.close(t, u)).join();
 	}
 
+	private void onNext(ConsumerRecord<byte[], byte[]> record) {
+		commit.onNext(ChannelName.of(record.topic()), KafkaChannelFactory.convert(record));
+	}
+
 	@Override
 	public Promise<Trigger> onScheduled(Scheduler scheduler) {
 		return client.performBlocked((t, u) -> c -> c.subscription().isEmpty() ? EMPTY_RECORDS : c.poll(u.toMillis(t)))
 				.whenComplete(rs -> rs.forEach(this::onNext), callback::onError)
 				.thenReturn(this::triggering);
-	}
-
-	private void onNext(ConsumerRecord<byte[], byte[]> record) {
-		commit.onNext(ChannelName.of(record.topic()), KafkaChannelFactory.convert(record));
 	}
 
 	@Override

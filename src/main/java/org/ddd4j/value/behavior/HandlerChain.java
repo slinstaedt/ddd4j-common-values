@@ -18,13 +18,14 @@ public class HandlerChain<T> {
 		private final Class<? extends M> messageType;
 		private final MessageHandler<? super T, ? super M, ? extends B> handler;
 
-		BehaviorHandler(Class<? extends T> targetType, Class<? extends M> messageType, MessageHandler<? super T, ? super M, ? extends B> handler) {
+		BehaviorHandler(Class<? extends T> targetType, Class<? extends M> messageType,
+				MessageHandler<? super T, ? super M, ? extends B> handler) {
 			this.targetType = Require.nonNull(targetType);
 			this.messageType = Require.nonNull(messageType);
 			this.handler = Require.nonNull(handler);
 		}
 
-		Optional<B> applyFromHistory(B target, Committed<?> committed) {
+		Optional<B> applyFromHistory(B target, Committed<?, ?> committed) {
 			Optional<? extends M> message = committed.matchedPayload(messageType);
 			if (targetType.isInstance(target) && message.isPresent()) {
 				return Optional.of(handler.apply(targetType.cast(target), message.get()));
@@ -37,7 +38,7 @@ public class HandlerChain<T> {
 			return Seq.singleton(messageType);
 		}
 
-		Behavior<? extends B> record(Behavior<? extends B> behavior, Uncommitted<?> uncommitted) {
+		Behavior<? extends B> record(Behavior<? extends B> behavior, Uncommitted<?, ?> uncommitted) {
 			Optional<? extends M> message = uncommitted.matchedPayload(messageType);
 			if (message.isPresent()) {
 				return behavior.map(t -> {
@@ -89,7 +90,7 @@ public class HandlerChain<T> {
 
 		T apply(S target, M message);
 
-		default T applyFromHistory(S target, Uncommitted<M> uncommitted) {
+		default T applyFromHistory(S target, Uncommitted<?, M> uncommitted) {
 			return apply(target, uncommitted.getPayload());
 		}
 
@@ -129,7 +130,7 @@ public class HandlerChain<T> {
 		this.handlers = Require.nonNull(handlers);
 	}
 
-	public T applyFromHistory(T target, Committed<?> event) {
+	public T applyFromHistory(T target, Committed<?, ?> event) {
 		Optional<T> result = Optional.empty();
 		Iterator<BehaviorHandler<T, ?, ?>> iterator = handlers.iterator();
 		while (iterator.hasNext()) {
@@ -153,7 +154,8 @@ public class HandlerChain<T> {
 		return when(messageType, handler);
 	}
 
-	public <X extends T, M> HandlerChain<T> chainReference(Class<X> targetType, Class<M> messageType, ReferenceHandler<X, ? super M> handler) {
+	public <X extends T, M> HandlerChain<T> chainReference(Class<X> targetType, Class<M> messageType,
+			ReferenceHandler<X, ? super M> handler) {
 		return when(targetType, messageType, handler);
 	}
 
@@ -171,7 +173,7 @@ public class HandlerChain<T> {
 		return handlers.map().<Class<?>> flatSeq(BehaviorHandler::messageType).target().filter().distinct();
 	}
 
-	public Behavior<? extends T> record(T target, Uncommitted<?> uncommitted) {
+	public Behavior<? extends T> record(T target, Uncommitted<?, ?> uncommitted) {
 		return handlers.fold().<Behavior<? extends T>> eachWithIdentity(Behavior.none(target), (b, h) -> h.record(b, uncommitted));
 	}
 
@@ -179,7 +181,8 @@ public class HandlerChain<T> {
 		return when(messageType, handler.swap());
 	}
 
-	public <X extends T, M> HandlerChain<T> swap(Class<X> targetType, Class<M> messageType, MessageHandler<? super M, ? super X, ? extends X> handler) {
+	public <X extends T, M> HandlerChain<T> swap(Class<X> targetType, Class<M> messageType,
+			MessageHandler<? super M, ? super X, ? extends X> handler) {
 		return when(targetType, messageType, handler.swap());
 	}
 
@@ -187,7 +190,8 @@ public class HandlerChain<T> {
 		return when(messageType, handler);
 	}
 
-	public <X extends T, M> HandlerChain<T> swapReference(Class<X> targetType, Class<M> messageType, ReferenceHandler<X, ? super M> handler) {
+	public <X extends T, M> HandlerChain<T> swapReference(Class<X> targetType, Class<M> messageType,
+			ReferenceHandler<X, ? super M> handler) {
 		return when(targetType, messageType, handler);
 	}
 
@@ -200,7 +204,8 @@ public class HandlerChain<T> {
 		return when(baseType, messageType, handler);
 	}
 
-	public <X extends T, M> HandlerChain<T> when(Class<X> targetType, Class<M> messageType, MessageHandler<? super X, ? super M, ? extends T> handler) {
+	public <X extends T, M> HandlerChain<T> when(Class<X> targetType, Class<M> messageType,
+			MessageHandler<? super X, ? super M, ? extends T> handler) {
 		return new HandlerChain<>(baseType, handlers.append().entry(new BehaviorHandler<>(targetType, messageType, handler)));
 	}
 }

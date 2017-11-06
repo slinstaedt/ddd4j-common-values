@@ -106,14 +106,14 @@ public interface Promise<T> {
 		private final java.util.concurrent.Future<T> future;
 		private final java.util.concurrent.Delayed delayed;
 
-		public Delayed(Executor executor, ScheduledFuture<T> future) {
-			this(executor, future, future);
-		}
-
 		public Delayed(Executor executor, java.util.concurrent.Future<T> future, java.util.concurrent.Delayed delayed) {
 			super(executor, new CompletableFuture<>());
 			this.future = Require.nonNull(future);
 			this.delayed = Require.nonNull(delayed);
+		}
+
+		public Delayed(Executor executor, ScheduledFuture<T> future) {
+			this(executor, future, future);
 		}
 
 		@Override
@@ -260,6 +260,16 @@ public interface Promise<T> {
 	}
 
 	@SuppressWarnings("unchecked")
+	static <T> Promise.Delayed<T> ofDelayed(Executor executor, ScheduledFuture<T> future) {
+		Require.nonNullElements(executor, future);
+		if (future instanceof Promise.Delayed) {
+			return (Promise.Delayed<T>) future;
+		} else {
+			return new Delayed<>(executor, future);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
 	static <T> Promise.Cancelable<T> ofFuture(Executor executor, java.util.concurrent.Future<T> future) {
 		Require.nonNullElements(executor, future);
 		if (future instanceof Promise.Cancelable) {
@@ -270,16 +280,6 @@ public interface Promise<T> {
 			Future<T> promise = new Future<>(executor, future, new CompletableFuture<>());
 			executor.execute(promise::poll);
 			return promise;
-		}
-	}
-
-	@SuppressWarnings("unchecked")
-	static <T> Promise.Delayed<T> ofDelayed(Executor executor, ScheduledFuture<T> future) {
-		Require.nonNullElements(executor, future);
-		if (future instanceof Promise.Delayed) {
-			return (Promise.Delayed<T>) future;
-		} else {
-			return new Delayed<>(executor, future);
 		}
 	}
 
@@ -327,21 +327,21 @@ public interface Promise<T> {
 		return toCompletionStage().toCompletableFuture().join();
 	}
 
-	default Promise<T> on(T value, UnaryOperator<Promise<T>> then) {
-		return on(t -> Objects.equals(t, value), then, Function.identity());
-	}
-
 	default <X> Promise<X> on(T value, Function<Promise<T>, Promise<X>> then, Function<Promise<T>, Promise<X>> orElse) {
 		return on(t -> Objects.equals(t, value), then, orElse);
 	}
 
-	default Promise<T> on(TPredicate<? super T> condition, UnaryOperator<Promise<T>> then) {
-		return on(condition, then, Function.identity());
+	default Promise<T> on(T value, UnaryOperator<Promise<T>> then) {
+		return on(t -> Objects.equals(t, value), then, Function.identity());
 	}
 
 	default <X> Promise<X> on(TPredicate<? super T> condition, Function<Promise<T>, Promise<X>> then,
 			Function<Promise<T>, Promise<X>> orElse) {
 		return thenCompose(t -> condition.test(t) ? then.apply(this) : orElse.apply(this));
+	}
+
+	default Promise<T> on(TPredicate<? super T> condition, UnaryOperator<Promise<T>> then) {
+		return on(condition, then, Function.identity());
 	}
 
 	default Promise<T> onVisit(T value, Consumer<Promise<T>> then) {

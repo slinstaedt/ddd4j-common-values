@@ -98,16 +98,16 @@ public class Scheduler implements AutoCloseable {
 		return Promise.ofFuture(executor, future);
 	}
 
+	public <T> Promise<T> execute(Blocked<T> blocked) {
+		return Promise.of(executor, executor.execute(blocked));
+	}
+
 	public <T> Promise<T> execute(Producer<T> producer) {
 		return schedule(producer, 0, TimeUnit.MILLISECONDS);
 	}
 
 	public Promise<Nothing> execute(Task task) {
 		return schedule(task, 0, TimeUnit.MILLISECONDS);
-	}
-
-	public <T> Promise<T> execute(Blocked<T> blocked) {
-		return Promise.of(executor, executor.execute(blocked));
 	}
 
 	public int getBurstProcessing() {

@@ -1,9 +1,12 @@
 package org.ddd4j.infrastructure.channel.api;
 
+import org.ddd4j.infrastructure.Promise;
+
 @FunctionalInterface
 public interface ErrorListener {
 
-	ErrorListener VOID = Throwable::getClass;
+	ErrorListener FAIL = Promise::failed;
+	ErrorListener IGNORE = Promise::completed;
 
-	void onError(Throwable throwable);
+	Promise<?> onError(Throwable throwable);
 }

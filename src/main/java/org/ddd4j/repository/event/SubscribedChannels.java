@@ -11,6 +11,9 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.api.CommitListener;
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
+import org.ddd4j.infrastructure.channel.api.RebalanceListener;
 import org.ddd4j.infrastructure.channel.spi.DataAccessFactory;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
@@ -18,7 +21,7 @@ import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 
-public class SubscribedChannels implements ChannelListener {
+public class SubscribedChannels implements CommitListener<ReadBuffer, ReadBuffer>, ErrorListener, RebalanceListener, Closeable {
 
 	private static class Subscriptions {
 
@@ -29,40 +32,36 @@ public class SubscribedChannels implements ChannelListener {
 		Subscriptions(Promise<Integer> partitionSize, Runnable onUnsubscribed) {
 			this.partitionSize = Require.nonNull(partitionSize);
 			this.onUnsubscribed = Require.nonNull(onUnsubscribed);
-			this.listeners = new ConcurrentHashMap<>();
+			this.listeners = new ConcurrentHashMap<>(INITIAL_CAPACITY);
 		}
 
-		SubscribedChannels.Subscriptions add(Object handle, ChannelListener listener) {
-			listeners.putIfAbsent(handle, listener);
-			return this;
+		Promise<Integer> add(Object handle, ChannelListener listener) {
+			Require.nonNullElements(handle, listener);
+			if (listeners.putIfAbsent(handle, listener) != null) {
+				listener.onError(new IllegalStateException("Already subscribed: " + handle));
+			}
+			return partitionSize;
 		}
 
 		void closeAll() {
 			listeners.values().forEach(Closeable::close);
 		}
 
-		void onError(Throwable throwable) {
-			listeners.values().forEach(l -> l.onError(throwable));
-			listeners.clear();
+		Promise<?> onError(Throwable throwable) {
+			return Promise.completed().runAfterAll(listeners.values().stream().map(l -> l.onError(throwable))).whenComplete(
+					listeners::clear);
 		}
 
-		void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
-			listeners.values().forEach(l -> l.onNext(name, DataAccessFactory.resetBuffers(committed)));
+		Promise<?> onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+			return Promise.completed()
+					.runAfterAll(listeners.values().stream().map(l -> l.onNext(name, DataAccessFactory.resetBuffers(committed))));
 		}
 
-		Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
-			return Promise.completed().runAfterAll(listeners.values().stream().map(l -> l.onPartitionsAssigned(partitions)));
+		Promise<?> onRebalance(Mode mode, Sequence<ChannelPartition> partitions) {
+			return Promise.completed().runAfterAll(listeners.values().stream().map(l -> l.onRebalance(mode, partitions)));
 		}
 
-		Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-			return Promise.completed().runAfterAll(listeners.values().stream().map(l -> l.onPartitionsRevoked(partitions)));
-		}
-
-		Promise<Integer> partitionSize() {
-			return partitionSize;
-		}
-
-		SubscribedChannels.Subscriptions remove(Object handle) {
+		Subscriptions remove(Object handle) {
 			if (listeners.remove(handle) != null && listeners.isEmpty()) {
 				onUnsubscribed.run();
 				return null;
@@ -72,16 +71,16 @@ public class SubscribedChannels implements ChannelListener {
 		}
 	}
 
-	private static final SubscribedChannels.Subscriptions NONE = new Subscriptions(Promise.failed(new AssertionError()),
-			Throwing.Task.NONE);
+	private static final int INITIAL_CAPACITY = 4;
+	private static final Subscriptions NONE = new Subscriptions(Promise.failed(new AssertionError()), Throwing.Task.NONE);
 
-	private final Function<ChannelName, SubscribedChannels.Subscriptions> onSubscribed;
-	private final Map<ChannelName, SubscribedChannels.Subscriptions> subscriptions;
+	private final Function<ChannelName, Subscriptions> onSubscribed;
+	private final Map<ChannelName, Subscriptions> subscriptions;
 
 	public SubscribedChannels(Function<ChannelName, Promise<Integer>> onSubscribed, Consumer<ChannelName> onUnsubscribed) {
 		Require.nonNullElements(onSubscribed, onUnsubscribed);
 		this.onSubscribed = name -> new Subscriptions(onSubscribed.apply(name), () -> onUnsubscribed.accept(name));
-		this.subscriptions = new ConcurrentHashMap<>();
+		this.subscriptions = new ConcurrentHashMap<>(INITIAL_CAPACITY);
 	}
 
 	@Override
@@ -95,33 +94,29 @@ public class SubscribedChannels implements ChannelListener {
 	}
 
 	@Override
-	public void onError(Throwable throwable) {
-		subscriptions.values().forEach(l -> l.onError(throwable));
-		subscriptions.clear();
+	public Promise<?> onError(Throwable throwable) {
+		return Promise.completed().runAfterAll(subscriptions.values().stream().map(s -> s.onError(throwable))).whenComplete(
+				subscriptions::clear);
 	}
 
 	@Override
-	public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
-		subscriptions.getOrDefault(name, NONE).onNext(name, committed);
+	public Promise<?> onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+		return subscriptions.getOrDefault(name, NONE).onNext(name, committed);
 	}
 
 	@Override
-	public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
+	public Promise<?> onRebalance(Mode mode, Sequence<ChannelPartition> partitions) {
 		return Promise.completed().runAfterAll(partitions.groupBy(ChannelPartition::getName).entrySet().stream().map(
-				e -> subscriptions.getOrDefault(e.getKey(), NONE).onPartitionsAssigned(e.getValue())));
-	}
-
-	@Override
-	public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-		return Promise.completed().runAfterAll(partitions.groupBy(ChannelPartition::getName).entrySet().stream().map(
-				e -> subscriptions.getOrDefault(e.getKey(), NONE).onPartitionsRevoked(e.getValue())));
+				e -> subscriptions.getOrDefault(e.getKey(), NONE).onRebalance(mode, e.getValue())));
 	}
 
 	public Promise<Integer> subscribe(ChannelName name, Object handle, ChannelListener listener) {
-		return subscriptions.computeIfAbsent(name, onSubscribed).add(handle, listener).partitionSize();
+		Require.nonNullElements(name, handle, listener);
+		return subscriptions.computeIfAbsent(name, onSubscribed).add(handle, listener);
 	}
 
 	public void unsubscribe(ChannelName name, Object handle) {
+		Require.nonNullElements(name, handle);
 		subscriptions.computeIfPresent(name, (n, s) -> s.remove(handle));
 	}
 }

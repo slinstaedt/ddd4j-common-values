@@ -26,18 +26,19 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 
 	private static class Offsets {
 
+		private static final long[] EMPTY = new long[0];
+
 		private final AtomicReference<long[]> values;
 
 		Offsets() {
-			this.values = new AtomicReference<>(new long[0]);
+			this.values = new AtomicReference<>(EMPTY);
 		}
 
 		void add(Revision revision) {
-			long[] offsets;
-			while (revision.getPartition() >= (offsets = values.get()).length) {
-				long[] arr = Arrays.copyOf(offsets, revision.getPartition() + 1);
-				Arrays.fill(arr, revision.getPartition(), arr.length, Revision.UNKNOWN_OFFSET);
-				values.compareAndSet(offsets, arr);
+			for (long[] array = values.get(); array.length <= revision.getPartition(); array = values.get()) {
+				long[] copy = Arrays.copyOf(array, revision.getPartition() + 1);
+				Arrays.fill(copy, revision.getPartition(), copy.length, Revision.UNKNOWN_OFFSET);
+				values.compareAndSet(array, copy);
 			}
 			set(revision.getPartition(), revision.getOffset());
 		}
@@ -86,9 +87,9 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 			values.get()[partition] = offset;
 		}
 
-		Position trySet(Committed<?, ?> committed, Function<Committed<?, ?>, Revision> revision, Position exptected) {
+		Position trySet(Committed<?, ?> committed, Function<Committed<?, ?>, Revision> revision, Position expected) {
 			Position position = committed.position(this::revision);
-			if (position == exptected) {
+			if (position.equals(expected)) {
 				Revision rev = revision.apply(committed);
 				set(rev.getPartition(), rev.getOffset());
 			}
@@ -153,6 +154,10 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 		return map(name, Offsets::getRevisions, Revisions.NONE);
 	}
 
+	public boolean rollback(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+		return map(name, o -> o.trySet(committed, Committed::getActual, Position.AHEAD) == Position.AHEAD, Boolean.FALSE);
+	}
+
 	@Override
 	public int size() {
 		return values.values().stream().mapToInt(Offsets::getPartitionSize).sum();
@@ -171,11 +176,11 @@ public class ChannelRevisions implements Sequence<ChannelRevision> {
 		return stream().collect(Collectors.toMap(rev -> rev.to(mapper), ChannelRevision::getOffset));
 	}
 
-	public boolean rollback(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
-		return map(name, o -> o.trySet(committed, Committed::getActual, Position.AHEAD) == Position.AHEAD, Boolean.FALSE);
-	}
-
 	public Position tryUpdate(ChannelName name, Committed<?, ?> committed) {
 		return map(name, o -> o.trySet(committed, Committed::getNextExpected, Position.UPTODATE), Position.FAILED);
+	}
+
+	public Sequence<ChannelRevision> without(Sequence<ChannelPartition> partitions) {
+		return Sequence.of(() -> stream().filter(r -> partitions.contains(r.getPartition())));
 	}
 }

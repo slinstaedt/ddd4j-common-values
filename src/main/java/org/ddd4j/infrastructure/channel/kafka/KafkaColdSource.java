@@ -3,6 +3,9 @@ package org.ddd4j.infrastructure.channel.kafka;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.Consumer;
@@ -10,6 +13,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.Promise.Cancelable;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
@@ -27,6 +31,8 @@ import org.ddd4j.util.Sequence;
 public class KafkaColdSource implements ColdSource, ScheduledTask {
 
 	private static final ConsumerRecords<byte[], byte[]> EMPTY_RECORDS = ConsumerRecords.empty();
+	private static final Map<Mode, BiConsumer<Consumer<?, ?>, List<TopicPartition>>> FLOWS = Map.of(Mode.PAUSE, Consumer::pause,
+			Mode.RESUME, Consumer::resume);
 
 	private final Agent<Consumer<byte[], byte[]>> client;
 	private final CommitListener<ReadBuffer, ReadBuffer> commit;
@@ -64,6 +70,11 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	}
 
 	@Override
+	public Cancelable<?> controlFlow(Mode mode, Sequence<ChannelPartition> values) {
+		return client.execute(c -> FLOWS.get(mode).accept(c, values.map(cp -> cp.to(TopicPartition::new)).toList()));
+	}
+
+	@Override
 	public Promise<Trigger> onScheduled(Scheduler scheduler) {
 		return client.performBlocked((t, u) -> c -> c.assignment().isEmpty() ? EMPTY_RECORDS : c.poll(u.toMillis(t)))
 				.thenApply(KafkaChannelFactory::convert)
@@ -85,19 +96,20 @@ public class KafkaColdSource implements ColdSource, ScheduledTask {
 	}
 
 	@Override
-	public void start(Sequence<ChannelRevision> revisions) {
-		this.state.add(revisions);
-		client.execute(c -> {
+	public Promise<?> start(Sequence<ChannelRevision> revisions) {
+		state.add(revisions);
+		Promise<?> promise = client.execute(c -> {
 			c.assign(state.toList(TopicPartition::new));
 			state.forEach(r -> c.seek(r.to(TopicPartition::new), r.getOffset()));
 		});
 		rescheduler.doIfNecessary();
+		return promise;
 	}
 
 	@Override
-	public void stop(Sequence<ChannelPartition> partitions) {
+	public Promise<?> stop(Sequence<ChannelPartition> partitions) {
 		state.remove(partitions);
-		client.execute(c -> c.assign(state.toList(TopicPartition::new)));
+		return client.execute(c -> c.assign(state.toList(TopicPartition::new)));
 	}
 
 	private Trigger triggering() {

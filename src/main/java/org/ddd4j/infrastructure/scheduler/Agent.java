@@ -21,6 +21,36 @@ public class Agent<T> {
 		}
 	}
 
+	private class Job<R> {
+
+		private final Blocked<Promise<R>> task;
+		private final Promise.Deferred<R> deferred;
+
+		Job(Blocked<? extends Task<? super T, Promise<R>>> task, boolean blocked) {
+			this.task = blocked ? task.managed(t -> t.perform(target), this::isDoneWithAll) : task.map(t -> t.perform(target));
+			this.deferred = scheduler.createDeferredPromise();
+		}
+
+		void executeWithTimeout(long duration, TimeUnit unit) {
+			if (deferred.isDone()) {
+				return;
+			}
+			try {
+				task.execute(duration, unit).whenComplete(deferred::complete);
+			} catch (Throwable e) {
+				deferred.completeExceptionally(e);
+			}
+		}
+
+		Promise.Cancelable<R> getPromise() {
+			return deferred;
+		}
+
+		boolean isDoneWithAll() {
+			return deferred.isDone() && jobs.isEmpty();
+		}
+	}
+
 	public interface Task<T, R> {
 
 		default Blocked<Task<T, R>> asBlocked() {
@@ -34,42 +64,14 @@ public class Agent<T> {
 		R perform(T target) throws Exception;
 	}
 
-	private class Job<R> {
-
-		private final Blocked<Promise<R>> task;
-		private final Promise.Deferred<R> deferred;
-
-		Job(Blocked<? extends Task<? super T, Promise<R>>> task, boolean blocked) {
-			this.task = blocked ? task.managed(t -> t.perform(target), this::isDoneWithAll) : task.map(t -> t.perform(target));
-			this.deferred = scheduler.createDeferredPromise();
-		}
-
-		Promise.Cancelable<R> getPromise() {
-			return deferred;
-		}
-
-		boolean isDoneWithAll() {
-			return deferred.isDone() && jobs.isEmpty();
-		}
-
-		void executeWithTimeout(long duration, TimeUnit unit) {
-			if (deferred.isDone()) {
-				return;
-			}
-			try {
-				task.execute(duration, unit).whenComplete(deferred::complete);
-			} catch (Throwable e) {
-				deferred.completeExceptionally(e);
-			}
-		}
-	}
-
 	public static <T> Agent<T> create(Scheduler scheduler, T target, int jobBufferSize) {
 		return new Agent<>(scheduler, target, jobBufferSize);
 	}
 
 	private final Scheduler scheduler;
 	private final T target;
+	private ScheduledTask scheduledTask;
+	// TODO throw on overflow
 	private final RingBuffer<Job<?>> jobs;
 	private final AtomicBoolean scheduled;
 
@@ -94,10 +96,6 @@ public class Agent<T> {
 
 	public <R> Promise.Cancelable<R> performBlocked(Blocked<? extends Task<? super T, R>> blocked) {
 		return scheduleIfNeeded(new Job<R>(blocked.map(Task::asPromised), true)).getPromise();
-	}
-
-	public <R> Promise.Cancelable<R> performFlat(Task<? super T, Promise<R>> task) {
-		return scheduleIfNeeded(new Job<>(task.asBlocked(), false)).getPromise();
 	}
 
 	private boolean run(long duration, TimeUnit unit) {

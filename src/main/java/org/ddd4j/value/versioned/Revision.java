@@ -25,7 +25,11 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 	}
 
 	public Position comparePosition(Revision other) {
-		return Position.of(this.compareTo(other));
+		if (this.offset != UNKNOWN_OFFSET && other.offset != UNKNOWN_OFFSET) {
+			return Position.of(this.compareTo(other));
+		} else {
+			return Position.FAILED;
+		}
 	}
 
 	@Override

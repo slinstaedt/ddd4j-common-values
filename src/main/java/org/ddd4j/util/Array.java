@@ -22,6 +22,11 @@ public class Array<E> implements Iterable<E>, Sequence<E> {
 		return this;
 	}
 
+	public Array<E> addAll(Iterable<? extends E> elements) {
+		elements.forEach(this::add);
+		return this;
+	}
+
 	public void clear() {
 		elements.clear();
 	}
@@ -51,6 +56,15 @@ public class Array<E> implements Iterable<E>, Sequence<E> {
 	@Override
 	public Iterator<E> iterator() {
 		return elements.iterator();
+	}
+
+	public boolean remove(E element) {
+		return elements.remove(element);
+	}
+	
+	public Array<E> removeAll(Iterable<? extends E> elements) {
+		elements.forEach(this::remove);
+		return this;
 	}
 
 	public E set(int index, E element) {

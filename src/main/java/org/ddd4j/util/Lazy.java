@@ -8,6 +8,7 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.Throwing.Producer;
 import org.ddd4j.Throwing.TConsumer;
+import org.ddd4j.Throwing.TFunction;
 
 public class Lazy<T> implements Closeable, Supplier<T> {
 
@@ -62,6 +63,15 @@ public class Lazy<T> implements Closeable, Supplier<T> {
 		T value = reference.get();
 		if (value != null) {
 			consumer.accept(value);
+		}
+	}
+
+	public <X> X ifPresent(TFunction<? super T, ? extends X> function, X defaultValue) {
+		T value = reference.get();
+		if (value != null) {
+			return function.apply(value);
+		} else {
+			return defaultValue;
 		}
 	}
 

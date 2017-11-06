@@ -22,7 +22,7 @@ public class AggregateConfigurerTest {
 	@Test
 	public void initialization() {
 		AtomicReference<Log> ref = new AtomicReference<>();
-		provisioning.withConfigurer(b -> b.bind(MessageDispatcher.KEY).toInstance(null));
+		provisioning.withConfigurer(b -> b.bind(ChannelPublisher.KEY).toInstance(null));
 		provisioning.withConfigurer(new AggregateServiceConfigurer());
 		provisioning.withAggregate(ref::set);
 

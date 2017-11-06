@@ -75,17 +75,19 @@ public interface ColdReader extends TimeIndexed {
 			}
 
 			@Override
-			public void onComplete() {
+			public Promise<?> onComplete() {
 				deferred.completeSuccessfully(CommittedRecords.copied(records));
+				return deferred;
 			}
 
 			@Override
-			public void onError(Throwable throwable) {
+			public Promise<?> onError(Throwable throwable) {
 				deferred.completeExceptionally(throwable);
+				return deferred;
 			}
 
 			@Override
-			public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+			public Promise<?> onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
 				if (deferred.isDone()) {
 					source.close();
 				} else {
@@ -93,6 +95,7 @@ public interface ColdReader extends TimeIndexed {
 					timer.cancel();
 					timer = timerProvider.get();
 				}
+				return Promise.completed();
 			}
 
 			void timeout() {
@@ -118,7 +121,7 @@ public interface ColdReader extends TimeIndexed {
 
 		@Override
 		public Promise<ChannelRevision> revision(ChannelPartition partition, Instant timestamp, Direction direction) {
-			try (ColdSource source = delegate.createColdSource(CommitListener.VOID, CompletionListener.VOID, ErrorListener.VOID)) {
+			try (ColdSource source = delegate.createColdSource(CommitListener.VOID, CompletionListener.VOID, ErrorListener.IGNORE)) {
 				return source.revision(partition, timestamp, direction);
 			}
 		}

@@ -18,10 +18,11 @@ import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
+import org.ddd4j.util.Array;
 import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 
-public interface ColdSource extends TimeIndexed, Throwing.Closeable {
+public interface ColdSource extends FlowControlled<ChannelPartition>, TimeIndexed, Throwing.Closeable {
 
 	class AutoClosing implements ColdSource, CommitListener<ReadBuffer, ReadBuffer>, CompletionListener, ErrorListener {
 
@@ -50,20 +51,25 @@ public interface ColdSource extends TimeIndexed, Throwing.Closeable {
 		}
 
 		@Override
-		public void onComplete() {
+		public Promise<?> controlFlow(Mode mode, Sequence<ChannelPartition> values) {
+			return delegate.controlFlow(mode, values);
+		}
+
+		@Override
+		public Promise<?> onComplete() {
 			state.clear();
 			checkCompleteness();
+			return Promise.completed();
 		}
 
 		@Override
-		public void onError(Throwable throwable) {
-			error.onError(throwable);
+		public Promise<?> onError(Throwable throwable) {
+			return error.onError(throwable);
 		}
 
 		@Override
-		public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
-			commit.onNext(name, committed);
-			state.tryUpdate(name, committed);
+		public Promise<?> onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+			return commit.onNext(name, committed).thenApply(v -> state.tryUpdate(name, committed));
 		}
 
 		@Override
@@ -72,16 +78,15 @@ public interface ColdSource extends TimeIndexed, Throwing.Closeable {
 		}
 
 		@Override
-		public void start(Sequence<ChannelRevision> revisions) {
+		public Promise<?> start(Sequence<ChannelRevision> revisions) {
 			state.add(revisions);
-			delegate.start(revisions);
+			return delegate.start(revisions);
 		}
 
 		@Override
-		public void stop(Sequence<ChannelPartition> partitions) {
+		public Promise<?> stop(Sequence<ChannelPartition> partitions) {
 			state.remove(partitions);
-			delegate.stop(partitions);
-			checkCompleteness();
+			return delegate.stop(partitions).thenRun(this::checkCompleteness);
 		}
 	}
 
@@ -94,11 +99,6 @@ public interface ColdSource extends TimeIndexed, Throwing.Closeable {
 			public Factory(Context context) {
 				this.context = Require.nonNull(context);
 				Require.that(context.get(ColdSource.FACTORY), ColdReader.ColdSourceBased.Factory.class::isInstance);
-			}
-
-			@Override
-			public void closeChecked() throws Exception {
-				context.get(ColdReader.FACTORY).closeChecked();
 			}
 
 			@Override
@@ -121,6 +121,7 @@ public interface ColdSource extends TimeIndexed, Throwing.Closeable {
 		private final ColdReader delegate;
 		private final Rescheduler rescheduler;
 		private final ChannelRevisions state;
+		private final Array<ChannelPartition> paused;
 
 		public ColdReaderBased(Scheduler scheduler, ColdReader delegate, CommitListener<ReadBuffer, ReadBuffer> commit,
 				CompletionListener completion, ErrorListener error) {
@@ -130,6 +131,7 @@ public interface ColdSource extends TimeIndexed, Throwing.Closeable {
 			this.delegate = Require.nonNull(delegate);
 			this.rescheduler = scheduler.reschedulerFor(this);
 			this.state = new ChannelRevisions();
+			this.paused = new Array<>();
 		}
 
 		@Override
@@ -138,8 +140,21 @@ public interface ColdSource extends TimeIndexed, Throwing.Closeable {
 		}
 
 		@Override
+		public Promise<?> controlFlow(Mode mode, Sequence<ChannelPartition> values) {
+			switch (mode) {
+			case PAUSE:
+				paused.addAll(values);
+				break;
+			case RESUME:
+				paused.removeAll(values);
+				break;
+			}
+			return Promise.completed();
+		}
+
+		@Override
 		public Promise<Trigger> onScheduled(Scheduler scheduler) {
-			return delegate.get(state)
+			return delegate.get(state.without(paused))
 					.whenCompleteSuccessfully(cr -> cr.forEach(state::tryUpdate))
 					.whenCompleteSuccessfully(cr -> cr.forEachOrEmpty(commit::onNext, completion::onComplete))
 					.whenCompleteExceptionally(error::onError)
@@ -152,14 +167,16 @@ public interface ColdSource extends TimeIndexed, Throwing.Closeable {
 		}
 
 		@Override
-		public void start(Sequence<ChannelRevision> revisions) {
+		public Promise<?> start(Sequence<ChannelRevision> revisions) {
 			state.add(revisions);
 			rescheduler.doIfNecessary();
+			return Promise.completed();
 		}
 
 		@Override
-		public void stop(Sequence<ChannelPartition> partitions) {
+		public Promise<?> stop(Sequence<ChannelPartition> partitions) {
 			state.remove(partitions);
+			return Promise.completed();
 		}
 	}
 
@@ -174,7 +191,7 @@ public interface ColdSource extends TimeIndexed, Throwing.Closeable {
 
 	Key<Factory> FACTORY = Key.of(Factory.class, ColdReaderBased.Factory::new);
 
-	void start(Sequence<ChannelRevision> revisions);
+	Promise<?> start(Sequence<ChannelRevision> revisions);
 
-	void stop(Sequence<ChannelPartition> partitions);
+	Promise<?> stop(Sequence<ChannelPartition> partitions);
 }

@@ -8,6 +8,8 @@ import java.util.concurrent.ConcurrentMap;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.api.CommitListener;
+import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.spi.ColdReader;
 import org.ddd4j.infrastructure.channel.spi.Reader;
 import org.ddd4j.infrastructure.channel.spi.Writer;
@@ -95,6 +97,11 @@ public enum SchemaCodec {
 		Promise<T> decode(ReadBuffer buffer, Revision revision);
 	}
 
+	public interface DecodingFactory<K, V> {
+
+		CommitListener<ReadBuffer, ReadBuffer> create(CommitListener<K, V> commit, ErrorListener error);
+	}
+
 	public interface Encoder<T> {
 
 		Promise<WriteBuffer> encode(WriteBuffer buffer, Promise<Revision> revision, T value);
@@ -112,52 +119,23 @@ public enum SchemaCodec {
 			return decoder(spec.getValueType(), spec.getName());
 		}
 
-		public <T> Decoder<T> decoder(Type<T> readerType, ChannelName channelName) {
-			Require.nonNullElements(readerType, channelName);
-			return (buf, rev) -> decodeType(buf.get()).decoder(context, readerType, channelName).decode(buf, rev);
+		public <T> Decoder<T> decoder(Type<T> readerType, ChannelName name) {
+			Require.nonNullElements(readerType, name);
+			return (buf, rev) -> decodeType(buf.get()).decoder(context, readerType, name).decode(buf, rev);
+		}
+
+		public <K, V> DecodingFactory<K, V> decodingFactory(ChannelSpec<K, V> spec) {
+			SchemaCodec.Decoder<V> decoder = decoder(spec);
+			return (c, e) -> c.mapPromised(spec::deserializeKey, decoder::decode, e);
 		}
 
 		public <T> Encoder<T> encoder(ChannelSpec<?, T> spec) {
 			return encoder(spec.getValueType(), spec.getName());
 		}
 
-		public <T> Encoder<T> encoder(Type<T> writerType, ChannelName channelName) {
+		public <T> Encoder<T> encoder(Type<T> writerType, ChannelName name) {
 			Require.nonNull(writerType);
-			return context.conf(SCHEMA_ENCODER).encoder(context, writerType, channelName);
-		}
-	}
-
-	private static class SchemaRevisionCache {
-
-		private final Context context;
-		private final ConcurrentMap<Fingerprint, Revision> locations;
-		private final Cache.Aside<ChannelRevision, Promise<Schema<?>>> cache;
-		private final ColdReader reader;
-
-		SchemaRevisionCache(Context context) {
-			this.context = Require.nonNull(context);
-			this.locations = new ConcurrentHashMap<>();
-			this.cache = Cache.sharedOnEqualKey(
-					a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(context.conf(Cache.MAX_CAPACITY)).on().evicted(
-							p -> p.whenCompleteSuccessfully(s -> locations.remove(s.getFingerprint()))));
-			this.reader = context.get(ColdReader.FACTORY).createColdReader();
-		}
-
-		Promise<Schema<?>> get(ChannelName name, Revision revision) {
-			return cache.acquire(new ChannelRevision(name, revision), rev -> reader.getCommittedValue(rev)
-					.whenCompleteExceptionally(ex -> cache.evictAll(rev))
-					.thenApply(buf -> Schema.deserializeFromFactory(context, buf)));
-		}
-
-		void put(ChannelName name, Revision revision, Schema<?> schema) {
-			cache.acquire(new ChannelRevision(name, revision), rev -> {
-				locations.put(schema.getFingerprint(), revision);
-				return Promise.completed(schema);
-			});
-		}
-
-		Optional<Revision> revisionOf(Schema<?> schema) {
-			return Optional.ofNullable(locations.get(schema.getFingerprint()));
+			return context.conf(SCHEMA_ENCODER).encoder(context, writerType, name);
 		}
 	}
 
@@ -179,8 +157,8 @@ public enum SchemaCodec {
 			WriteBuffer.Pool bufferPool = context.get(WriteBuffer.POOL);
 			Reader<Fingerprint, Schema<?>> reader = context.get(Reader.FACTORY).create(REPO_NAME).map(Fingerprint::asBuffer,
 					b -> Schema.deserializeFromFactory(context, b));
-			Writer<Fingerprint, Schema<?>> writer = context.get(Writer.FACTORY).createWriterClosingBuffers(REPO_NAME).map(Fingerprint::asBuffer,
-					s -> bufferPool.serialized(s::serializeWithFactoryName));
+			Writer<Fingerprint, Schema<?>> writer = context.get(Writer.FACTORY).createWriterClosingBuffers(REPO_NAME).map(
+					Fingerprint::asBuffer, s -> bufferPool.serialized(s::serializeWithFactoryName));
 			Cache.Aside<Fingerprint, Promise<Schema<?>>> cache = Cache.<Fingerprint, Promise<Schema<?>>>sharedOnEqualKey(
 					a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(context.conf(Cache.MAX_CAPACITY)));
 			this.cache = cache.writeThrough(
@@ -198,6 +176,40 @@ public enum SchemaCodec {
 		}
 	}
 
+	private static class SchemaRevisionCache {
+
+		private final Context context;
+		private final ConcurrentMap<Fingerprint, Revision> locations;
+		private final Cache.Aside<ChannelRevision, Promise<Schema<?>>> cache;
+		private final ColdReader reader;
+
+		SchemaRevisionCache(Context context) {
+			this.context = Require.nonNull(context);
+			this.locations = new ConcurrentHashMap<>();
+			this.cache = Cache.sharedOnEqualKey(
+					a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(context.conf(Cache.MAX_CAPACITY)).on().evicted(
+							p -> p.whenCompleteSuccessfully(s -> locations.remove(s.getFingerprint()))));
+			this.reader = context.get(ColdReader.FACTORY).createColdReader();
+		}
+
+		Promise<Schema<?>> get(ChannelName name, Revision revision) {
+			return cache.acquire(new ChannelRevision(name, revision),
+					rev -> reader.getCommittedValue(rev).whenCompleteExceptionally(ex -> cache.evictAll(rev)).thenApply(
+							buf -> Schema.deserializeFromFactory(context, buf)));
+		}
+
+		void put(ChannelName name, Revision revision, Schema<?> schema) {
+			cache.acquire(new ChannelRevision(name, revision), rev -> {
+				locations.put(schema.getFingerprint(), revision);
+				return Promise.completed(schema);
+			});
+		}
+
+		Optional<Revision> revisionOf(Schema<?> schema) {
+			return Optional.ofNullable(locations.get(schema.getFingerprint()));
+		}
+	}
+
 	public static final Key<Factory> FACTORY = Key.of(Factory.class, Factory::new);
 	private static final ConfKey<SchemaCodec> SCHEMA_ENCODER = Configuration.keyOfEnum(SchemaCodec.class, "schemaEncoder",
 			SchemaCodec.OUT_OF_BAND);
@@ -208,16 +220,16 @@ public enum SchemaCodec {
 		return SchemaCodec.values()[b];
 	}
 
-	public abstract <T> Decoder<T> decoder(Context context, Type<T> readerType, ChannelName name);
-
-	byte encodeType() {
-		return (byte) ordinal();
-	}
-
 	private static <T> Promise<WriteBuffer> encodeWithSchema(WriteBuffer buffer, T value, Schema<T> schema, Schema.Writer<T> writer) {
 		return Promise.completed(
 				buffer.put(PER_MESSAGE.encodeType()).accept(schema::serializeWithFactoryName).accept(b -> writer.write(b, value)));
 	}
 
+	public abstract <T> Decoder<T> decoder(Context context, Type<T> readerType, ChannelName name);
+
 	public abstract <T> Encoder<T> encoder(Context context, Type<T> writerType, ChannelName name);
+
+	byte encodeType() {
+		return (byte) ordinal();
+	}
 }

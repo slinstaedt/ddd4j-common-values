@@ -22,7 +22,7 @@ import org.ddd4j.Require;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
-import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
+import org.ddd4j.infrastructure.channel.api.RebalanceListener;
 import org.ddd4j.infrastructure.channel.spi.ColdSource;
 import org.ddd4j.infrastructure.channel.spi.Committer;
 import org.ddd4j.infrastructure.channel.spi.DataAccessFactory;
@@ -109,13 +109,6 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	}
 
 	@Override
-	public Map<ChannelName, Integer> knownChannelNames() {
-		// TODO
-		return hotConsumer.get().listTopics().entrySet().stream().collect(
-				Collectors.toMap(e -> ChannelName.of(e.getKey()), e -> e.getValue().size()));
-	}
-
-	@Override
 	public void closeChecked() throws Exception {
 		producer.closeChecked();
 		hotConsumer.closeChecked();
@@ -130,20 +123,26 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	}
 
 	@Override
-	public HotSource createHotSource(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error,
-			RepartitioningListener repartitioning) {
-		Scheduler scheduler = context.get(Scheduler.KEY);
-		Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
-		return new KafkaHotSource(scheduler, consumer, commit, error, repartitioning);
-	}
-
-	@Override
 	public Committer<ReadBuffer, ReadBuffer> createCommitter(ChannelName name) {
 		return new KafkaCommitter(context.get(Scheduler.KEY), producer.get(), name);
 	}
 
 	@Override
+	public HotSource createHotSource(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error, RebalanceListener rebalance) {
+		Scheduler scheduler = context.get(Scheduler.KEY);
+		Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
+		return new KafkaHotSource(scheduler, consumer, commit, error, rebalance);
+	}
+
+	@Override
 	public Writer<ReadBuffer, ReadBuffer> createWriter(ChannelName name) {
 		return new KafkaWriter(context.get(Scheduler.KEY), producer.get(), name);
+	}
+
+	@Override
+	public Map<ChannelName, Integer> knownChannelNames() {
+		// TODO
+		return hotConsumer.get().listTopics().entrySet().stream().collect(
+				Collectors.toMap(e -> ChannelName.of(e.getKey()), e -> e.getValue().size()));
 	}
 }

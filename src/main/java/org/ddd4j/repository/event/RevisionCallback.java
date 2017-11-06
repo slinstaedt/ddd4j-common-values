@@ -2,10 +2,13 @@ package org.ddd4j.repository.event;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
+import org.ddd4j.infrastructure.channel.api.RebalanceListener;
 import org.ddd4j.infrastructure.channel.spi.ColdSource;
+import org.ddd4j.infrastructure.channel.spi.FlowControlled;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
 import org.ddd4j.infrastructure.domain.ChannelRevisions;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
@@ -20,7 +23,7 @@ import org.ddd4j.value.versioned.Position;
 
 public interface RevisionCallback {
 
-	class ChannelPublisher {
+	class RevisionAwarePublisherFactory {
 
 		private class RevisionAwareListener implements ChannelListener, CompletionListener {
 
@@ -45,36 +48,45 @@ public interface RevisionCallback {
 			}
 
 			@Override
-			public void onComplete() {
-				coldSource.destroy();
+			public Promise<?> controlFlow(FlowControlled.Mode mode, Sequence<Void> values) {
+				return coldSource.ifPresent(s -> s.controlFlow(mode, state.partitions()), Promise.completed());
 			}
 
 			@Override
-			public void onError(Throwable throwable) {
-				error.onError(throwable);
+			public Promise<?> onComplete() {
+				return Promise.completed().whenComplete(coldSource::destroy);
 			}
 
 			@Override
-			public void onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+			public Promise<?> onError(Throwable throwable) {
+				return error.onError(throwable);
+			}
+
+			@Override
+			public Promise<?> onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
+				Promise<?> result = Promise.completed();
 				Position position = state.tryUpdate(name, committed);
 				if (position == Position.UPTODATE) {
-					commit.onNext(name, committed);
+					result = commit.onNext(name, committed);
 				} else if (position == Position.BEHIND) {
 					coldSource.get().start(state.revision(name, committed));
 				}
+				return result;
 			}
 
 			@Override
-			public Promise<?> onPartitionsAssigned(Sequence<ChannelPartition> partitions) {
-				return callback.loadRevisions(partitions)
-						.whenCompleteSuccessfully(state::add)
-						.whenCompleteSuccessfully(this::resumeIfNecessary)
-						.whenCompleteExceptionally(error::onError);
-			}
-
-			@Override
-			public Promise<?> onPartitionsRevoked(Sequence<ChannelPartition> partitions) {
-				return callback.saveRevisions(state.remove(partitions)).whenCompleteExceptionally(error::onError);
+			public Promise<?> onRebalance(RebalanceListener.Mode mode, Sequence<ChannelPartition> partitions) {
+				switch (mode) {
+				case ASSIGNED:
+					return callback.loadRevisions(partitions)
+							.whenCompleteSuccessfully(state::add)
+							.whenCompleteSuccessfully(this::resumeIfNecessary)
+							.whenCompleteExceptionally(error::onError);
+				case REVOKED:
+					return callback.saveRevisions(state.remove(partitions)).whenCompleteExceptionally(error::onError);
+				default:
+					throw new AssertionError(mode);
+				}
 			}
 
 			private void resumeIfNecessary(Sequence<ChannelRevision> revisions) {
@@ -85,24 +97,30 @@ public interface RevisionCallback {
 		}
 
 		private final ColdSource.Factory coldFactory;
-		private final MessageDispatcher<RevisionCallback> dispatcher;
+		private final ChannelPublisher<RevisionCallback> dispatcher;
 		private final ChannelRevisions hotState;
 		private final HotSource hotSource;
 
-		public ChannelPublisher(ColdSource.Factory coldFactory, HotSource.Factory hotFactory) {
+		public RevisionAwarePublisherFactory(SchemaCodec.Factory codecFactory, ColdSource.Factory coldFactory,
+				HotSource.Factory hotFactory) {
 			this.coldFactory = Require.nonNull(coldFactory);
 			SubscribedChannels channels = new SubscribedChannels(this::onSubscribed, this::onUnsubscribed);
-			this.dispatcher = new MessageDispatcher<>(channels, RevisionAwareListener::new);
+			this.dispatcher = new ChannelPublisher<>(channels, codecFactory, RevisionAwareListener::new);
 			this.hotState = new ChannelRevisions();
 			this.hotSource = hotFactory.createHotSource(channels, channels, channels);
 		}
 
-		public MessageDispatcher<RevisionCallback> getPublisher() {
+		public ChannelPublisher<RevisionCallback> getPublisher() {
 			return dispatcher;
 		}
 
+		private Promise<?> hotUpdate(ChannelName name, Committed<?, ?> committed) {
+			hotState.tryUpdate(name, committed);
+			return Promise.completed();
+		}
+
 		private Promise<Integer> onSubscribed(ChannelName name) {
-			dispatcher.subscribe(name, this, hotState::tryUpdate, ErrorListener.VOID, RevisionCallback.VOID);
+			dispatcher.subscribe(name, this, this::hotUpdate, ErrorListener.IGNORE, RevisionCallback.VOID);
 			return hotSource.subscribe(name);
 		}
 
@@ -112,8 +130,9 @@ public interface RevisionCallback {
 		}
 	}
 
-	Key<MessageDispatcher<RevisionCallback>> PUBLISHER = Key.of("",
-			ctx -> new ChannelPublisher(ctx.get(ColdSource.FACTORY), ctx.get(HotSource.FACTORY)).getPublisher());
+	Key<ChannelPublisher<RevisionCallback>> PUBLISHER = Key.of("",
+			ctx -> new RevisionAwarePublisherFactory(ctx.get(SchemaCodec.FACTORY), ctx.get(ColdSource.FACTORY), ctx.get(HotSource.FACTORY))
+					.getPublisher());
 
 	RevisionCallback VOID = new RevisionCallback() {
 

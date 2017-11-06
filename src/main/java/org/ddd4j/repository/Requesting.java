@@ -1,58 +1,63 @@
 package org.ddd4j.repository;
 
-import java.util.function.IntConsumer;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.ddd4j.Require;
 
 public class Requesting {
 
-	private final long burst;
-	private long value;
+	private static final long ZERO = 0L;
 
-	public Requesting() {
-		this(Long.MAX_VALUE);
+	private static long minus(long value, long n) {
+		Require.that(value >= n);
+		return value - n;
 	}
 
-	public Requesting(long burst) {
-		this.burst = Require.that(burst, burst > 0);
-		value = 0;
+	private static long plus(long value, long n) {
+		if (value < ZERO || n == Long.MAX_VALUE) {
+			return -1;
+		} else {
+			return value + n;
+		}
+	}
+
+	private final int burst;
+	private final AtomicLong value;
+
+	public Requesting() {
+		this(Integer.MAX_VALUE);
+	}
+
+	public Requesting(int burst) {
+		this.burst = Require.that(burst, burst > ZERO);
+		this.value = new AtomicLong(ZERO);
 	}
 
 	public int asInt() {
-		return (int) Long.min(asLong(), Integer.MAX_VALUE);
+		int val = value.intValue();
+		return val >= ZERO ? Integer.min(val, burst) : burst;
 	}
 
 	public long asLong() {
-		return value >= 0 ? Long.min(value, burst) : burst;
+		long val = value.longValue();
+		return val >= ZERO ? Long.min(val, burst) : burst;
 	}
 
 	public boolean hasRemaining() {
-		return value != 0;
+		return value.get() != ZERO;
 	}
 
-	public void more(long n) {
-		Require.that(n > 0);
-		if (value < 0 || n == Long.MAX_VALUE) {
-			value = -1;
-		} else {
-			value += n;
-		}
+	public boolean more(long n) {
+		Require.that(n > ZERO);
+		return value.getAndAccumulate(n, Requesting::plus) == ZERO;
 	}
 
-	public void more(long n, IntConsumer requestor) {
-		boolean hadRemaining = hasRemaining();
-		more(n);
-		if (hadRemaining) {
-			requestor.accept(asInt());
-		}
+	public boolean processed() {
+		return processed(1);
 	}
 
-	public void processed() {
-		processed(1);
-	}
-
-	public void processed(int n) {
-		Require.that(n >= value);
-		value -= n;
+	public boolean processed(int n) {
+		Require.that(n > ZERO);
+		return value.accumulateAndGet(n, Requesting::minus) == ZERO;
 	}
 }

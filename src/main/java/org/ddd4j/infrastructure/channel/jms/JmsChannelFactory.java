@@ -5,7 +5,7 @@ import javax.jms.JMSContext;
 
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
-import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
+import org.ddd4j.infrastructure.channel.api.RebalanceListener;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
 import org.ddd4j.infrastructure.channel.spi.Writer;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
@@ -46,9 +46,8 @@ public class JmsChannelFactory implements HotSource.Factory, Writer.Factory {
 	}
 
 	@Override
-	public HotSource createHotSource(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error,
-			RepartitioningListener repartitioning) {
-		return new JmsHotSource(client, commit, error, repartitioning);
+	public HotSource createHotSource(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error, RebalanceListener rebalance) {
+		return new JmsHotSource(client, commit, error, rebalance);
 	}
 
 	@Override

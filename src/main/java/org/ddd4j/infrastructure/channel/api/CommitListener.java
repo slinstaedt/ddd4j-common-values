@@ -10,18 +10,20 @@ import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 
+//TODO rename to RecordListener
 @FunctionalInterface
 public interface CommitListener<K, V> {
 
-	CommitListener<ReadBuffer, ReadBuffer> VOID = (n, c) -> {
-	};
-
-	void onNext(ChannelName name, Committed<K, V> committed);
+	CommitListener<ReadBuffer, ReadBuffer> VOID = (n, c) -> Promise.completed(c);
 
 	default <X, Y> CommitListener<X, Y> mapPromised(Function<? super X, K> key, BiFunction<? super Y, Revision, Promise<V>> value,
-			ErrorListener listener) {
-		Require.nonNullElements(key, value, listener);
-		return (n, cx) -> value.apply(cx.getValue(), cx.getActual()).thenApply(v -> cx.mapKey(key, v)).whenComplete(cv -> onNext(n, cv),
-				listener::onError);
+			ErrorListener error) {
+		Require.nonNullElements(key, value, error);
+		return (n, cx) -> value.apply(cx.getValue(), cx.getActual())
+				.thenApply(v -> cx.mapKey(key, v))
+				.thenCompose(cv -> onNext(n, cv))
+				.whenCompleteExceptionally(error::onError);
 	}
+
+	Promise<?> onNext(ChannelName name, Committed<K, V> committed);
 }

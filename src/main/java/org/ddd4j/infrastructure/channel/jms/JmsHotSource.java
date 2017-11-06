@@ -13,7 +13,7 @@ import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
-import org.ddd4j.infrastructure.channel.api.RepartitioningListener;
+import org.ddd4j.infrastructure.channel.api.RebalanceListener;
 import org.ddd4j.infrastructure.channel.spi.DataAccessFactory;
 import org.ddd4j.infrastructure.channel.spi.HotSource;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
@@ -40,25 +40,20 @@ public class JmsHotSource implements HotSource {
 	private final CommitListener<ReadBuffer, ReadBuffer> commit;
 	private final Map<ChannelName, Promise<JMSConsumer>> subscriptions;
 	private final ErrorListener error;
-	private final RepartitioningListener repartitioning;
+	private final RebalanceListener rebalance;
 
 	JmsHotSource(Agent<JMSContext> client, CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error,
-			RepartitioningListener repartitioning) {
+			RebalanceListener rebalance) {
 		this.client = Require.nonNull(client);
 		this.commit = Require.nonNull(commit);
 		this.error = Require.nonNull(error);
-		this.repartitioning = Require.nonNull(repartitioning);
+		this.rebalance = Require.nonNull(rebalance);
 		this.subscriptions = new ConcurrentHashMap<>();
 	}
 
 	@Override
 	public void closeChecked() {
 		// TODO remove from interface?
-	}
-
-	@Override
-	public Promise<Integer> subscribe(ChannelName name) {
-		return subscriptions.computeIfAbsent(name, this::onSubscribed).thenReturnValue(JmsChannelFactory.PARTITION_COUNT);
 	}
 
 	private Promise<JMSConsumer> onSubscribed(ChannelName name) {
@@ -72,6 +67,11 @@ public class JmsHotSource implements HotSource {
 						error.onError(e);
 					}
 				}));
+	}
+
+	@Override
+	public Promise<Integer> subscribe(ChannelName name) {
+		return subscriptions.computeIfAbsent(name, this::onSubscribed).thenReturnValue(JmsChannelFactory.PARTITION_COUNT);
 	}
 
 	@Override
