@@ -5,7 +5,7 @@ import java.util.List;
 
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.repository.event.ChannelListener;
+import org.ddd4j.repository.publisher.ChannelListener;
 import org.ddd4j.value.versioned.Committed;
 
 public class TestChannelListener implements ChannelListener {

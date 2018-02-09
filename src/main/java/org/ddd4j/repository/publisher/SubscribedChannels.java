@@ -1,4 +1,4 @@
-package org.ddd4j.repository.event;
+package org.ddd4j.repository.publisher;
 
 import java.util.Collections;
 import java.util.Map;

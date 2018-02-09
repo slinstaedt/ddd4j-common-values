@@ -14,8 +14,8 @@ import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.spi.FlowControlled;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.repository.event.ChannelListener;
-import org.ddd4j.repository.event.ChannelPublisher.ListenerFactory;
+import org.ddd4j.repository.publisher.ChannelListener;
+import org.ddd4j.repository.publisher.ChannelPublisher.ListenerFactory;
 import org.ddd4j.value.versioned.Committed;
 
 public class FlowSubscription<K, V> implements Subscription, CommitListener<K, V>, ErrorListener, CompletionListener {
