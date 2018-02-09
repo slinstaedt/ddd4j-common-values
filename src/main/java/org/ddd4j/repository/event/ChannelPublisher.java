@@ -24,7 +24,7 @@ public class ChannelPublisher<C> implements Closeable {
 
 		ChannelListener create(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error, C callback);
 
-		default ListenerFactory<C> wrapListener(UnaryOperator<ChannelListener> wrapper) {
+		default ListenerFactory<C> wrapped(UnaryOperator<ChannelListener> wrapper) {
 			Require.nonNull(wrapper);
 			return (commit, error, callback) -> wrapper.apply(create(commit, error, callback));
 		}

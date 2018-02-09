@@ -23,7 +23,7 @@ import org.ddd4j.value.versioned.Position;
 
 public interface RevisionCallback {
 
-	class RevisionAwarePublisherFactory {
+	class SubscribedChannelsListener implements SubscribedChannels.Listener {
 
 		private class RevisionAwareListener implements ChannelListener, CompletionListener {
 
@@ -97,21 +97,20 @@ public interface RevisionCallback {
 		}
 
 		private final ColdSource.Factory coldFactory;
-		private final ChannelPublisher<RevisionCallback> dispatcher;
+		private final ChannelPublisher<RevisionCallback> publisher;
 		private final ChannelRevisions hotState;
 		private final HotSource hotSource;
 
-		public RevisionAwarePublisherFactory(SchemaCodec.Factory codecFactory, ColdSource.Factory coldFactory,
-				HotSource.Factory hotFactory) {
+		public SubscribedChannelsListener(SchemaCodec.Factory codecFactory, ColdSource.Factory coldFactory, HotSource.Factory hotFactory) {
 			this.coldFactory = Require.nonNull(coldFactory);
-			SubscribedChannels channels = new SubscribedChannels(this::onSubscribed, this::onUnsubscribed);
-			this.dispatcher = new ChannelPublisher<>(channels, codecFactory, RevisionAwareListener::new);
+			SubscribedChannels channels = new SubscribedChannels(this);
+			this.publisher = new ChannelPublisher<>(channels, codecFactory, RevisionAwareListener::new);
 			this.hotState = new ChannelRevisions();
 			this.hotSource = hotFactory.createHotSource(channels, channels, channels);
 		}
 
 		public ChannelPublisher<RevisionCallback> getPublisher() {
-			return dispatcher;
+			return publisher;
 		}
 
 		private Promise<?> hotUpdate(ChannelName name, Committed<?, ?> committed) {
@@ -119,19 +118,21 @@ public interface RevisionCallback {
 			return Promise.completed();
 		}
 
-		private Promise<Integer> onSubscribed(ChannelName name) {
-			dispatcher.subscribe(name, this, this::hotUpdate, ErrorListener.IGNORE, RevisionCallback.VOID);
+		@Override
+		public Promise<Integer> onSubscribed(ChannelName name) {
+			publisher.subscribe(name, this, this::hotUpdate, ErrorListener.IGNORE, RevisionCallback.VOID);
 			return hotSource.subscribe(name);
 		}
 
-		private void onUnsubscribed(ChannelName name) {
-			dispatcher.unsubscribe(name, this);
+		@Override
+		public void onUnsubscribed(ChannelName name) {
+			publisher.unsubscribe(name, this);
 			hotSource.unsubscribe(name);
 		}
 	}
 
-	Key<ChannelPublisher<RevisionCallback>> PUBLISHER = Key.of("",
-			ctx -> new RevisionAwarePublisherFactory(ctx.get(SchemaCodec.FACTORY), ctx.get(ColdSource.FACTORY), ctx.get(HotSource.FACTORY))
+	Key<ChannelPublisher<RevisionCallback>> PUBLISHER = Key.of("revisionCallbackChannelPublisher",
+			ctx -> new SubscribedChannelsListener(ctx.get(SchemaCodec.FACTORY), ctx.get(ColdSource.FACTORY), ctx.get(HotSource.FACTORY))
 					.getPublisher());
 
 	RevisionCallback VOID = new RevisionCallback() {

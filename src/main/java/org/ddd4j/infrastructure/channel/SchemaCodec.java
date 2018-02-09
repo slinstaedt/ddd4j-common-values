@@ -125,7 +125,7 @@ public enum SchemaCodec {
 		}
 
 		public <K, V> DecodingFactory<K, V> decodingFactory(ChannelSpec<K, V> spec) {
-			SchemaCodec.Decoder<V> decoder = decoder(spec);
+			Decoder<V> decoder = decoder(spec);
 			return (c, e) -> c.mapPromised(spec::deserializeKey, decoder::decode, e);
 		}
 

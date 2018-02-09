@@ -25,10 +25,6 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 			this.events = Require.nonNull(events);
 		}
 
-		public Session getSession() {
-			return session;
-		}
-
 		@Override
 		public Seq<?> events() {
 			return events;
@@ -41,6 +37,10 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 
 		public T getResult() {
 			return result;
+		}
+
+		public Session getSession() {
+			return session;
 		}
 	}
 
@@ -70,16 +70,16 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 			return right.apply(this);
 		}
 
-		public Session getSession() {
-			return session;
-		}
-
 		public Object[] getArguments() {
 			return arguments;
 		}
 
 		public String getMessage() {
 			return message;
+		}
+
+		public Session getSession() {
+			return session;
 		}
 	}
 
@@ -110,18 +110,24 @@ public interface Reaction<T> extends Either<Accepted<T>, Rejected<T>> {
 	}
 
 	default <X> Behavior<X> mapBehavior(Function<? super T, Behavior<X>> behavior) {
-		return foldReaction(behavior, Behavior::reject);
+		return foldReaction(t -> {
+			try {
+				return behavior.apply(t);
+			} catch (Exception e) {
+				return Behavior.failed(e);
+			}
+		}, Behavior::reject);
 	}
 
 	default <X> Reaction<X> mapResult(Function<? super T, ? extends X> mapper) {
 		return fold(a -> new Accepted<>(session(), mapper.apply(a.getResult()), a.events()), Rejected::casted);
 	}
 
-	default Session session() {
-		return fold(Accepted::getSession, Rejected::getSession);
-	}
-
 	default T result() {
 		return fold(Accepted::getResult, Throwing.of(IllegalStateException::new).asFunction());
+	}
+
+	default Session session() {
+		return fold(Accepted::getSession, Rejected::getSession);
 	}
 }

@@ -4,8 +4,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
@@ -22,6 +20,13 @@ import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 
 public class SubscribedChannels implements CommitListener<ReadBuffer, ReadBuffer>, ErrorListener, RebalanceListener, Closeable {
+
+	public interface Listener {
+
+		Promise<Integer> onSubscribed(ChannelName name);
+
+		void onUnsubscribed(ChannelName name);
+	}
 
 	private static class Subscriptions {
 
@@ -74,12 +79,11 @@ public class SubscribedChannels implements CommitListener<ReadBuffer, ReadBuffer
 	private static final int INITIAL_CAPACITY = 4;
 	private static final Subscriptions NONE = new Subscriptions(Promise.failed(new AssertionError()), Throwing.Task.NONE);
 
-	private final Function<ChannelName, Subscriptions> onSubscribed;
+	private final Listener listener;
 	private final Map<ChannelName, Subscriptions> subscriptions;
 
-	public SubscribedChannels(Function<ChannelName, Promise<Integer>> onSubscribed, Consumer<ChannelName> onUnsubscribed) {
-		Require.nonNullElements(onSubscribed, onUnsubscribed);
-		this.onSubscribed = name -> new Subscriptions(onSubscribed.apply(name), () -> onUnsubscribed.accept(name));
+	public SubscribedChannels(Listener listener) {
+		this.listener = Require.nonNull(listener);
 		this.subscriptions = new ConcurrentHashMap<>(INITIAL_CAPACITY);
 	}
 
@@ -112,7 +116,11 @@ public class SubscribedChannels implements CommitListener<ReadBuffer, ReadBuffer
 
 	public Promise<Integer> subscribe(ChannelName name, Object handle, ChannelListener listener) {
 		Require.nonNullElements(name, handle, listener);
-		return subscriptions.computeIfAbsent(name, onSubscribed).add(handle, listener);
+		return subscriptions.computeIfAbsent(name, this::subscriptions).add(handle, listener);
+	}
+
+	private Subscriptions subscriptions(ChannelName name) {
+		return new Subscriptions(listener.onSubscribed(name), () -> listener.onUnsubscribed(name));
 	}
 
 	public void unsubscribe(ChannelName name, Object handle) {
