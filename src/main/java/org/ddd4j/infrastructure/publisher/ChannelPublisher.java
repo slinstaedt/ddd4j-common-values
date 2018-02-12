@@ -1,4 +1,4 @@
-package org.ddd4j.repository.publisher;
+package org.ddd4j.infrastructure.publisher;
 
 import java.util.Set;
 import java.util.concurrent.Flow;
@@ -15,7 +15,6 @@ import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelSpec;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.repository.FlowSubscription;
 import org.ddd4j.value.versioned.Committed;
 
 public class ChannelPublisher<C> implements Closeable {

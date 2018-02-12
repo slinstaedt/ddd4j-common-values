@@ -1,4 +1,4 @@
-package org.ddd4j.repository;
+package org.ddd4j.infrastructure.publisher;
 
 import java.util.concurrent.atomic.AtomicLong;
 

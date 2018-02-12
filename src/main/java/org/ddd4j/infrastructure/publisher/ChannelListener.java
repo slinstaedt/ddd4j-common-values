@@ -1,4 +1,4 @@
-package org.ddd4j.repository.publisher;
+package org.ddd4j.infrastructure.publisher;
 
 import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
