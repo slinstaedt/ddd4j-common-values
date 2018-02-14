@@ -7,7 +7,7 @@ import org.ddd4j.infrastructure.channel.spi.Writer;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Committed.Published;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
 
@@ -24,12 +24,12 @@ public class KafkaWriter implements Writer<ReadBuffer, ReadBuffer> {
 	}
 
 	@Override
-	public Promise<Committed<ReadBuffer, ReadBuffer>> put(Recorded<ReadBuffer, ReadBuffer> recorded) {
-		Promise.Deferred<Committed<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
+	public Promise<Published<ReadBuffer, ReadBuffer>> put(Recorded<ReadBuffer, ReadBuffer> recorded) {
+		Promise.Deferred<Published<ReadBuffer, ReadBuffer>> deferred = scheduler.createDeferredPromise();
 		client.send(KafkaChannelFactory.convert(name, recorded), (metadata, exception) -> {
 			if (metadata != null) {
 				Revision nextExpected = new Revision(metadata.partition(), metadata.offset() + 1);
-				deferred.completeSuccessfully(recorded.committed(nextExpected));
+				deferred.completeSuccessfully(recorded.committed(nextExpected).published());
 			} else {
 				deferred.completeExceptionally(exception);
 			}

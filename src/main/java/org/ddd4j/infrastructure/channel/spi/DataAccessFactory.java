@@ -3,12 +3,14 @@ package org.ddd4j.infrastructure.channel.spi;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.util.Props;
 import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
 
 public interface DataAccessFactory extends Throwing.Closeable {
@@ -18,11 +20,6 @@ public interface DataAccessFactory extends Throwing.Closeable {
 		return new Committed<>(key.mark(), value.mark(), actual, next, timestamp, header);
 	}
 
-	static Committed<ReadBuffer, ReadBuffer> resetBuffers(Committed<ReadBuffer, ReadBuffer> committed) {
-		return new Committed<>(committed.getKey().duplicate(), committed.getValue().duplicate(), committed.getActual(),
-				committed.getNextExpected(), committed.getTimestamp(), committed.getHeader());
-	}
-
 	@Override
 	default void closeChecked() throws Exception {
 		// ignore
@@ -30,5 +27,11 @@ public interface DataAccessFactory extends Throwing.Closeable {
 
 	default Map<ChannelName, Integer> knownChannelNames() {
 		return Collections.emptyMap();
+	}
+
+	default <R extends Recorded<ReadBuffer, ReadBuffer>> R withBuffers(R recorded, Consumer<ReadBuffer> fn) {
+		fn.accept(recorded.getKey());
+		fn.accept(recorded.getValue());
+		return recorded;
 	}
 }

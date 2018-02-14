@@ -39,8 +39,17 @@ public interface Committer<K, V> {
 			return createCommitter(name).onCompleted(ReadBuffer::close, ReadBuffer::close);
 		}
 
-		default Factory writeCommitted(Writer.Factory factory) {
-
+		default Factory publishCommittedTo(Writer.Factory factory) {
+			return name -> {
+				Committer<ReadBuffer, ReadBuffer> committer = createCommitter(name);
+				Writer<ReadBuffer, ReadBuffer> writer = factory.createWriter(name);
+				return attempt -> committer.commit(withBuffers(attempt, ReadBuffer::mark))
+						.thenRun(() -> withBuffers(attempt, ReadBuffer::reset))
+						// compiler's type inference failed
+						.thenCompose(r -> r.<Promise<? extends CommitResult<ReadBuffer, ReadBuffer>>>onCommitted(writer::put,
+								Promise.completed(r)))
+						.thenRun(() -> withBuffers(attempt, ReadBuffer::reset));
+			};
 		}
 	}
 
@@ -51,15 +60,17 @@ public interface Committer<K, V> {
 	default <X, Y> Committer<X, Y> flatMapValue(Function<? super X, K> key,
 			BiFunction<? super Y, Promise<CommitResult<K, V>>, Promise<V>> value) {
 		Promise.Deferred<CommitResult<K, V>> result = Promise.deferred(Runnable::run);
-		return a -> value.apply(a.getValue(), result)
-				.thenApply(v -> a.with(key, v))
-				.thenCompose(this::commit)
-				.whenComplete(result::complete)
-				.thenApply(r -> r.withValuesFrom(a));
+		return attempt -> {
+			return value.apply(attempt.getValue(), result)
+					.thenApply(v -> attempt.mapKey(key, v))
+					.thenCompose(this::commit)
+					.whenComplete(result::complete)
+					.thenApply(r -> r.withKeyValueFrom(attempt));
+		};
 	}
 
 	default <X, Y> Committer<X, Y> map(Function<? super X, K> key, Function<? super Y, V> value) {
-		return a -> commit(a.map(key, value)).thenApply(r -> r.withValuesFrom(a));
+		return a -> commit(a.map(key, value)).thenApply(r -> r.withKeyValueFrom(a));
 	}
 
 	default Committer<K, V> onCompleted(Consumer<? super K> key, Consumer<? super V> value) {

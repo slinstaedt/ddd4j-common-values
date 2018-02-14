@@ -1,8 +1,6 @@
 package org.ddd4j.value.versioned;
 
 import java.time.Instant;
-import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
@@ -21,8 +19,19 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 		}
 
 		@Override
-		public CommitResult<K, V> onCommitted(Consumer<? super Committed<K, V>> committed) {
-			return this;
+		public <X, Y> Published<X, Y> map(Function<? super K, ? extends X> keyMapper, Function<? super V, ? extends Y> valueMapper) {
+			return new Published<>(keyMapper.apply(super.key), valueMapper.apply(super.value), super.actual, super.nextExpected,
+					super.timestamp, super.header);
+		}
+
+		@Override
+		public <X> X onCommitted(Function<Committed<K, V>, ? extends X> committed, X ignore) {
+			return ignore;
+		}
+
+		@Override
+		public <X, Y> Published<X, Y> withKeyValueFrom(Recorded<X, Y> recorded) {
+			return map(r -> recorded.getKey(), v -> recorded.getValue());
 		}
 	}
 
@@ -40,14 +49,6 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 		this.nextExpected = Require.nonNull(nextExpected);
 		this.timestamp = Require.nonNull(timestamp);
 		this.header = Require.nonNull(header);
-	}
-
-	public <X> Optional<Committed<K, X>> asOf(Class<X> type) {
-		if (type.isInstance(value)) {
-			return Optional.of(new Committed<>(key, type.cast(value), actual, nextExpected, timestamp, header));
-		} else {
-			return Optional.empty();
-		}
 	}
 
 	@Override
@@ -103,18 +104,19 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 		return new Committed<>(keyMapper.apply(key), valueMapper.apply(value), actual, nextExpected, timestamp, header);
 	}
 
+	@Override
 	public <X, Y> Committed<X, Y> mapKey(Function<? super K, ? extends X> keyMapper, Y value) {
-		return new Committed<>(keyMapper.apply(key), value, actual, nextExpected, timestamp, header);
-	}
-
-	public <X, Y> Committed<X, Y> mapValue(X key, Function<? super V, ? extends Y> valueMapper) {
-		return new Committed<>(key, valueMapper.apply(value), actual, nextExpected, timestamp, header);
+		return map(keyMapper, v -> value);
 	}
 
 	@Override
-	public CommitResult<K, V> onCommitted(Consumer<? super Committed<K, V>> committed) {
-		committed.accept(this);
-		return this;
+	public <X, Y> Committed<X, Y> mapValue(X key, Function<? super V, ? extends Y> valueMapper) {
+		return map(k -> key, valueMapper);
+	}
+
+	@Override
+	public <X> X onCommitted(Function<Committed<K, V>, ? extends X> committed, X ignore) {
+		return committed.apply(this);
 	}
 
 	@Override
@@ -132,12 +134,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	}
 
 	@Override
-	public <X, Y> Committed<X, Y> with(Function<? super K, ? extends X> keyMapper, Y value) {
-		return new Committed<>(keyMapper.apply(key), value, actual, nextExpected, timestamp, header);
-	}
-
-	@Override
-	public <X, Y> Committed<X, Y> withValuesFrom(Recorded<X, Y> recorded) {
-		return new Committed<>(recorded.getKey(), recorded.getValue(), actual, nextExpected, timestamp, header);
+	public <X, Y> Committed<X, Y> withKeyValueFrom(Recorded<X, Y> recorded) {
+		return map(r -> recorded.getKey(), v -> recorded.getValue());
 	}
 }

@@ -1,6 +1,5 @@
 package org.ddd4j.value.versioned;
 
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 public interface CommitResult<K, V> {
@@ -11,7 +10,7 @@ public interface CommitResult<K, V> {
 
 	K getKey();
 
-	CommitResult<K, V> onCommitted(Consumer<? super Committed<K, V>> committed);
+	<X> X onCommitted(Function<Committed<K, V>, ? extends X> committed, X ignore);
 
-	<X, Y> CommitResult<X, Y> withValuesFrom(Recorded<X, Y> recorded);
+	<X, Y> CommitResult<X, Y> withKeyValueFrom(Recorded<X, Y> recorded);
 }

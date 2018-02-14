@@ -14,6 +14,7 @@ import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Committed.Published;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revisions;
 
@@ -41,14 +42,14 @@ public interface Writer<K, V> {
 			BiFunction<? super Y, Promise<Committed<K, V>>, Promise<V>> value) {
 		Promise.Deferred<Committed<K, V>> result = Promise.deferred(Runnable::run);
 		return r -> value.apply(r.getValue(), result)
-				.thenApply(v -> r.with(key, v))
+				.thenApply(v -> r.mapKey(key, v))
 				.thenCompose(this::put)
 				.whenComplete(result::complete)
-				.thenApply(c -> c.withValuesFrom(r));
+				.thenApply(p -> p.withKeyValueFrom(r));
 	}
 
 	default <X, Y> Writer<X, Y> map(Function<? super X, K> key, Function<? super Y, V> value) {
-		return r -> put(r.map(key, value)).thenApply(c -> c.withValuesFrom(r));
+		return r -> put(r.map(key, value)).thenApply(p -> p.withKeyValueFrom(r));
 	}
 
 	default Writer<K, V> onCompleted(Consumer<? super K> key, Consumer<? super V> value) {
@@ -58,9 +59,9 @@ public interface Writer<K, V> {
 		});
 	}
 
-	default Promise<Committed<K, V>> put(K key, V value) {
+	default Promise<Published<K, V>> put(K key, V value) {
 		return put(Recorded.uncommitted(key, value, Revisions.NONE, Instant.now()));
 	}
 
-	Promise<Committed<K, V>> put(Recorded<K, V> recorded);
+	Promise<Published<K, V>> put(Recorded<K, V> recorded);
 }

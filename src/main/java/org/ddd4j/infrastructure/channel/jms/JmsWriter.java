@@ -11,7 +11,7 @@ import org.ddd4j.infrastructure.channel.spi.Writer;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.value.versioned.Committed;
+import org.ddd4j.value.versioned.Committed.Published;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
 
@@ -32,16 +32,16 @@ public class JmsWriter implements Writer<ReadBuffer, ReadBuffer> {
 		this.name = Require.nonNull(name);
 	}
 
-	private Committed<ReadBuffer, ReadBuffer> send(JMSContext ctx, Recorded<ReadBuffer, ReadBuffer> recorded) throws JMSException {
+	@Override
+	public Promise<Published<ReadBuffer, ReadBuffer>> put(Recorded<ReadBuffer, ReadBuffer> recorded) {
+		return client.perform(ctx -> send(ctx, recorded));
+	}
+
+	private Published<ReadBuffer, ReadBuffer> send(JMSContext ctx, Recorded<ReadBuffer, ReadBuffer> recorded) throws JMSException {
 		Topic topic = ctx.createTopic(name.value());
 		BytesMessage message = ctx.createBytesMessage();
 		convert(recorded, message);
 		ctx.createProducer().send(topic, message);
-		return recorded.committed(Revision.UNKNOWN);
-	}
-
-	@Override
-	public Promise<Committed<ReadBuffer, ReadBuffer>> put(Recorded<ReadBuffer, ReadBuffer> recorded) {
-		return client.perform(ctx -> send(ctx, recorded));
+		return recorded.committed(Revision.UNKNOWN).published();
 	}
 }

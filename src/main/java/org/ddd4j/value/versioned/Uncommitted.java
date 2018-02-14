@@ -35,11 +35,6 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	}
 
 	@Override
-	public Instant getTimestamp() {
-		return timestamp;
-	}
-
-	@Override
 	public Props getHeader() {
 		return header;
 	}
@@ -47,6 +42,11 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	@Override
 	public K getKey() {
 		return key;
+	}
+
+	@Override
+	public Instant getTimestamp() {
+		return timestamp;
 	}
 
 	@Override
@@ -60,14 +60,19 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	}
 
 	@Override
-	public int partition(ToIntFunction<? super K> keyHasher) {
-		int hash = keyHasher.applyAsInt(key);
-		return expected.partition(hash);
+	public <X, Y> Uncommitted<X, Y> mapKey(Function<? super K, ? extends X> keyMapper, Y value) {
+		return map(keyMapper, v -> value);
 	}
 
 	@Override
-	public <X, Y> Uncommitted<X, Y> with(Function<? super K, ? extends X> keyMapper, Y value) {
-		return new Uncommitted<>(keyMapper.apply(key), value, expected, timestamp, header);
+	public <X, Y> Uncommitted<X, Y> mapValue(X key, Function<? super V, ? extends Y> valueMapper) {
+		return map(k -> key, valueMapper);
+	}
+
+	@Override
+	public int partition(ToIntFunction<? super K> keyHasher) {
+		int hash = keyHasher.applyAsInt(key);
+		return expected.partition(hash);
 	}
 
 	public Uncommitted<K, V> withHeader(Function<Props, Props> headerBuilder) {

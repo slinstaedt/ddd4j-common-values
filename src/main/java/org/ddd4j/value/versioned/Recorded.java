@@ -23,13 +23,19 @@ public interface Recorded<K, V> {
 
 	K getKey();
 
-	V getValue();
-
 	Instant getTimestamp();
+
+	V getValue();
 
 	<X, Y> Recorded<X, Y> map(Function<? super K, ? extends X> keyMapper, Function<? super V, ? extends Y> valueMapper);
 
-	int partition(ToIntFunction<? super K> keyHasher);
+	default <X, Y> Recorded<X, Y> mapKey(Function<? super K, ? extends X> keyMapper, Y value) {
+		return map(keyMapper, v -> value);
+	}
 
-	<X, Y> Recorded<X, Y> with(Function<? super K, ? extends X> keyMapper, Y value);
+	default <X, Y> Recorded<X, Y> mapValue(X key, Function<? super V, ? extends Y> valueMapper) {
+		return map(k -> key, valueMapper);
+	}
+
+	int partition(ToIntFunction<? super K> keyHasher);
 }

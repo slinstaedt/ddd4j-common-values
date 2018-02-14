@@ -1,6 +1,5 @@
 package org.ddd4j.value.versioned;
 
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.ddd4j.Require;
@@ -37,12 +36,12 @@ public final class Conflicting<K, V> implements CommitResult<K, V> {
 	}
 
 	@Override
-	public CommitResult<K, V> onCommitted(Consumer<? super Committed<K, V>> committed) {
-		return this;
+	public <X> X onCommitted(Function<Committed<K, V>, ? extends X> committed, X ignore) {
+		return ignore;
 	}
 
 	@Override
-	public <X, Y> Conflicting<X, Y> withValuesFrom(Recorded<X, Y> recorded) {
+	public <X, Y> CommitResult<X, Y> withKeyValueFrom(Recorded<X, Y> recorded) {
 		return new Conflicting<>(recorded.getKey(), expected, actual);
 	}
 }

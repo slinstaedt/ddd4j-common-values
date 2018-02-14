@@ -12,7 +12,6 @@ import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.api.RebalanceListener;
-import org.ddd4j.infrastructure.channel.spi.DataAccessFactory;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.io.ReadBuffer;
@@ -58,8 +57,8 @@ public class SubscribedChannels implements CommitListener<ReadBuffer, ReadBuffer
 		}
 
 		Promise<?> onNext(ChannelName name, Committed<ReadBuffer, ReadBuffer> committed) {
-			return Promise.completed()
-					.runAfterAll(listeners.values().stream().map(l -> l.onNext(name, DataAccessFactory.resetBuffers(committed))));
+			return Promise.completed().runAfterAll(
+					listeners.values().stream().map(l -> l.onNext(name, committed.map(ReadBuffer::duplicate, ReadBuffer::duplicate))));
 		}
 
 		Promise<?> onRebalance(Mode mode, Sequence<ChannelPartition> partitions) {

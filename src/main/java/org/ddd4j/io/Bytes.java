@@ -497,8 +497,8 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		return new Bytes() {
 
 			@Override
-			public Bytes put(int index, byte b) {
-				throw new UnsupportedOperationException("read only");
+			public byte get(int index) {
+				return Bytes.this.get(index);
 			}
 
 			@Override
@@ -507,8 +507,8 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 			}
 
 			@Override
-			public byte get(int index) {
-				return Bytes.this.get(index);
+			public Bytes put(int index, byte b) {
+				throw new UnsupportedOperationException("read only");
 			}
 		};
 	}

@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.infrastructure.publisher.ChannelListener;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.repository.publisher.ChannelListener;
 import org.ddd4j.value.versioned.Committed;
 
 public class TestChannelListener implements ChannelListener {
