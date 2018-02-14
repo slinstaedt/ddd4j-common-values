@@ -60,23 +60,21 @@ public interface Committer<K, V> {
 	default <X, Y> Committer<X, Y> flatMapValue(Function<? super X, K> key,
 			BiFunction<? super Y, Promise<CommitResult<K, V>>, Promise<V>> value) {
 		Promise.Deferred<CommitResult<K, V>> result = Promise.deferred(Runnable::run);
-		return attempt -> {
-			return value.apply(attempt.getValue(), result)
-					.thenApply(v -> attempt.mapKey(key, v))
-					.thenCompose(this::commit)
-					.whenComplete(result::complete)
-					.thenApply(r -> r.withKeyValueFrom(attempt));
-		};
+		return attempt -> value.apply(attempt.getValue(), result)
+				.thenApply(v -> attempt.mapKey(key, v))
+				.thenCompose(this::commit)
+				.whenComplete(result::complete)
+				.thenApply(r -> r.withKeyValueFrom(attempt));
 	}
 
 	default <X, Y> Committer<X, Y> map(Function<? super X, K> key, Function<? super Y, V> value) {
-		return a -> commit(a.map(key, value)).thenApply(r -> r.withKeyValueFrom(a));
+		return attempt -> commit(attempt.map(key, value)).thenApply(r -> r.withKeyValueFrom(attempt));
 	}
 
 	default Committer<K, V> onCompleted(Consumer<? super K> key, Consumer<? super V> value) {
-		return a -> commit(a).thenRun(() -> {
-			key.accept(a.getKey());
-			value.accept(a.getValue());
+		return attempt -> commit(attempt).thenRun(() -> {
+			key.accept(attempt.getKey());
+			value.accept(attempt.getValue());
 		});
 	}
 }

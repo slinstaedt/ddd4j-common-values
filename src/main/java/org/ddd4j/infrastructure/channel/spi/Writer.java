@@ -41,21 +41,21 @@ public interface Writer<K, V> {
 	default <X, Y> Writer<X, Y> flatMapValue(Function<? super X, K> key,
 			BiFunction<? super Y, Promise<Committed<K, V>>, Promise<V>> value) {
 		Promise.Deferred<Committed<K, V>> result = Promise.deferred(Runnable::run);
-		return r -> value.apply(r.getValue(), result)
-				.thenApply(v -> r.mapKey(key, v))
+		return recorded -> value.apply(recorded.getValue(), result)
+				.thenApply(v -> recorded.mapKey(key, v))
 				.thenCompose(this::put)
 				.whenComplete(result::complete)
-				.thenApply(p -> p.withKeyValueFrom(r));
+				.thenApply(p -> p.withKeyValueFrom(recorded));
 	}
 
 	default <X, Y> Writer<X, Y> map(Function<? super X, K> key, Function<? super Y, V> value) {
-		return r -> put(r.map(key, value)).thenApply(p -> p.withKeyValueFrom(r));
+		return recorded -> put(recorded.map(key, value)).thenApply(p -> p.withKeyValueFrom(recorded));
 	}
 
 	default Writer<K, V> onCompleted(Consumer<? super K> key, Consumer<? super V> value) {
-		return r -> put(r).thenRun(() -> {
-			key.accept(r.getKey());
-			value.accept(r.getValue());
+		return recorded -> put(recorded).thenRun(() -> {
+			key.accept(recorded.getKey());
+			value.accept(recorded.getValue());
 		});
 	}
 
