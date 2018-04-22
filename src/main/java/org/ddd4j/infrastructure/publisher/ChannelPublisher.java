@@ -6,8 +6,8 @@ import java.util.function.UnaryOperator;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing.Closeable;
-import org.ddd4j.infrastructure.channel.SchemaCodec;
-import org.ddd4j.infrastructure.channel.SchemaCodec.DecodingFactory;
+import org.ddd4j.infrastructure.channel.Channels;
+import org.ddd4j.infrastructure.channel.Channels.DecodingFactory;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
@@ -52,10 +52,10 @@ public class ChannelPublisher<C> implements Closeable {
 		return (s, c) -> channels.subscribe(name, s, FlowSubscription.createListener(listenerFactory, c, s, unsubscriber(name)));
 	}
 
-	public <K, V> Publisher<K, V, C> publisher(SchemaCodec.Factory codecFactory, ChannelSpec<K, V> spec) {
+	public <K, V> Publisher<K, V, C> publisher(Channels channels, ChannelSpec<K, V> spec) {
 		Consumer<Object> unsubscriber = unsubscriber(spec.getName());
-		DecodingFactory<K, V> decodingFactory = codecFactory.decodingFactory(spec);
-		return (s, c) -> channels.subscribe(spec.getName(), s,
+		DecodingFactory<K, V> decodingFactory = channels.decodingFactory(spec);
+		return (s, c) -> this.channels.subscribe(spec.getName(), s,
 				FlowSubscription.createListener(listenerFactory, c, s, unsubscriber, decodingFactory));
 	}
 

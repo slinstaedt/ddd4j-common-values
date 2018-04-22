@@ -7,7 +7,7 @@ import java.util.function.Function;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.SchemaCodec;
+import org.ddd4j.infrastructure.channel.Channels.DecodingFactory;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
@@ -21,7 +21,7 @@ public class FlowSubscription<K, V> implements Subscription, CommitListener<K, V
 
 	public static <K, V, C> ChannelListener createListener(ListenerFactory<C> factory, C callback,
 			Subscriber<? super Committed<K, V>> subscriber, Consumer<? super Subscriber<?>> unsubscriber,
-			SchemaCodec.DecodingFactory<K, V> decodingFactory) {
+			DecodingFactory<K, V> decodingFactory) {
 		ChannelListener[] listener = new ChannelListener[1];
 		FlowSubscription<K, V> subscription = new FlowSubscription<>(subscriber, unsubscriber,
 				l -> listener[0] = factory.create(decodingFactory.create(l, l), l, callback));

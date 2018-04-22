@@ -9,14 +9,11 @@ import java.util.function.Supplier;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.api.CommitListener;
-import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.channel.spi.ColdReader;
 import org.ddd4j.infrastructure.channel.spi.Reader;
 import org.ddd4j.infrastructure.channel.spi.Writer;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelRevision;
-import org.ddd4j.infrastructure.domain.value.ChannelSpec;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
@@ -115,12 +112,6 @@ public enum SchemaCodec {
 		}
 	}
 
-	// TODO move to its own file?
-	public interface DecodingFactory<K, V> {
-
-		CommitListener<ReadBuffer, ReadBuffer> create(CommitListener<K, V> commit, ErrorListener error);
-	}
-
 	public interface Encoder<T> {
 
 		@FunctionalInterface
@@ -149,18 +140,9 @@ public enum SchemaCodec {
 			this.context = Require.nonNull(context);
 		}
 
-		public <T> Decoder<T> decoder(ChannelSpec<?, T> spec) {
-			return decoder(spec.getValueType(), spec.getName());
-		}
-
 		public <T> Decoder<T> decoder(Type<T> readerType, ChannelName name) {
 			Require.nonNulls(readerType, name);
 			return (buf, rev) -> decodeType(buf.get()).decoder(context, readerType, name).decode(buf, rev);
-		}
-
-		public <K, V> DecodingFactory<K, V> decodingFactory(ChannelSpec<K, V> spec) {
-			Decoder<V> decoder = decoder(spec);
-			return (c, e) -> c.mapPromised(spec::deserializeKey, decoder::decode, e);
 		}
 
 		public <T> Encoder<T> encoder(Type<T> writerType, ChannelName name) {

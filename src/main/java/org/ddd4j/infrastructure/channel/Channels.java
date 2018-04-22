@@ -6,7 +6,7 @@ import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.SchemaCodec.DecodingFactory;
+import org.ddd4j.infrastructure.channel.SchemaCodec.Decoder;
 import org.ddd4j.infrastructure.channel.SchemaCodec.Encoder;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
@@ -27,6 +27,11 @@ import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
 
 public class Channels {
+
+	public interface DecodingFactory<K, V> {
+
+		CommitListener<ReadBuffer, ReadBuffer> create(CommitListener<K, V> commit, ErrorListener error);
+	}
 
 	public static final Key<Channels> KEY = Key.of(Channels.class, Channels::new);
 
@@ -80,6 +85,11 @@ public class Channels {
 		return encodingWriter(spec, extender, context.get(Writer.FACTORY).createWriterClosingBuffers(spec.getName()));
 	}
 
+	public <K, V> DecodingFactory<K, V> decodingFactory(ChannelSpec<K, V> spec) {
+		Decoder<V> decoder = context.get(SchemaCodec.FACTORY).decoder(spec.getValueType(), spec.getName());
+		return (c, e) -> c.mapPromised(spec::deserializeKey, decoder::decode, e);
+	}
+
 	public <K, V, T> Committer<K, T> encodingCommitter(ChannelSpec<K, V> spec, Encoder.Extender<? super T, ? extends V> extender,
 			Committer<ReadBuffer, ReadBuffer> committer) {
 		Encoder<T> encoder = context.get(SchemaCodec.FACTORY).encoder(spec.getValueType(), spec.getName()).extend(extender);
@@ -97,7 +107,7 @@ public class Channels {
 	public <K, V> Publisher<K, V, RevisionCallback> publisher(ChannelSpec<K, V> spec) {
 		ChannelPublisher<RevisionCallback> publisher = context.get(RevisionCallback.PUBLISHER);
 		Consumer<Object> unsubscriber = publisher.unsubscriber(spec.getName());
-		DecodingFactory<K, V> decodingFactory = context.get(SchemaCodec.FACTORY).decodingFactory(spec);
+		DecodingFactory<K, V> decodingFactory = decodingFactory(spec);
 		// TODO
 		return (s, c) -> {
 			publisher.subscribe(spec.getName(), s, FlowSubscription.createListener(listenerFactory, c, s, unsubscriber, decodingFactory));
@@ -105,7 +115,7 @@ public class Channels {
 	}
 
 	public <K, V> void subscribe(ChannelSpec<K, V> spec, CommitListener<K, V> commit, ErrorListener error, RevisionCallback callback) {
-		CommitListener<ReadBuffer, ReadBuffer> decoded = context.get(SchemaCodec.FACTORY).decodingFactory(spec).create(commit, error);
+		CommitListener<ReadBuffer, ReadBuffer> decoded = decodingFactory(spec).create(commit, error);
 		context.get(RevisionCallback.PUBLISHER).subscribe(spec.getName(), commit, decoded, error, callback);
 	}
 }
