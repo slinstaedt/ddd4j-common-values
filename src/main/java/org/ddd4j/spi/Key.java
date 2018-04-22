@@ -8,7 +8,7 @@ import org.ddd4j.Throwing.TConsumer;
 import org.ddd4j.value.Named;
 import org.ddd4j.value.Value;
 
-//TODO rename to ServiceKey?
+//TODO rename to Ref?
 public class Key<T> implements ServiceFactory<T>, Named {
 
 	// TODO needed?
