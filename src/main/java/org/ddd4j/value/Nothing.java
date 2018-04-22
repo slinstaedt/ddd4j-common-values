@@ -6,6 +6,10 @@ public final class Nothing extends Error {
 
 	private static final long serialVersionUID = 1L;
 
+	private Nothing() {
+		super();
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		return o instanceof Nothing;

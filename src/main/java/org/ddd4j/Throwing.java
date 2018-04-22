@@ -79,7 +79,7 @@ public interface Throwing {
 		T produce() throws Exception;
 
 		default Producer<T> withListener(TConsumer<? super T> success, TConsumer<? super Throwable> failure) {
-			Require.nonNullElements(success, failure);
+			Require.nonNulls(success, failure);
 			return () -> {
 				try {
 					T value = produce();

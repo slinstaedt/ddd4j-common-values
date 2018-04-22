@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import org.ddd4j.Require;
-import org.ddd4j.value.Type;
+import org.ddd4j.util.Type;
 
 public class Property<D, T> {
 

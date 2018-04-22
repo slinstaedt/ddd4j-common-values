@@ -58,7 +58,7 @@ public interface EffectDispatcher<T> {
 		}
 	}
 
-	static EffectDispatcher<Nothing> NONE = of(Reaction.accepted(Nothing.INSTANCE, Seq.empty()));
+	static EffectDispatcher<Nothing> NONE = is(Reaction.accepted(Nothing.INSTANCE, Seq.empty()));
 
 	@SuppressWarnings("unchecked")
 	static <T> CompletionStage<? extends Reaction<T>> cast(CompletionStage<? extends Reaction<? extends T>> stage) {
@@ -66,11 +66,11 @@ public interface EffectDispatcher<T> {
 	}
 
 	static <T> EffectDispatcher<T> failingWith(String message, Object... arguments) {
-		return of(Reaction.rejected(message, arguments));
+		return is(Reaction.rejected(message, arguments));
 	}
 
 	static <T> EffectDispatcher<T> just(T result) {
-		return of(Reaction.accepted(result, Seq.empty()));
+		return is(Reaction.accepted(result, Seq.empty()));
 	}
 
 	static <T> EffectDispatcher<T> of(Reaction<T> reaction) {
@@ -115,7 +115,7 @@ public interface EffectDispatcher<T> {
 
 	default <X> EffectDispatcher<X> flatMap(Function<? super T, EffectDispatcher<X>> accepted,
 			BiFunction<String, Object[], ? extends EffectDispatcher<X>> rejected) {
-		Require.nonNullElements(accepted, rejected);
+		Require.nonNulls(accepted, rejected);
 		return d -> accept(d).thenCompose(r -> r.foldReaction(accepted, rejected).accept(d));
 	}
 
@@ -124,7 +124,7 @@ public interface EffectDispatcher<T> {
 	}
 
 	default <X> EffectDispatcher<X> flatMapRejected(Function<? super T, X> accepted, BiFunction<String, Object[], EffectDispatcher<X>> rejected) {
-		Require.nonNullElements(accepted, rejected);
+		Require.nonNulls(accepted, rejected);
 		return flatMap(t -> just(accepted.apply(t)), rejected);
 	}
 
@@ -149,12 +149,12 @@ public interface EffectDispatcher<T> {
 	}
 
 	default <X> EffectDispatcher<X> mapAccepted(Function<? super T, ? extends X> mapper) {
-		Require.nonNullElements(mapper);
+		Require.nonNulls(mapper);
 		return d -> accept(d).thenApply(r -> r.mapResult(mapper));
 	}
 
 	default EffectDispatcher<Nothing> on(Consumer<? super T> accepted, BiConsumer<String, Object[]> rejected) {
-		Require.nonNullElements(accepted, rejected);
+		Require.nonNulls(accepted, rejected);
 		return flatMap(t -> {
 			accepted.accept(t);
 			return NONE;

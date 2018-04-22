@@ -2,7 +2,7 @@ package org.ddd4j.value.indexed;
 
 import java.util.function.Function;
 
-import org.ddd4j.value.Type;
+import org.ddd4j.util.Type;
 
 public interface Indexed {
 

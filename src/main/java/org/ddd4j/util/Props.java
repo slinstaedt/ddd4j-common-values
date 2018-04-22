@@ -48,7 +48,7 @@ public class Props extends Value.Simple<Props, Map<String, ?>> implements Config
 	}
 
 	public static final Charset CODEC = StandardCharsets.UTF_8;
-	public static final Props EMTPY = new Props(Collections.emptyMap());
+	public static final Props EMPTY = new Props(Collections.emptyMap());
 
 	public static Props deserialize(ReadBuffer buffer) {
 		return new Props(buffer);

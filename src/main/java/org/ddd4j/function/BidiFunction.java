@@ -50,7 +50,7 @@ public interface BidiFunction<T, U> {
 	}
 
 	default BidiFunction<T, U> withTriedFirst(Function<T, Opt<U>> f1, Function<U, Opt<T>> f2) {
-		Require.nonNullElements(f1, f2);
+		Require.nonNulls(f1, f2);
 		return fn -> fn.apply(t -> f1.apply(t).mapNullable(u -> Tpl.of(t, u)).orElseGet(() -> apply(fn)),
 				u -> f2.apply(u).mapNullable(t -> Tpl.of(t, u)).orElseGet(() -> apply(fn)));
 	}

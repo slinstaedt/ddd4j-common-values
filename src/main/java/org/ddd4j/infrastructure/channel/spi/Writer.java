@@ -6,12 +6,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.SchemaCodec;
-import org.ddd4j.infrastructure.channel.SchemaCodec.Encoder;
+import org.ddd4j.infrastructure.domain.header.Headers;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
-import org.ddd4j.infrastructure.domain.value.ChannelSpec;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Committed.Published;
@@ -23,13 +20,6 @@ public interface Writer<K, V> {
 	interface Factory extends DataAccessFactory {
 
 		Writer<ReadBuffer, ReadBuffer> createWriter(ChannelName name);
-
-		default <K, V> Writer<K, V> createWriter(ChannelSpec<K, V> spec, SchemaCodec.Factory codecFactory, WriteBuffer.Pool bufferPool) {
-			Encoder<V> encoder = codecFactory.encoder(spec);
-			return createWriterClosingBuffers(spec.getName()).flatMapValue(
-					k -> bufferPool.get().accept(b -> spec.serializeKey(k, b)).flip(),
-					(v, p) -> encoder.encode(bufferPool.get(), p.thenApply(Committed::getActual), v).thenApply(WriteBuffer::flip));
-		}
 
 		default Writer<ReadBuffer, ReadBuffer> createWriterClosingBuffers(ChannelName name) {
 			return createWriter(name).onCompleted(ReadBuffer::close, ReadBuffer::close);
@@ -60,7 +50,7 @@ public interface Writer<K, V> {
 	}
 
 	default Promise<Published<K, V>> put(K key, V value) {
-		return put(Recorded.uncommitted(key, value, Revisions.NONE, Instant.now()));
+		return put(Recorded.uncommitted(key, value, Headers.EMPTY, Instant.now(), Revisions.NONE));
 	}
 
 	Promise<Published<K, V>> put(Recorded<K, V> recorded);

@@ -34,6 +34,8 @@ public interface RelativeBuffer extends AutoCloseable {
 
 	RelativeBuffer limit(int newLimit);
 
+	RelativeBuffer limitToRemaining(int remaining);
+
 	RelativeBuffer mark();
 
 	default ByteOrder order() {

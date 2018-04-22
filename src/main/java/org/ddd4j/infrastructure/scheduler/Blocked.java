@@ -56,7 +56,7 @@ public interface Blocked<T> {
 	}
 
 	default Blocked<T> withListener(TConsumer<? super T> success, TConsumer<? super Throwable> failure) {
-		Require.nonNullElements(success, failure);
+		Require.nonNulls(success, failure);
 		return (duration, unit) -> {
 			try {
 				T value = execute(duration, unit);

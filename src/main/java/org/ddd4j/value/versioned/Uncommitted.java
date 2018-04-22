@@ -2,41 +2,45 @@ package org.ddd4j.value.versioned;
 
 import java.time.Instant;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
 import org.ddd4j.Require;
-import org.ddd4j.util.Props;
+import org.ddd4j.infrastructure.domain.header.Headers;
+import org.ddd4j.infrastructure.domain.header.HeaderKey;
+import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.io.WriteBuffer;
 
 //TODO rename to Attempt?
-public final class Uncommitted<K, V> implements Recorded<K, V> {
+public class Uncommitted<K, V> implements Recorded<K, V> {
 
 	private final K key;
 	private final V value;
-	private final Revisions expected;
+	private final Headers headers;
 	private final Instant timestamp;
-	private final Props header;
+	private final IntFunction<Revision> revisionOfPartition;
 
-	public Uncommitted(K key, V value, Revisions expected, Instant timestamp, Props header) {
+	Uncommitted(K key, V value, Headers headers, Instant timestamp, IntFunction<Revision> revisionOfPartition) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
-		this.expected = Require.nonNull(expected);
+		this.headers = Require.nonNull(headers);
 		this.timestamp = Require.nonNull(timestamp);
-		this.header = Require.nonNull(header);
+		this.revisionOfPartition = Require.nonNull(revisionOfPartition);
 	}
 
 	@Override
 	public Committed<K, V> committed(Revision nextExpected) {
-		Revision actual = expected.revisionOfPartition(nextExpected.getPartition());
-		return new Committed<>(key, value, actual, nextExpected, timestamp, header);
+		Revision actual = revisionOfPartition.apply(nextExpected.getPartition());
+		return new Committed<>(key, value, actual, nextExpected, timestamp, headers);
 	}
 
 	public Conflicting<K, V> conflicts(Revision actual) {
-		return new Conflicting<>(key, expected, actual);
+		return new Conflicting<>(key, revisionOfPartition.apply(actual.getPartition()), actual);
 	}
 
 	@Override
-	public Props getHeader() {
-		return header;
+	public Headers getHeaders() {
+		return headers;
 	}
 
 	@Override
@@ -56,7 +60,7 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 
 	@Override
 	public <X, Y> Uncommitted<X, Y> map(Function<? super K, ? extends X> keyMapper, Function<? super V, ? extends Y> valueMapper) {
-		return new Uncommitted<>(keyMapper.apply(key), valueMapper.apply(value), expected, timestamp, header);
+		return new Uncommitted<>(keyMapper.apply(key), valueMapper.apply(value), headers, timestamp, revisionOfPartition);
 	}
 
 	@Override
@@ -70,12 +74,17 @@ public final class Uncommitted<K, V> implements Recorded<K, V> {
 	}
 
 	@Override
-	public int partition(ToIntFunction<? super K> keyHasher) {
-		int hash = keyHasher.applyAsInt(key);
-		return expected.partition(hash);
+	public int partition(ToIntFunction<? super K> partitioner) {
+		int partition = partitioner.applyAsInt(key);
+		revisionOfPartition.apply(partition);
+		return partition;
 	}
 
-	public Uncommitted<K, V> withHeader(Function<Props, Props> headerBuilder) {
-		return new Uncommitted<>(key, value, expected, timestamp, headerBuilder.apply(header));
+	public <X> Uncommitted<K, V> withHeader(HeaderKey<X> headerKey, X headerValue, WriteBuffer buffer) {
+		return new Uncommitted<>(key, value, headers.with(headerKey, headerValue, buffer), timestamp, revisionOfPartition);
+	}
+
+	public Uncommitted<K, V> withHeader(String headerKey, ReadBuffer headerValue) {
+		return new Uncommitted<>(key, value, headers.with(headerKey, headerValue), timestamp, revisionOfPartition);
 	}
 }

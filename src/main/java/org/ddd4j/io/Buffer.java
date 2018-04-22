@@ -8,6 +8,8 @@ import org.ddd4j.Require;
 
 public class Buffer implements ReadBuffer, WriteBuffer {
 
+	public static final Buffer NONE = Bytes.NONE.buffered();
+
 	private final Bytes bytes;
 
 	private int position;
@@ -93,16 +95,6 @@ public class Buffer implements ReadBuffer, WriteBuffer {
 	}
 
 	@Override
-	public Buffer flip() {
-		return limitTo(position);
-	}
-
-	@Override
-	public int hashCode() {
-		return hash();
-	}
-
-	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
 			return true;
@@ -120,6 +112,16 @@ public class Buffer implements ReadBuffer, WriteBuffer {
 		} else {
 			return false;
 		}
+	}
+
+	@Override
+	public Buffer flip() {
+		return limitTo(position);
+	}
+
+	@Override
+	public int hashCode() {
+		return hash();
 	}
 
 	@Override
@@ -145,6 +147,12 @@ public class Buffer implements ReadBuffer, WriteBuffer {
 		position = 0;
 		mark = -1;
 		return this;
+	}
+
+	@Override
+	public Buffer limitToRemaining(int remaining) {
+		Require.that(remaining >= 0);
+		return limit(position + remaining);
 	}
 
 	@Override

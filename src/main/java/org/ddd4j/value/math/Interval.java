@@ -16,7 +16,7 @@ public interface Interval<T extends Ordered<T>> {
 	}
 
 	static <T extends Ordered<T>> Interval<T> of(T start, T end) {
-		Require.nonNullElements(start, end);
+		Require.nonNulls(start, end);
 		Require.that(start.notLargerThan(end));
 		return new Interval<T>() {
 

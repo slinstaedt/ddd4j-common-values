@@ -24,7 +24,6 @@ import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.util.Sequence;
 import org.ddd4j.value.config.ConfKey;
-import org.ddd4j.value.config.Configuration;
 import org.ddd4j.value.versioned.Committed;
 
 public interface ColdReader extends TimeIndexed {
@@ -33,7 +32,7 @@ public interface ColdReader extends TimeIndexed {
 
 		public static class Factory implements ColdReader.Factory {
 
-			public static final ConfKey<Integer> TIMEOUT = Configuration.keyOfInteger("timeoutInMillis", 2000);
+			public static final ConfKey<Integer> TIMEOUT = ConfKey.ofInteger("timeoutInMillis", 2000);
 
 			private final Context context;
 

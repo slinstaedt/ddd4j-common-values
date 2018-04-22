@@ -46,6 +46,10 @@ public interface Value<V extends Value<V>> extends Self<V> {
 			};
 		}
 
+		protected int calculateHash(T value) {
+			return deepHashCode(value);
+		}
+
 		@Override
 		public boolean equals(Object obj) {
 			if (this == obj) {
@@ -70,10 +74,6 @@ public interface Value<V extends Value<V>> extends Self<V> {
 			return Objects.deepEquals(o1, o2);
 		}
 
-		protected int calculateHash(T value) {
-			return deepHashCode(value);
-		}
-
 		@Override
 		public String toString() {
 			return stringer.get();
@@ -82,7 +82,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		protected abstract T value();
 	}
 
-	abstract class StringBased<V extends StringBased<V>> extends Simple<V, String> {
+	abstract class StringBased<V extends Value<V>> extends Simple<V, String> {
 
 		private final String value;
 

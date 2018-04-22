@@ -1,6 +1,9 @@
 package org.ddd4j.spi;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ServiceLoader;
+import java.util.stream.Collectors;
 
 import org.ddd4j.value.config.Configuration;
 
@@ -14,10 +17,36 @@ public interface ContextProvisioning {
 		}
 	}
 
+	class Programmatic implements ContextProvisioning {
+
+		private final List<Object> registered;
+
+		public Programmatic() {
+			this.registered = new ArrayList<>();
+		}
+
+		@Override
+		public <T> Iterable<T> loadRegistered(Class<T> type, ClassLoader loader) {
+			return registered.stream().filter(type::isInstance).map(type::cast).collect(Collectors.toList());
+		}
+
+		public void with(Object any) {
+			registered.add(any);
+		}
+
+		public void withConfigurer(ServiceConfigurer configurer) {
+			registered.add(configurer);
+		}
+	}
+
 	Key<ContextProvisioning> KEY = Key.of(ContextProvisioning.class);
 
 	static ContextProvisioning byJavaServiceLoader() {
 		return new JavaServiceLoader();
+	}
+
+	static Programmatic programmatic() {
+		return new Programmatic();
 	}
 
 	default Context createContext(Configuration configuration) {

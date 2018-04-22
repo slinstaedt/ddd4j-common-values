@@ -1,8 +1,8 @@
-package org.ddd4j.aggregate;
+package org.ddd4j.value.behavior;
 
 import java.util.function.Function;
 
-import org.ddd4j.value.behavior.Behavior;
+import org.ddd4j.aggregate.Aggregates;
 
 public class Commands {
 

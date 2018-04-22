@@ -1,25 +1,31 @@
 package org.ddd4j.value.versioned;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
-import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.util.Props;
+import org.ddd4j.Require;
+import org.ddd4j.infrastructure.domain.header.HeaderKey;
+import org.ddd4j.infrastructure.domain.header.Headers;
 
 public interface Recorded<K, V> {
 
-	static <K, V> Uncommitted<K, V> uncommitted(K key, V value, Revisions expected, Instant timestamp) {
-		return new Uncommitted<>(key, value, expected, timestamp, Props.EMTPY);
+	static <K, V> Uncommitted<K, V> uncommitted(K key, V value, Headers headers, Instant timestamp, Revision expected) {
+		return new Uncommitted<>(key, value, headers, timestamp, Require.nonNull(expected)::checkPartition);
 	}
 
-	static Uncommitted<ReadBuffer, ReadBuffer> uncommitted(ReadBuffer key, ReadBuffer value, Revisions expected, Instant timestamp) {
-		return new Uncommitted<>(key, value, expected, timestamp, Props.EMTPY);
+	static <K, V> Uncommitted<K, V> uncommitted(K key, V value, Headers headers, Instant timestamp, Revisions expected) {
+		return new Uncommitted<>(key, value, headers, timestamp, Require.nonNull(expected)::revisionOfPartition);
 	}
 
 	Committed<K, V> committed(Revision nextExpected);
 
-	Props getHeader();
+	default <X> Optional<X> getHeader(HeaderKey<X> key) {
+		return getHeaders().get(key);
+	}
+
+	Headers getHeaders();
 
 	K getKey();
 
@@ -37,5 +43,5 @@ public interface Recorded<K, V> {
 		return map(k -> key, valueMapper);
 	}
 
-	int partition(ToIntFunction<? super K> keyHasher);
+	int partition(ToIntFunction<? super K> partitioner);
 }

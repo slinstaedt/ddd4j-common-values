@@ -16,6 +16,8 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.ddd4j.Require;
@@ -38,7 +40,6 @@ import org.ddd4j.spi.Key;
 import org.ddd4j.spi.ServiceBinder;
 import org.ddd4j.spi.ServiceConfigurer;
 import org.ddd4j.util.Lazy;
-import org.ddd4j.util.Props;
 import org.ddd4j.util.Sequence;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;
@@ -63,13 +64,13 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 	private static final ByteArraySerializer SERIALIZER = new ByteArraySerializer();
 
 	static ProducerRecord<byte[], byte[]> convert(ChannelName name, Recorded<ReadBuffer, ReadBuffer> recorded) {
-		int partition = recorded.partition(ReadBuffer::hash);
+		int partition = recorded.partition(ReadBuffer::hash); // TODO partionCount needed
 		long timestamp = recorded.getTimestamp().toEpochMilli();
 		byte[] key = recorded.getKey().toByteArray();
 		byte[] value = recorded.getValue().toByteArray();
-		// TODO serialize header?
-		recorded.getHeader();
-		return new ProducerRecord<>(name.value(), partition, timestamp, key, value);
+		List<Header> headers = new ArrayList<>();
+		recorded.getHeaders().forEach((k, v) -> headers.add(new RecordHeader(k, v.toByteArray())));
+		return new ProducerRecord<>(name.value(), partition, timestamp, key, value, headers);
 	}
 
 	static Committed<ReadBuffer, ReadBuffer> convert(ConsumerRecord<byte[], byte[]> record) {
@@ -78,8 +79,9 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 		Revision actual = new Revision(record.partition(), record.offset());
 		Revision next = actual.increment(1);
 		Instant timestamp = Instant.ofEpochMilli(record.timestamp());
-		Props header = Props.deserialize(value);
-		return DataAccessFactory.committed(key, value, actual, next, timestamp, header);
+		Map<String, ReadBuffer> headers = new HashMap<>();
+		record.headers().forEach(h -> headers.put(h.key(), Bytes.wrap(h.value()).buffered()));
+		return DataAccessFactory.committed(key, value, actual, next, timestamp, headers);
 	}
 
 	static CommittedRecords convert(ConsumerRecords<byte[], byte[]> records) {

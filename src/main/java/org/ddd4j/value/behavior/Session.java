@@ -1,13 +1,12 @@
-package org.ddd4j.aggregate;
+package org.ddd4j.value.behavior;
 
 import java.util.Optional;
 import java.util.function.Function;
 
 import org.ddd4j.Require;
+import org.ddd4j.aggregate.Aggregates;
 import org.ddd4j.aggregate.Aggregates.Aggregate;
 import org.ddd4j.messaging.CorrelationIdentifier;
-import org.ddd4j.value.behavior.Effect.Dispatched;
-import org.ddd4j.value.behavior.Reaction;
 import org.ddd4j.value.collection.Map;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Recorded;

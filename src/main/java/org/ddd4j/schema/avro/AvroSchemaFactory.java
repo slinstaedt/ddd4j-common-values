@@ -18,7 +18,7 @@ import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.schema.avro.conversion.UUIDConversions;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
-import org.ddd4j.value.Type;
+import org.ddd4j.util.Type;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;
 
@@ -28,8 +28,8 @@ public class AvroSchemaFactory implements SchemaFactory {
 	public static final Key<DecoderFactory> DECODER_FACTORY = Key.of(DecoderFactory.class, c -> DecoderFactory.get());
 	public static final Key<EncoderFactory> ENCODER_FACTORY = Key.of(EncoderFactory.class, c -> EncoderFactory.get());
 
-	public static final ConfKey<AvroCoder> CODING = Configuration.keyOfEnum(AvroCoder.class, "coding", AvroCoder.BINARY);
-	public static final ConfKey<AvroFingerprintAlgorithm> FINGERPRINT = Configuration.keyOfEnum(AvroFingerprintAlgorithm.class,
+	public static final ConfKey<AvroCoder> CODING = ConfKey.ofEnum(AvroCoder.class, "coding", AvroCoder.BINARY);
+	public static final ConfKey<AvroFingerprintAlgorithm> FINGERPRINT = ConfKey.ofEnum(AvroFingerprintAlgorithm.class,
 			"fingerprint", AvroFingerprintAlgorithm.SHA_256);
 
 	private final Configuration configuration;

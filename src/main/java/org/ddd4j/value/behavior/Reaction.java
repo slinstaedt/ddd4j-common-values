@@ -5,7 +5,6 @@ import java.util.function.Function;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
-import org.ddd4j.aggregate.Session;
 import org.ddd4j.value.Either;
 import org.ddd4j.value.behavior.Reaction.Accepted;
 import org.ddd4j.value.behavior.Reaction.Rejected;

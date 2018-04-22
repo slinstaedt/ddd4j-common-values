@@ -7,7 +7,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.ddd4j.Require;
-import org.ddd4j.aggregate.Session;
 import org.ddd4j.messaging.CorrelationIdentifier;
 import org.ddd4j.value.Nothing;
 
@@ -22,12 +21,12 @@ public interface Effect<T, R> {
 		}
 
 		default <Y> Effect<T, Y> ask(BiFunction<? super T, ? super CorrelationIdentifier, Effect<T, Y>> callback, Query<Y> query) {
-			Require.nonNullElements(callback, query);
+			Require.nonNulls(callback, query);
 			return s -> apply(s).mapEffect(callback).apply(s);
 		}
 
 		default Effect<T, Nothing> cause(BiConsumer<? super T, ? super CorrelationIdentifier> callback, Object effect) {
-			Require.nonNullElements(callback, effect);
+			Require.nonNulls(callback, effect);
 			return s -> apply(s).mapEffect(callback).apply(s);
 		}
 
@@ -50,12 +49,12 @@ public interface Effect<T, R> {
 		}
 
 		default <X> Effect<X, R> ask(BiFunction<? super T, ? super CorrelationIdentifier, Effect<X, R>> callback, Query<R> query) {
-			Require.nonNullElements(callback, query);
+			Require.nonNulls(callback, query);
 			return s -> apply(s).mapEffect(callback).apply(s);
 		}
 
 		default <X> Effect<X, Nothing> cause(BiFunction<? super T, ? super CorrelationIdentifier, ? extends X> callback, Object effect) {
-			Require.nonNullElements(callback, effect);
+			Require.nonNulls(callback, effect);
 			return s -> apply(s).mapEffect(callback).apply(s);
 		}
 
@@ -99,12 +98,12 @@ public interface Effect<T, R> {
 	}
 
 	static <T, R> Effect<T, R> query(Function<? super CorrelationIdentifier, ? extends T> callback, Query<R> query) {
-		Require.nonNullElements(callback, query);
+		Require.nonNulls(callback, query);
 		return s -> s.send(callback, query);
 	}
 
 	static <T> Effect<T, Nothing> command(Function<? super CorrelationIdentifier, ? extends T> callback, Object command) {
-		Require.nonNullElements(callback, command);
+		Require.nonNulls(callback, command);
 		return s -> s.send(callback, command);
 	}
 

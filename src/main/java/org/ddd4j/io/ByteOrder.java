@@ -1,8 +1,15 @@
 package org.ddd4j.io;
 
-public enum ByteOrder {
+public interface ByteOrder {
 
-	BIG_ENDIAN {
+	public interface IndexedBytes {
+
+		byte get(int index);
+
+		IndexedBytes put(int index, byte b);
+	}
+
+	ByteOrder BIG_ENDIAN = new ByteOrder() {
 
 		@Override
 		public char getChar(IndexedBytes bytes, int index) {
@@ -87,34 +94,37 @@ public enum ByteOrder {
 		}
 	};
 
-	public interface IndexedBytes {
+	byte BOOLEAN_FALSE_ENCODING = 0;
 
-		byte get(int index);
-
-		IndexedBytes put(int index, byte b);
+	public default boolean getBoolean(IndexedBytes bytes, int index) {
+		return bytes.get(index) != BOOLEAN_FALSE_ENCODING;
 	}
 
-	public abstract char getChar(IndexedBytes bytes, int index);
+	char getChar(IndexedBytes bytes, int index);
 
-	public abstract double getDouble(IndexedBytes bytes, int index);
+	double getDouble(IndexedBytes bytes, int index);
 
-	public abstract float getFloat(IndexedBytes bytes, int index);
+	float getFloat(IndexedBytes bytes, int index);
 
-	public abstract int getInt(IndexedBytes bytes, int index);
+	int getInt(IndexedBytes bytes, int index);
 
-	public abstract long getLong(IndexedBytes bytes, int index);
+	long getLong(IndexedBytes bytes, int index);
 
-	public abstract short getShort(IndexedBytes bytes, int index);
+	short getShort(IndexedBytes bytes, int index);
 
-	public abstract void putChar(IndexedBytes bytes, int index, char value);
+	default void putBoolean(IndexedBytes bytes, int index, boolean value) {
+		bytes.put(index, value ? ~BOOLEAN_FALSE_ENCODING : BOOLEAN_FALSE_ENCODING);
+	}
 
-	public abstract void putDouble(IndexedBytes bytes, int index, double value);
+	void putChar(IndexedBytes bytes, int index, char value);
 
-	public abstract void putFloat(IndexedBytes bytes, int index, float value);
+	void putDouble(IndexedBytes bytes, int index, double value);
 
-	public abstract void putInt(IndexedBytes bytes, int index, int value);
+	void putFloat(IndexedBytes bytes, int index, float value);
 
-	public abstract void putLong(IndexedBytes bytes, int index, long value);
+	void putInt(IndexedBytes bytes, int index, int value);
 
-	public abstract void putShort(IndexedBytes bytes, int index, short value);
+	void putLong(IndexedBytes bytes, int index, long value);
+
+	void putShort(IndexedBytes bytes, int index, short value);
 }

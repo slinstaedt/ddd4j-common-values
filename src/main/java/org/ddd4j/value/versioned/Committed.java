@@ -6,7 +6,7 @@ import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
 import org.ddd4j.Require;
-import org.ddd4j.util.Props;
+import org.ddd4j.infrastructure.domain.header.Headers;
 import org.ddd4j.value.math.Ordered;
 
 //TODO add actual date beside transaction date
@@ -14,14 +14,14 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 
 	public static class Published<K, V> extends Committed<K, V> {
 
-		Published(K key, V value, Revision actual, Revision next, Instant timestamp, Props header) {
-			super(key, value, actual, next, timestamp, header);
+		Published(K key, V value, Revision actual, Revision next, Instant timestamp, Headers headers) {
+			super(key, value, actual, next, timestamp, headers);
 		}
 
 		@Override
 		public <X, Y> Published<X, Y> map(Function<? super K, ? extends X> keyMapper, Function<? super V, ? extends Y> valueMapper) {
 			return new Published<>(keyMapper.apply(super.key), valueMapper.apply(super.value), super.actual, super.nextExpected,
-					super.timestamp, super.header);
+					super.timestamp, super.headers);
 		}
 
 		@Override
@@ -40,15 +40,15 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	private final Revision actual;
 	private final Revision nextExpected;
 	private final Instant timestamp;
-	private final Props header;
+	private final Headers headers;
 
-	public Committed(K key, V value, Revision actual, Revision nextExpected, Instant timestamp, Props header) {
+	public Committed(K key, V value, Revision actual, Revision nextExpected, Instant timestamp, Headers headers) {
 		this.key = Require.nonNull(key);
 		this.value = Require.nonNull(value);
 		this.actual = Require.nonNull(actual);
 		this.nextExpected = Require.nonNull(nextExpected);
 		this.timestamp = Require.nonNull(timestamp);
-		this.header = Require.nonNull(header);
+		this.headers = Require.nonNull(headers);
 	}
 
 	@Override
@@ -76,8 +76,8 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	}
 
 	@Override
-	public Props getHeader() {
-		return header;
+	public Headers getHeaders() {
+		return headers;
 	}
 
 	@Override
@@ -101,7 +101,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 
 	@Override
 	public <X, Y> Committed<X, Y> map(Function<? super K, ? extends X> keyMapper, Function<? super V, ? extends Y> valueMapper) {
-		return new Committed<>(keyMapper.apply(key), valueMapper.apply(value), actual, nextExpected, timestamp, header);
+		return new Committed<>(keyMapper.apply(key), valueMapper.apply(value), actual, nextExpected, timestamp, headers);
 	}
 
 	@Override
@@ -130,7 +130,7 @@ public class Committed<K, V> implements Recorded<K, V>, CommitResult<K, V>, Orde
 	}
 
 	public Published<K, V> published() {
-		return new Published<>(key, value, actual, nextExpected, timestamp, header);
+		return new Published<>(key, value, actual, nextExpected, timestamp, headers);
 	}
 
 	@Override

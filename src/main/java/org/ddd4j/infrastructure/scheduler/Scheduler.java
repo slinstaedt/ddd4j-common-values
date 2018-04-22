@@ -17,7 +17,6 @@ import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.config.ConfKey;
-import org.ddd4j.value.config.Configuration;
 
 public class Scheduler implements AutoCloseable {
 
@@ -54,11 +53,11 @@ public class Scheduler implements AutoCloseable {
 		public abstract Executor create(int size);
 	}
 
-	public static final ConfKey<PoolType> POOL_TYPE = Configuration.keyOfEnum(PoolType.class, "pool.type", PoolType.FORK_JOIN_POOL);
-	public static final ConfKey<Integer> POOL_SIZE = Configuration.keyOfInteger("pool.size", Runtime.getRuntime().availableProcessors());
-	public static final ConfKey<Integer> BURST_PROCESSING = Configuration.keyOfInteger("burst", Integer.MAX_VALUE);
-	public static final ConfKey<Integer> JOB_BUFFER_SIZE = Configuration.keyOfInteger("jobBufferSize", 100);
-	public static final ConfKey<Long> MAX_BLOCKING_IN_MILLIS = Configuration.keyOfLong("maxBlockingInMillis", 2000L);
+	public static final ConfKey<PoolType> POOL_TYPE = ConfKey.ofEnum(PoolType.class, "pool.type", PoolType.FORK_JOIN_POOL);
+	public static final ConfKey<Integer> POOL_SIZE = ConfKey.ofInteger("pool.size", Runtime.getRuntime().availableProcessors());
+	public static final ConfKey<Integer> BURST_PROCESSING = ConfKey.ofInteger("burst", Integer.MAX_VALUE);
+	public static final ConfKey<Integer> JOB_BUFFER_SIZE = ConfKey.ofInteger("jobBufferSize", 100);
+	public static final ConfKey<Long> MAX_BLOCKING_IN_MILLIS = ConfKey.ofLong("maxBlockingInMillis", 2000L);
 	public static final Key<Scheduler> KEY = Key.of(Scheduler.class, Scheduler::create);
 
 	public static Scheduler create(Context context) {

@@ -1,4 +1,4 @@
-package org.ddd4j.aggregate;
+package org.ddd4j.value.behavior;
 
 import java.util.UUID;
 

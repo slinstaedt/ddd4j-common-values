@@ -109,17 +109,17 @@ public interface Ref<T> {
 
 	static <T, H> Supplier<Ref<T>> factoryOf(Supplier<H> factory, Function<? super H, ? extends T> getter,
 			BiConsumer<? super H, ? super T> setter) {
-		Require.nonNullElements(factory, getter, setter);
+		Require.nonNulls(factory, getter, setter);
 		return () -> of(factory.get(), getter, setter);
 	}
 
 	static <T, H> Ref<T> of(H holder, Function<? super H, ? extends T> getter, BiConsumer<? super H, ? super T> setter) {
-		Require.nonNullElements(holder, getter, setter);
+		Require.nonNulls(holder, getter, setter);
 		return of(() -> getter.apply(holder), t -> setter.accept(holder, t));
 	}
 
 	static <T> Ref<T> of(Supplier<? extends T> getter, Consumer<? super T> setter) {
-		Require.nonNullElements(getter, setter);
+		Require.nonNulls(getter, setter);
 		return f -> {
 			T oldValue = getter.get();
 			T newValue = f.apply(oldValue);

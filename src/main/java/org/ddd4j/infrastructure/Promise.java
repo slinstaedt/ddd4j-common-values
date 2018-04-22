@@ -261,7 +261,7 @@ public interface Promise<T> {
 
 	@SuppressWarnings("unchecked")
 	static <T> Promise.Delayed<T> ofDelayed(Executor executor, ScheduledFuture<T> future) {
-		Require.nonNullElements(executor, future);
+		Require.nonNulls(executor, future);
 		if (future instanceof Promise.Delayed) {
 			return (Promise.Delayed<T>) future;
 		} else {
@@ -271,7 +271,7 @@ public interface Promise<T> {
 
 	@SuppressWarnings("unchecked")
 	static <T> Promise.Cancelable<T> ofFuture(Executor executor, java.util.concurrent.Future<T> future) {
-		Require.nonNullElements(executor, future);
+		Require.nonNulls(executor, future);
 		if (future instanceof Promise.Cancelable) {
 			return ((Promise.Cancelable<T>) future);
 		} else if (future instanceof CompletableFuture) {

@@ -12,7 +12,7 @@ import org.ddd4j.Require;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
-import org.ddd4j.value.Type;
+import org.ddd4j.util.Type;
 import org.ddd4j.value.Value;
 
 public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schema> implements Schema<T> {

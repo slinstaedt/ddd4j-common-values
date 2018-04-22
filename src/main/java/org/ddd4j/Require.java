@@ -37,41 +37,44 @@ public interface Require<T> extends Function<Object, T> {
 		return object;
 	}
 
-	static void nonNullElements(Object... objects) {
-		nonNull(objects);
-		for (int i = 0; i < objects.length; i++) {
-			nonNull(objects[i], i + ". parameter is NULL");
-		}
-	}
-
-	static void nonNullElements(Object o) {
+	// TODO rename to "nonNulls"
+	static void nonNulls(Object o) {
 		nonNull(o);
 	}
 
-	static void nonNullElements(Object o1, Object o2) {
+	static void nonNulls(Object o1, Object o2) {
 		nonNull(o1);
 		nonNull(o2);
 	}
 
-	static void nonNullElements(Object o1, Object o2, Object o3) {
+	static void nonNulls(Object o1, Object o2, Object o3) {
 		nonNull(o1);
 		nonNull(o2);
 		nonNull(o3);
 	}
 
-	static void nonNullElements(Object o1, Object o2, Object o3, Object o4) {
+	static void nonNulls(Object o1, Object o2, Object o3, Object o4) {
 		nonNull(o1);
 		nonNull(o2);
 		nonNull(o3);
 		nonNull(o4);
 	}
 
-	static void nonNullElements(Object o1, Object o2, Object o3, Object o4, Object o5) {
+	static void nonNulls(Object o1, Object o2, Object o3, Object o4, Object o5) {
 		nonNull(o1);
 		nonNull(o2);
 		nonNull(o3);
 		nonNull(o4);
 		nonNull(o5);
+	}
+
+	@SafeVarargs
+	static <T> T[] nonNulls(T... objects) {
+		nonNull(objects);
+		for (int i = 0; i < objects.length; i++) {
+			nonNull(objects[i], i + ". parameter is NULL");
+		}
+		return objects;
 	}
 
 	static <T extends Iterable<?>> T nonNullElements(T iterable) {

@@ -1,7 +1,8 @@
-package org.ddd4j.value;
+package org.ddd4j.util;
 
 import java.io.Serializable;
 import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
 import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
@@ -14,6 +15,8 @@ import org.ddd4j.Throwing;
 import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
+import org.ddd4j.value.Value;
+import org.ddd4j.value.Value.Simple;
 import org.ddd4j.value.function.Curry;
 
 public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Type> implements Value<Type<T>>, Serializable {
@@ -39,20 +42,23 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		}
 	}
 
-	public static final class Variable<D, T> {
+	public static final class Variable<D, T> extends Type<T> {
+
+		private static final long serialVersionUID = 1L;
 
 		private final Type<D> declaration;
-		private final Type<T> baseType;
 		private final TypeVariable<Class<D>> javaVariable;
 
-		public Variable(Type<D> declaration, Type<T> baseType, int index) {
+		private Variable(Type<D> declaration, Type<T> baseType, int index) {
+			super(baseType.getGenericType());
 			this.declaration = Require.nonNull(declaration);
-			this.baseType = Require.nonNull(baseType);
 			this.javaVariable = declaration.getRawType().getTypeParameters()[index];
 		}
 
-		public Type<T> getBaseType() {
-			return baseType;
+		private Variable(TypeVariable<Class<D>> javaVariable) {
+			super(javaVariable);
+			this.declaration = of(javaVariable.getGenericDeclaration());
+			this.javaVariable = Require.nonNull(javaVariable);
 		}
 
 		public Type<D> getDeclaration() {
@@ -77,6 +83,16 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 	@SuppressWarnings("rawtypes")
 	private static final TypeVariable<Class<Type>> T = Type.class.getTypeParameters()[0];
 
+	private static java.lang.reflect.Type classesFirst(java.lang.reflect.Type... types) {
+		Require.that(types.length > 0);
+		for (java.lang.reflect.Type type : types) {
+			if (!TypeUtils.getRawType(type, null).isInterface()) {
+				return type;
+			}
+		}
+		return types[0];
+	}
+
 	public static Type<?> forName(String className) {
 		Class<?> type = PRIMITIVES.get(className);
 		if (type == null) {
@@ -98,6 +114,17 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		return new Known<>(javaType);
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static Type<?> of(java.lang.reflect.Type javaType) {
+		if (javaType instanceof TypeVariable) {
+			return new Variable<>((TypeVariable<Class<Class>>) javaType);
+		} else if (javaType instanceof Class) {
+			return new Known<>((Class<?>) javaType);
+		} else {
+			return new Unknown(javaType);
+		}
+	}
+
 	public static <T> Type<T> ofInstance(T object) {
 		@SuppressWarnings("unchecked")
 		Class<T> javaType = (Class<T>) Require.nonNull(object).getClass();
@@ -117,13 +144,14 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		this.actualType = Require.nonNull(javaType);
 	}
 
-	@SuppressWarnings("unchecked")
-	public <X> Type<X> asSubType(Class<? super X> type) {
-		return TypeUtils.isAssignable(getGenericType(), type) ? (Type<X>) this : castException(type.getTypeName());
+	public <X> Type<X> asSubType(Class<? extends X> toType) {
+		return asSubType(Type.of(toType));
 	}
 
-	public <X> Type<X> asSubType(Type<? super X> type) {
-		return asSubType(type.getRawType());
+	@SuppressWarnings("unchecked")
+	public <X> Type<X> asSubType(Type<? extends X> toType) {
+		return TypeUtils.isAssignable(this.getGenericType(), toType.getGenericType()) ? (Type<X>) this
+				: castException(toType.getTypeName());
 	}
 
 	public T cast(Object value) {
@@ -135,26 +163,7 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 				new ClassCastException("Can not cast: '" + String.valueOf(o) + "' to '" + TypeUtils.toString(getGenericType()) + "'"));
 	}
 
-	public ClassLoader getClassLoader() {
-		return getRawType().getClassLoader();
-	}
-
-	public final java.lang.reflect.Type getGenericType() {
-		if (actualType == null) {
-			actualType = Require.nonNull(TypeUtils.getTypeArguments(getClass(), Type.class).get(T));
-		}
-		return actualType;
-	}
-
-	public Class<?>[] getInterfaceClosure() {
-		Class<T> rawType = getRawType();
-		if (rawType.isInterface()) {
-			return new Class<?>[] { rawType };
-		} else {
-			return rawType.getInterfaces();
-		}
-	}
-
+	// TODO Curry needed?
 	public <P> Curry.Query<P, T> constructor(Type<P> parameterType) {
 		try {
 			TFunction<P, T> constructor = getRawType().getConstructor(parameterType.getRawType())::newInstance;
@@ -164,9 +173,41 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		}
 	}
 
+	public ClassLoader getClassLoader() {
+		return getRawType().getClassLoader();
+	}
+
+	public Stream<Type<?>> getClosure() {
+		java.lang.reflect.Type[] result;
+		java.lang.reflect.Type type = getGenericType();
+		if (type instanceof TypeVariable) {
+			result = ((TypeVariable<?>) type).getBounds();
+		} else if (type instanceof WildcardType) {
+			result = ((WildcardType) type).getUpperBounds();
+		} else {
+			result = new java.lang.reflect.Type[] { type };
+		}
+		return Stream.of(result).map(Type::of);
+	}
+
+	public final java.lang.reflect.Type getGenericType() {
+		if (actualType == null) {
+			actualType = Require.nonNull(TypeUtils.getTypeArguments(getClass(), Type.class).get(T));
+		}
+		return actualType;
+	}
+
 	@SuppressWarnings("unchecked")
 	public final Class<T> getRawType() {
-		return (Class<T>) TypeUtils.getRawType(getGenericType(), null);
+		java.lang.reflect.Type type = getGenericType();
+		while (type instanceof TypeVariable || type instanceof WildcardType) {
+			if (type instanceof TypeVariable) {
+				type = classesFirst(TypeUtils.getImplicitBounds((TypeVariable<?>) type));
+			} else if (type instanceof WildcardType) {
+				type = classesFirst(TypeUtils.getImplicitUpperBounds((WildcardType) type)[0]);
+			}
+		}
+		return (Class<T>) TypeUtils.getRawType(type, null);
 	}
 
 	public String getTypeName() {
@@ -177,14 +218,12 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		return TypeUtils.isAssignable(fromType, getGenericType());
 	}
 
-	public Type<?> resolve(TypeVariable<Class<?>> variable) {
-		return new Unknown(TypeUtils.getTypeArguments(getGenericType(), variable.getGenericDeclaration()).get(variable));
+	public Type<?> resolve(TypeVariable<? extends Class<?>> variable) {
+		return of(TypeUtils.getTypeArguments(getGenericType(), variable.getGenericDeclaration()).get(variable));
 	}
 
 	public <X> Type<X> resolve(Variable<? super T, X> variable) {
-		Type<?> type = new Unknown(
-				TypeUtils.getTypeArguments(getGenericType(), variable.getDeclaration().getRawType()).get(variable.getJavaVariable()));
-		return type.asSubType(variable.getBaseType().getRawType());
+		return resolve(variable.getJavaVariable()).asSubType(variable);
 	}
 
 	@Override

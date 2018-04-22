@@ -9,18 +9,11 @@ import org.junit.Test;
 
 public class ContextProvisioningTest {
 
-	private TestProvisioning provisioning;
+	private ContextProvisioning.Programmatic provisioning;
 
 	@Before
 	public void init() {
-		provisioning = new TestProvisioning();
-	}
-
-	@Test
-	public void initSimpleContext() {
-		Context context = provisioning.createContext(Props.EMTPY);
-
-		Assert.assertNotNull(context.get(ContextProvisioning.KEY));
+		provisioning = ContextProvisioning.programmatic();
 	}
 
 	@Test
@@ -29,8 +22,15 @@ public class ContextProvisioningTest {
 		Key<Long> eagerKey = Key.of(Long.class, ctx -> value.incrementAndGet());
 		provisioning.withConfigurer(b -> b.initializeEager(eagerKey));
 
-		provisioning.createContext(Props.EMTPY);
+		provisioning.createContext(Props.EMPTY);
 
 		Assert.assertEquals(1, value.get());
+	}
+
+	@Test
+	public void initSimpleContext() {
+		Context context = provisioning.createContext(Props.EMPTY);
+
+		Assert.assertNotNull(context.get(ContextProvisioning.KEY));
 	}
 }

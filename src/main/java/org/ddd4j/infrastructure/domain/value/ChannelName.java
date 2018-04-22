@@ -7,7 +7,6 @@ import org.ddd4j.value.Value;
 
 public class ChannelName extends Value.StringBased<ChannelName> {
 
-	public static final ChannelName ALL = new ChannelName("*");
 	private static final Pattern ALLOWED = Pattern.compile("\\w{2,30}");
 
 	public static ChannelName of(String value) {
@@ -16,9 +15,5 @@ public class ChannelName extends Value.StringBased<ChannelName> {
 
 	private ChannelName(String value) {
 		super(value);
-	}
-
-	public boolean isAll() {
-		return equals(ALL);
 	}
 }

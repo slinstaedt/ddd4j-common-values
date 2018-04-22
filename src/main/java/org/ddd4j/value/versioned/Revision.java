@@ -1,6 +1,7 @@
 package org.ddd4j.value.versioned;
 
 import org.ddd4j.Require;
+import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Value;
@@ -12,6 +13,10 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 	public static final long UNKNOWN_OFFSET = -1;
 	public static final Revision UNKNOWN = new Revision(0, UNKNOWN_OFFSET);
 
+	public static Revision deserialize(byte[] bytes) {
+		return deserialize(Bytes.wrap(bytes).buffered());
+	}
+
 	public static Revision deserialize(ReadBuffer buffer) {
 		return new Revision(buffer.getInt(), buffer.getLong());
 	}
@@ -22,6 +27,11 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 	public Revision(int partition, long offset) {
 		this.partition = Require.that(partition, partition >= 0);
 		this.offset = Require.that(offset, offset != UNKNOWN_OFFSET);
+	}
+
+	public Revision checkPartition(int partition) {
+		Require.that(this.partition == partition);
+		return this;
 	}
 
 	public Position comparePosition(Revision other) {
@@ -92,5 +102,11 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 	@Override
 	public void serialize(WriteBuffer buffer) {
 		buffer.putInt(partition).putLong(offset);
+	}
+
+	public byte[] toBytes() {
+		byte[] bytes = new byte[12];
+		serialize(Bytes.wrap(bytes).buffered());
+		return bytes;
 	}
 }

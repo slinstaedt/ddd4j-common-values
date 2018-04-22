@@ -9,8 +9,6 @@ import java.util.function.Predicate;
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
 import org.ddd4j.aggregate.Aggregates.Aggregate;
-import org.ddd4j.aggregate.Identifier;
-import org.ddd4j.aggregate.Session;
 import org.ddd4j.value.collection.Seq;
 import org.ddd4j.value.versioned.Revisions;
 
@@ -48,7 +46,7 @@ public interface Behavior<T> {
 
 	// TODO move to Value subtype?
 	static <E, T> Behavior<T> accept(Function<? super E, ? extends T> callback, E event) {
-		Require.nonNullElements(callback, event);
+		Require.nonNulls(callback, event);
 		return s -> s.record(callback, event);
 	}
 
@@ -62,17 +60,17 @@ public interface Behavior<T> {
 	}
 
 	static <T> Behavior<T> reject(String message, Object... arguments) {
-		Require.nonNullElements(message, arguments);
+		Require.nonNulls(message, arguments);
 		return s -> Reaction.rejected(s, message, arguments);
 	}
 
 	default <E, X> Behavior<X> accept(BiFunction<? super T, ? super E, ? extends X> callback, E event) {
-		Require.nonNullElements(callback, event);
+		Require.nonNulls(callback, event);
 		return s -> apply(s).mapResult(t -> callback.apply(t, event));
 	}
 
 	default <E> Behavior<T> accept(T unit, BiConsumer<? super T, ? super E> callback, E event) {
-		Require.nonNullElements(callback, event);
+		Require.nonNulls(callback, event);
 		return s -> s.record(e -> {
 			callback.accept(unit, event);
 			return unit;

@@ -4,6 +4,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
@@ -24,9 +25,8 @@ import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Key;
 import org.ddd4j.util.Cache;
-import org.ddd4j.value.Type;
+import org.ddd4j.util.Type;
 import org.ddd4j.value.config.ConfKey;
-import org.ddd4j.value.config.Configuration;
 import org.ddd4j.value.versioned.Revision;
 
 public enum SchemaCodec {
@@ -94,9 +94,28 @@ public enum SchemaCodec {
 
 	public interface Decoder<T> {
 
+		@FunctionalInterface
+		interface Extender<T, S> {
+
+			interface Constructor<T, S> {
+
+				Promise<S> construct(Supplier<Promise<T>> value, ReadBuffer buffer);
+			}
+
+			Constructor<T, S> constructor(ReadBuffer buffer);
+		}
+
 		Promise<T> decode(ReadBuffer buffer, Revision revision);
+
+		default <X> Decoder<X> extend(Extender<T, X> extender) {
+			Require.nonNull(extender);
+			return (buf, rev) -> {
+				return extender.constructor(buf).apply(() -> decode(buf, rev));
+			};
+		}
 	}
 
+	// TODO move to its own file?
 	public interface DecodingFactory<K, V> {
 
 		CommitListener<ReadBuffer, ReadBuffer> create(CommitListener<K, V> commit, ErrorListener error);
@@ -104,7 +123,22 @@ public enum SchemaCodec {
 
 	public interface Encoder<T> {
 
+		@FunctionalInterface
+		interface Extender<S, T> {
+
+			static <X> Extender<X, X> none() {
+				return (val, buf) -> Optional.ofNullable(val);
+			}
+
+			Optional<T> unwrap(S value, WriteBuffer buffer);
+		}
+
 		Promise<WriteBuffer> encode(WriteBuffer buffer, Promise<Revision> revision, T value);
+
+		default <X> Encoder<X> extend(Extender<? super X, ? extends T> extender) {
+			Require.nonNull(extender);
+			return (buf, rev, val) -> extender.unwrap(val, buf).map(v -> encode(buf, rev, v)).orElseGet(() -> Promise.completed(buf));
+		}
 	}
 
 	public static class Factory {
@@ -120,17 +154,13 @@ public enum SchemaCodec {
 		}
 
 		public <T> Decoder<T> decoder(Type<T> readerType, ChannelName name) {
-			Require.nonNullElements(readerType, name);
+			Require.nonNulls(readerType, name);
 			return (buf, rev) -> decodeType(buf.get()).decoder(context, readerType, name).decode(buf, rev);
 		}
 
 		public <K, V> DecodingFactory<K, V> decodingFactory(ChannelSpec<K, V> spec) {
 			Decoder<V> decoder = decoder(spec);
 			return (c, e) -> c.mapPromised(spec::deserializeKey, decoder::decode, e);
-		}
-
-		public <T> Encoder<T> encoder(ChannelSpec<?, T> spec) {
-			return encoder(spec.getValueType(), spec.getName());
 		}
 
 		public <T> Encoder<T> encoder(Type<T> writerType, ChannelName name) {
@@ -141,7 +171,8 @@ public enum SchemaCodec {
 
 	private static class SchemaRepository {
 
-		private static final ChannelName REPO_NAME = ChannelName.of("schemata");
+		private static final ConfKey<ChannelName> REPO_NAME_KEY = ConfKey.of("schemaRepositoryName", ChannelName.of("schemata"),
+				ChannelName::of);
 
 		private static Schema<?> notEqual(Schema<?> oldSchema, Schema<?> newSchema) {
 			if (Objects.equals(oldSchema, newSchema)) {
@@ -154,10 +185,11 @@ public enum SchemaCodec {
 		private final Cache.WriteThrough<Fingerprint, Promise<Schema<?>>> cache;
 
 		SchemaRepository(Context context) {
+			ChannelName repoName = context.conf(REPO_NAME_KEY);
 			WriteBuffer.Pool bufferPool = context.get(WriteBuffer.POOL);
-			Reader<Fingerprint, Schema<?>> reader = context.get(Reader.FACTORY).create(REPO_NAME).map(Fingerprint::asBuffer,
+			Reader<Fingerprint, Schema<?>> reader = context.get(Reader.FACTORY).create(repoName).map(Fingerprint::asBuffer,
 					b -> Schema.deserializeFromFactory(context, b));
-			Writer<Fingerprint, Schema<?>> writer = context.get(Writer.FACTORY).createWriterClosingBuffers(REPO_NAME).map(
+			Writer<Fingerprint, Schema<?>> writer = context.get(Writer.FACTORY).createWriterClosingBuffers(repoName).map(
 					Fingerprint::asBuffer, s -> bufferPool.serialized(s::serializeWithFactoryName));
 			Cache.Aside<Fingerprint, Promise<Schema<?>>> cache = Cache.<Fingerprint, Promise<Schema<?>>>sharedOnEqualKey(
 					a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(context.conf(Cache.MAX_CAPACITY)));
@@ -211,8 +243,7 @@ public enum SchemaCodec {
 	}
 
 	public static final Key<Factory> FACTORY = Key.of(Factory.class, Factory::new);
-	private static final ConfKey<SchemaCodec> SCHEMA_ENCODER = Configuration.keyOfEnum(SchemaCodec.class, "schemaEncoder",
-			SchemaCodec.OUT_OF_BAND);
+	private static final ConfKey<SchemaCodec> SCHEMA_ENCODER = ConfKey.ofEnum(SchemaCodec.class, "schemaEncoder", SchemaCodec.OUT_OF_BAND);
 	private static final Key<SchemaRepository> SCHEMA_REPOSITORY = Key.of(SchemaRepository.class, SchemaRepository::new);
 	private static final Key<SchemaRevisionCache> SCHEMA_REVISION_CACHE = Key.of(SchemaRevisionCache.class, SchemaRevisionCache::new);
 

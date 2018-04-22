@@ -14,7 +14,7 @@ import org.ddd4j.spi.Key;
 
 public interface WriteBuffer extends RelativeBuffer {
 
-	class Pool {
+	class Pool implements Supplier<WriteBuffer> {
 
 		private final Supplier<Bytes> bytesPool;
 
@@ -22,6 +22,7 @@ public interface WriteBuffer extends RelativeBuffer {
 			this.bytesPool = context.get(PooledBytes.POOL);
 		}
 
+		@Override
 		public WriteBuffer get() {
 			return bytesPool.get().buffered();
 		}
@@ -53,6 +54,9 @@ public interface WriteBuffer extends RelativeBuffer {
 
 	@Override
 	WriteBuffer limit(int newLimit);
+
+	@Override
+	WriteBuffer limitToRemaining(int remaining);
 
 	@Override
 	WriteBuffer mark();
@@ -88,6 +92,11 @@ public interface WriteBuffer extends RelativeBuffer {
 
 	default WriteBuffer put(ReadBuffer src) {
 		advancePosition(backing().put(position(), remaining(), src));
+		return this;
+	}
+
+	default WriteBuffer putBoolean(boolean value) {
+		backing().putBoolean(advancePosition(Byte.BYTES), value);
 		return this;
 	}
 

@@ -3,7 +3,7 @@ package org.ddd4j.schema;
 import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.value.Type;
+import org.ddd4j.util.Type;
 
 // TODO delete?
 public class Message {

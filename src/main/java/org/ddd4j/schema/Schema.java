@@ -6,7 +6,7 @@ import org.ddd4j.Throwing;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.spi.Context;
-import org.ddd4j.value.Type;
+import org.ddd4j.util.Type;
 import org.ddd4j.value.Value;
 
 public interface Schema<T> extends Value<Schema<T>> {

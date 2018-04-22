@@ -2,7 +2,7 @@ package org.ddd4j.aggregate;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.ddd4j.aggregate.AggregateConfigurer.AggregateServiceConfigurer;
+import org.ddd4j.aggregate.CommandHandlerConfigurer;
 import org.ddd4j.log.Log;
 import org.ddd4j.spi.TestProvisioning;
 import org.ddd4j.util.Props;
@@ -23,10 +23,10 @@ public class AggregateConfigurerTest {
 	public void initialization() {
 		AtomicReference<Log> ref = new AtomicReference<>();
 		provisioning.withConfigurer(b -> b.bind(ChannelPublisher.KEY).toInstance(null));
-		provisioning.withConfigurer(new AggregateServiceConfigurer());
+		provisioning.withConfigurer(new CommandHandlerConfigurer());
 		provisioning.withAggregate(ref::set);
 
-		provisioning.createContext(Props.EMTPY);
+		provisioning.createContext(Props.EMPTY);
 
 		Assert.assertNotNull(ref.get());
 	}

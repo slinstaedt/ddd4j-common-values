@@ -2,7 +2,6 @@ package org.ddd4j.infrastructure.publisher;
 
 import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.infrastructure.channel.SchemaCodec;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
@@ -101,10 +100,10 @@ public interface RevisionCallback {
 		private final ChannelRevisions hotState;
 		private final HotSource hotSource;
 
-		public SubscribedChannelsListener(SchemaCodec.Factory codecFactory, ColdSource.Factory coldFactory, HotSource.Factory hotFactory) {
-			this.coldFactory = Require.nonNull(coldFactory);
+		public SubscribedChannelsListener(ColdSource.Factory coldFactory, HotSource.Factory hotFactory) {
 			SubscribedChannels channels = new SubscribedChannels(this);
-			this.publisher = new ChannelPublisher<>(channels, codecFactory, RevisionAwareListener::new);
+			this.coldFactory = Require.nonNull(coldFactory);
+			this.publisher = new ChannelPublisher<>(channels, RevisionAwareListener::new);
 			this.hotState = new ChannelRevisions();
 			this.hotSource = hotFactory.createHotSource(channels, channels, channels);
 		}
@@ -132,8 +131,7 @@ public interface RevisionCallback {
 	}
 
 	Key<ChannelPublisher<RevisionCallback>> PUBLISHER = Key.of("revisionCallbackChannelPublisher",
-			ctx -> new SubscribedChannelsListener(ctx.get(SchemaCodec.FACTORY), ctx.get(ColdSource.FACTORY), ctx.get(HotSource.FACTORY))
-					.getPublisher());
+			ctx -> new SubscribedChannelsListener(ctx.get(ColdSource.FACTORY), ctx.get(HotSource.FACTORY)).getPublisher());
 
 	RevisionCallback VOID = new RevisionCallback() {
 

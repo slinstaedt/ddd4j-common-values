@@ -14,6 +14,11 @@ public class Revisions {
 
 	private final long[] offsets;
 
+	public Revisions(Collection<Revision> revisions) {
+		this(revisions.stream().mapToInt(Revision::getPartition).max().orElse(0));
+		revisions.forEach(r -> offsets[r.getPartition()] = r.getOffset());
+	}
+
 	public Revisions(int partitionSize) {
 		Require.that(partitionSize >= 0);
 		this.offsets = new long[partitionSize];
@@ -28,11 +33,6 @@ public class Revisions {
 		this(copy.offsets);
 	}
 
-	public Revisions(Collection<Revision> revisions) {
-		this(revisions.stream().mapToInt(Revision::getPartition).max().orElse(0));
-		revisions.forEach(r -> offsets[r.getPartition()] = r.getOffset());
-	}
-
 	public Comparison compare(Revision revision) {
 		return revisionOfPartition(revision.getPartition()).compare(revision);
 	}
@@ -41,7 +41,7 @@ public class Revisions {
 		return partitions().filter(p -> this.offsets[p] != other.offsets[p]).mapToObj(this::revisionOfPartition);
 	}
 
-	public int getPartitionSize() {
+	public int getPartitionCount() {
 		return offsets.length;
 	}
 
@@ -54,7 +54,7 @@ public class Revisions {
 	}
 
 	public boolean isPartitionSizeKnown() {
-		return getPartitionSize() > 0;
+		return getPartitionCount() > 0;
 	}
 
 	public long offset(int partition) {
@@ -79,11 +79,11 @@ public class Revisions {
 		return new Revision(partition, offset(partition));
 	}
 
-	public Stream<Revision> stream() {
-		return partitions().mapToObj(this::revisionOfPartition);
-	}
-
 	public Stream<Revision> revisionsOfPartitions(IntStream partitions) {
 		return partitions.mapToObj(this::revisionOfPartition);
+	}
+
+	public Stream<Revision> stream() {
+		return partitions().mapToObj(this::revisionOfPartition);
 	}
 }

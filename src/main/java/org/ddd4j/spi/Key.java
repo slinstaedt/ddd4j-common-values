@@ -22,11 +22,6 @@ public class Key<T> implements ServiceFactory<T>, Named {
 		}
 
 		@Override
-		public int hashCode() {
-			return parent.hashCode() ^ getName().hashCode();
-		}
-
-		@Override
 		public boolean equals(Object obj) {
 			if (this == obj) {
 				return true;
@@ -39,6 +34,11 @@ public class Key<T> implements ServiceFactory<T>, Named {
 			}
 			Child<?> other = (Child<?>) obj;
 			return this.parent.equals(other.parent) && this.getName().equals(other.getName());
+		}
+
+		@Override
+		public int hashCode() {
+			return parent.hashCode() ^ getName().hashCode();
 		}
 	}
 
@@ -74,6 +74,10 @@ public class Key<T> implements ServiceFactory<T>, Named {
 		this.precondition = Require.nonNull(precondition);
 	}
 
+	public Key<T> child(String childName) {
+		return new Child<>(this, childName);
+	}
+
 	@Override
 	public T create(Context context) throws Exception {
 		Require.that(precondition.test(context));
@@ -88,10 +92,6 @@ public class Key<T> implements ServiceFactory<T>, Named {
 	@Override
 	public String getName() {
 		return name;
-	}
-
-	public Key<T> child(String childName) {
-		return new Child<>(this, childName);
 	}
 
 	@Override

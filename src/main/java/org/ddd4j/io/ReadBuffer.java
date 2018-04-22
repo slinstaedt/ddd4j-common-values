@@ -52,6 +52,10 @@ public interface ReadBuffer extends RelativeBuffer {
 		return this;
 	}
 
+	default boolean getBoolean() {
+		return backing().getBoolean(advancePosition(Byte.BYTES));
+	}
+
 	default byte[] getBytes() {
 		byte[] bytes = new byte[getInt()];
 		get(bytes);
@@ -108,6 +112,9 @@ public interface ReadBuffer extends RelativeBuffer {
 	ReadBuffer limit(int newLimit);
 
 	@Override
+	ReadBuffer limitToRemaining(int remaining);
+
+	@Override
 	ReadBuffer mark();
 
 	@Override
@@ -116,14 +123,14 @@ public interface ReadBuffer extends RelativeBuffer {
 	@Override
 	ReadBuffer position(int newPosition);
 
+	default void read(TConsumer<? super InputStream> reader) {
+		reader.accept(asInputStream());
+	}
+
 	@Override
 	ReadBuffer reset();
 
 	ReadBuffer rewind();
-
-	default void read(TConsumer<? super InputStream> reader) {
-		reader.accept(asInputStream());
-	}
 
 	default byte[] toByteArray() {
 		byte[] b = new byte[remaining()];

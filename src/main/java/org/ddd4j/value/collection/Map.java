@@ -31,7 +31,7 @@ public interface Map<K, V> extends Seq<Tpl<K, V>> {
 	}
 
 	static <K, V> Map<K, V> wrap(java.util.Map<K, V> map, UnaryOperator<java.util.Map<K, V>> copyFactory) {
-		Require.nonNullElements(map, copyFactory);
+		Require.nonNulls(map, copyFactory);
 		return f -> f.apply(k -> valueOf(map, k), (k, v) -> {
 			Opt<V> value = valueOf(map, k);
 			java.util.Map<K, V> copy = copyFactory.apply(map);

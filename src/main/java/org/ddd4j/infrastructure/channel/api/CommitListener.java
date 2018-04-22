@@ -18,7 +18,7 @@ public interface CommitListener<K, V> {
 
 	default <X, Y> CommitListener<X, Y> mapPromised(Function<? super X, K> key, BiFunction<? super Y, Revision, Promise<V>> value,
 			ErrorListener error) {
-		Require.nonNullElements(key, value, error);
+		Require.nonNulls(key, value, error);
 		return (n, cx) -> value.apply(cx.getValue(), cx.getActual())
 				.thenApply(v -> cx.mapKey(key, v))
 				.thenCompose(cv -> onNext(n, cv))

@@ -40,7 +40,7 @@ public class SubscribedChannels implements CommitListener<ReadBuffer, ReadBuffer
 		}
 
 		Promise<Integer> add(Object handle, ChannelListener listener) {
-			Require.nonNullElements(handle, listener);
+			Require.nonNulls(handle, listener);
 			if (listeners.putIfAbsent(handle, listener) != null) {
 				listener.onError(new IllegalStateException("Already subscribed: " + handle));
 			}
@@ -114,7 +114,7 @@ public class SubscribedChannels implements CommitListener<ReadBuffer, ReadBuffer
 	}
 
 	public Promise<Integer> subscribe(ChannelName name, Object handle, ChannelListener listener) {
-		Require.nonNullElements(name, handle, listener);
+		Require.nonNulls(name, handle, listener);
 		return subscriptions.computeIfAbsent(name, this::subscriptions).add(handle, listener);
 	}
 
@@ -123,7 +123,7 @@ public class SubscribedChannels implements CommitListener<ReadBuffer, ReadBuffer
 	}
 
 	public void unsubscribe(ChannelName name, Object handle) {
-		Require.nonNullElements(name, handle);
+		Require.nonNulls(name, handle);
 		subscriptions.computeIfPresent(name, (n, s) -> s.remove(handle));
 	}
 }

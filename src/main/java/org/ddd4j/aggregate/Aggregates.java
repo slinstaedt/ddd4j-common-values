@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import org.ddd4j.Require;
 import org.ddd4j.value.Nothing;
+import org.ddd4j.value.behavior.Identifier;
 import org.ddd4j.value.versioned.Revisions;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.EventProcessor;

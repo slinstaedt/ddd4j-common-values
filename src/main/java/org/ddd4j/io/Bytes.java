@@ -123,6 +123,24 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 
 	private static final int HASH_SEED = 0x9747b28c;
 
+	public static final Bytes NONE = new Bytes() {
+
+		@Override
+		public byte get(int index) {
+			throw new IndexOutOfBoundsException("empty bytes");
+		}
+
+		@Override
+		public int length() {
+			return 0;
+		}
+
+		@Override
+		public Bytes put(int index, byte b) {
+			throw new IndexOutOfBoundsException("empty bytes");
+		}
+	};
+
 	public static final Bytes NULL = new Bytes() {
 
 		@Override
@@ -236,7 +254,7 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	}
 
 	public boolean getBoolean(int index) {
-		return get(index) != 0;
+		return order.getBoolean(this, index);
 	}
 
 	public char getChar(int index) {
@@ -410,7 +428,8 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 	}
 
 	public Bytes putBoolean(int index, boolean value) {
-		return put(index, (byte) (value ? 1 : 0));
+		order.putBoolean(this, index, value);
+		return this;
 	}
 
 	public Bytes putChar(int index, char value) {
