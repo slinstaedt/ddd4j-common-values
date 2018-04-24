@@ -1,36 +1,76 @@
 package org.ddd4j.util;
 
-import java.util.function.Predicate;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import org.ddd4j.Require;
-import org.ddd4j.Throwing;
 
 @FunctionalInterface
 public interface Check<V, T extends V> {
 
-	@FunctionalInterface
-	interface Runner<T> {
+	interface Result<T> {
 
-		void run(T value) throws Exception;
+		Result<?> NEGATIVE = new Result<Object>() {
 
-		default boolean runInternal(T value) {
-			try {
-				run(value);
-				return true;
-			} catch (Exception e) {
-				return Throwing.unchecked(e);
+			@Override
+			public Object getValue() {
+				throw new IllegalStateException("Result is negative");
 			}
+
+			@Override
+			public boolean isPositive() {
+				return false;
+			}
+		};
+
+		@SuppressWarnings("unchecked")
+		static <T> Result<T> negative() {
+			return (Result<T>) NEGATIVE;
+		}
+
+		static <T> Result<T> positive(T value) {
+			return new Result<T>() {
+
+				@Override
+				public T getValue() {
+					return value;
+				}
+
+				@Override
+				public boolean isPositive() {
+					return true;
+				}
+			};
+		}
+
+		T getValue();
+
+		default boolean ifPositive(Consumer<? super T> consumer) {
+			return peek(consumer).isPositive();
+		}
+
+		boolean isPositive();
+
+		default <R> Result<R> map(Function<? super T, ? extends R> mapper) {
+			return isPositive() ? positive(mapper.apply(getValue())) : negative();
+		}
+
+		default Result<T> peek(Consumer<? super T> consumer) {
+			if (isPositive()) {
+				consumer.accept(getValue());
+			}
+			return this;
 		}
 	}
 
 	static <V, T extends V> Check<V, T> is(Class<T> type) {
 		Require.nonNull(type);
-		return v -> r -> type.isInstance(v) ? r.runInternal(type.cast(v)) : false;
+		return v -> type.isInstance(v) ? Result.positive(type.cast(v)) : Result.negative();
 	}
 
 	static <V, T extends V> Check<V, T> isNull() {
-		return v -> r -> v == null ? r.runInternal(null) : false;
+		return v -> v == null ? Result.positive(null) : Result.negative();
 	}
 
-	Predicate<Runner<T>> value(V value);
+	Result<T> value(V value);
 }

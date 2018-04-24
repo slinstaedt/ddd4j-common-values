@@ -38,11 +38,6 @@ public class PooledBytes<B extends Bytes> extends Bytes {
 		return () -> new PooledBytes<>(pool);
 	});
 
-	@SuppressWarnings("resource")
-	public static <B extends Bytes> WriteBuffer createBuffer(Cache.Pool<B> pool) {
-		return new PooledBytes<>(pool).buffered();
-	}
-
 	private final Cache.Pool<B> pool;
 	private final NavigableMap<Integer, B> bytes;
 

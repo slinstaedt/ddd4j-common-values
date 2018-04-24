@@ -45,7 +45,7 @@ public interface Encoder<T> {
 			}
 
 			boolean tryEncode(S value, WriteBuffer buffer, Encoder.Factory factory) {
-				return check.value(value).test(v -> encoder.encode(v, buffer.put(index), factory));
+				return check.value(value).ifPositive(v -> encoder.encode(v, buffer.put(index), factory));
 			}
 		}
 
