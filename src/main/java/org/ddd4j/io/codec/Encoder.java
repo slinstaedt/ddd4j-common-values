@@ -30,6 +30,17 @@ public interface Encoder<T> {
 		}
 	}
 
+	@FunctionalInterface
+	interface Terminal<T> extends Encoder<T> {
+
+		void encode(T value, WriteBuffer buffer);
+
+		@Override
+		default void encode(T value, WriteBuffer buffer, Encoder.Factory factory) {
+			encode(value, buffer);
+		}
+	}
+
 	class Union<T> implements Encoder<T> {
 
 		private static class Entry<S, T extends S> {

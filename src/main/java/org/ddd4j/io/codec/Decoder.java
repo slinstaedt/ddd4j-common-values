@@ -29,6 +29,17 @@ public interface Decoder<T> {
 		}
 	}
 
+	@FunctionalInterface
+	interface Terminal<T> extends Decoder<T> {
+
+		T decode(ReadBuffer buffer);
+
+		@Override
+		default T decode(ReadBuffer buffer, Decoder.Factory factory) {
+			return decode(buffer);
+		}
+	}
+
 	class Union<T> implements Decoder<T> {
 
 		private static final int MAX_UNIONS = 256;
