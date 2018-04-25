@@ -1,5 +1,9 @@
 package org.ddd4j.io.codec;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.util.Array;
@@ -14,18 +18,41 @@ public interface Decoder<T> {
 			throw new IllegalArgumentException("Can not find decoder for " + readerType);
 		}
 
-		default <T> Decoder<T> nonNull(Class<T> readerType) {
-			return nonNull(Type.of(readerType));
+		default <T> Decoder<T> decoder(Class<T> readerType) {
+			return decoder(Type.of(readerType));
 		}
 
-		<T> Decoder<T> nonNull(Type<T> readerType);
+		<T> Decoder<T> decoder(Type<T> readerType);
+	}
 
-		default <T> Decoder<T> nullable(Class<T> readerType) {
-			return Union.<T>nullable().with(nonNull(readerType));
+	public class Registry implements Factory {
+
+		private final Factory fallback;
+		private final Map<Type<?>, Decoder<?>> decoders;
+
+		private Registry(Factory fallback, Map<Type<?>, Decoder<?>> decoders) {
+			this.fallback = Require.nonNull(fallback);
+			this.decoders = Require.nonNull(decoders);
 		}
 
-		default <T> Decoder<T> nullable(Type<T> readerType) {
-			return Union.<T>nullable().with(nonNull(readerType));
+		@Override
+		public <T> Decoder<T> decoder(Type<T> readerType) {
+			@SuppressWarnings("unchecked")
+			Decoder<T> decoder = (Decoder<T>) decoders.get(readerType);
+			if (decoder == null) {
+				fallback.decoder(readerType);
+			}
+			return Require.nonNull(decoder);
+		}
+
+		public <T> Registry with(Class<T> type, Decoder<? extends T> decoder) {
+			return with(Type.of(type), decoder);
+		}
+
+		public <T> Registry with(Type<T> type, Decoder<? extends T> decoder) {
+			Map<Type<?>, Decoder<?>> copy = new HashMap<>(decoders);
+			copy.put(Require.nonNull(type), Require.nonNull(decoder));
+			return new Registry(fallback, copy);
 		}
 	}
 
@@ -35,7 +62,7 @@ public interface Decoder<T> {
 		T decode(ReadBuffer buffer);
 
 		@Override
-		default T decode(ReadBuffer buffer, Decoder.Factory factory) {
+		default T decode(ReadBuffer buffer, Factory factory) {
 			return decode(buffer);
 		}
 	}
@@ -44,14 +71,6 @@ public interface Decoder<T> {
 
 		private static final int MAX_UNIONS = 256;
 
-		public static <T> Union<T> empty() {
-			return new Union<>(new Array<>(0));
-		}
-
-		public static <T> Union<T> nullable() {
-			return Union.<T>empty().with(Codec.nullable());
-		}
-
 		private final Array<Decoder<? extends T>> unions;
 
 		private Union(Array<Decoder<? extends T>> unions) {
@@ -59,7 +78,7 @@ public interface Decoder<T> {
 		}
 
 		@Override
-		public T decode(ReadBuffer buffer, Decoder.Factory factory) {
+		public T decode(ReadBuffer buffer, Factory factory) {
 			int index = Byte.toUnsignedInt(buffer.get());
 			Decoder<? extends T> decoder = unions.get(index);
 			if (decoder != null) {
@@ -75,5 +94,21 @@ public interface Decoder<T> {
 		}
 	}
 
-	T decode(ReadBuffer buffer, Decoder.Factory factory);
+	static <T> Union<T> emptyUnion() {
+		return new Union<>(new Array<>(0));
+	}
+
+	static <T> Union<T> nullableUnion() {
+		return Decoder.<T>emptyUnion().with(nullDecoder());
+	}
+
+	static <T> Decoder<T> nullDecoder() {
+		return (buf, fct) -> null;
+	}
+
+	static Registry registry(Factory fallback) {
+		return new Registry(fallback, Collections.emptyMap());
+	}
+
+	T decode(ReadBuffer buffer, Factory factory);
 }

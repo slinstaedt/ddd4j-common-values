@@ -1,5 +1,9 @@
 package org.ddd4j.io.codec;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.ddd4j.Require;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.util.Array;
@@ -15,18 +19,41 @@ public interface Encoder<T> {
 			throw new IllegalArgumentException("Can not find encoder for " + writerType);
 		}
 
-		default <T> Encoder<T> nonNull(Class<T> writerType) {
-			return nonNull(Type.of(writerType));
+		default <T> Encoder<T> encoder(Class<T> writerType) {
+			return encoder(Type.of(writerType));
 		}
 
-		<T> Encoder<T> nonNull(Type<T> writerType);
+		<T> Encoder<T> encoder(Type<T> writerType);
+	}
 
-		default <T> Encoder<T> nullable(Class<T> writerType) {
-			return Union.<T>nullable().with(writerType, nonNull(writerType));
+	public class Registry implements Factory {
+
+		private final Factory fallback;
+		private final Map<Type<?>, Encoder<?>> encoders;
+
+		private Registry(Factory fallback, Map<Type<?>, Encoder<?>> encoders) {
+			this.fallback = Require.nonNull(fallback);
+			this.encoders = Require.nonNull(encoders);
 		}
 
-		default <T> Encoder<T> nullable(Type<T> writerType) {
-			return Union.<T>nullable().with(writerType.getRawType(), nonNull(writerType));
+		@Override
+		public <T> Encoder<T> encoder(Type<T> writerType) {
+			@SuppressWarnings("unchecked")
+			Encoder<T> encoder = (Encoder<T>) encoders.get(writerType);
+			if (encoder == null) {
+				fallback.encoder(writerType);
+			}
+			return Require.nonNull(encoder);
+		}
+
+		public <T> Registry with(Class<T> type, Encoder<? super T> encoder) {
+			return with(Type.of(type), encoder);
+		}
+
+		public <T> Registry with(Type<T> type, Encoder<? super T> encoder) {
+			Map<Type<?>, Encoder<?>> copy = new HashMap<>(encoders);
+			copy.put(Require.nonNull(type), Require.nonNull(encoder));
+			return new Registry(fallback, copy);
 		}
 	}
 
@@ -36,7 +63,7 @@ public interface Encoder<T> {
 		void encode(T value, WriteBuffer buffer);
 
 		@Override
-		default void encode(T value, WriteBuffer buffer, Encoder.Factory factory) {
+		default void encode(T value, WriteBuffer buffer, Factory factory) {
 			encode(value, buffer);
 		}
 	}
@@ -55,20 +82,12 @@ public interface Encoder<T> {
 				this.index = (byte) index;
 			}
 
-			boolean tryEncode(S value, WriteBuffer buffer, Encoder.Factory factory) {
+			boolean tryEncode(S value, WriteBuffer buffer, Factory factory) {
 				return check.value(value).ifPositive(v -> encoder.encode(v, buffer.put(index), factory));
 			}
 		}
 
 		private static final int MAX_UNIONS = 256;
-
-		public static <T> Union<T> empty() {
-			return new Union<>(new Array<>(0));
-		}
-
-		public static <T> Union<T> nullable() {
-			return Union.<T>empty().with(Check.isNull(), Codec.nullable());
-		}
 
 		private final Array<Entry<T, ?>> unions;
 
@@ -94,5 +113,21 @@ public interface Encoder<T> {
 		}
 	}
 
-	void encode(T value, WriteBuffer buffer, Encoder.Factory factory);
+	static <T> Union<T> emptyUnion() {
+		return new Union<>(new Array<>(0));
+	}
+
+	static <T> Union<T> nullableUnion() {
+		return Encoder.<T>emptyUnion().with(Check.isNull(), nullEncoder());
+	}
+
+	static <T> Encoder<T> nullEncoder() {
+		return (val, buf, fct) -> Require.nonNull(val);
+	}
+
+	static Registry registry(Factory fallback) {
+		return new Registry(fallback, Collections.emptyMap());
+	}
+
+	void encode(T value, WriteBuffer buffer, Factory factory);
 }

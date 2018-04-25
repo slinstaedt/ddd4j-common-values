@@ -16,7 +16,6 @@ import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.value.Value;
-import org.ddd4j.value.Value.Simple;
 import org.ddd4j.value.function.Curry;
 
 public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Type> implements Value<Type<T>>, Serializable {
@@ -93,6 +92,11 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		return types[0];
 	}
 
+	public static Type<?> deserialize(ReadBuffer buffer) {
+		// TODO
+		throw new UnsupportedOperationException();
+	}
+
 	public static Type<?> forName(String className) {
 		Class<?> type = PRIMITIVES.get(className);
 		if (type == null) {
@@ -103,11 +107,6 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 			}
 		}
 		return of(type);
-	}
-
-	public static Type<?> from(ReadBuffer buffer) {
-		// TODO
-		throw new UnsupportedOperationException();
 	}
 
 	public static <T> Type<T> of(Class<? super T> javaType) {
@@ -173,6 +172,18 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		}
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		} else if (!(o instanceof Type)) {
+			return false;
+		} else {
+			Type<?> other = (Type<?>) o;
+			return getGenericType().equals(other.getGenericType());
+		}
+	}
+
 	public ClassLoader getClassLoader() {
 		return getRawType().getClassLoader();
 	}
@@ -212,6 +223,11 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 
 	public String getTypeName() {
 		return toString();
+	}
+
+	@Override
+	public int hashCode() {
+		return getGenericType().hashCode();
 	}
 
 	public boolean isAssignableFrom(java.lang.reflect.Type fromType) {
