@@ -42,8 +42,8 @@ public class Props extends Value.Simple<Props, Map<String, ?>> implements Config
 		}
 
 		@Override
-		public void serialize(WriteBuffer buffer) {
-			buffer.putUTF(key).put(getValue());
+		public WriteBuffer serialize(WriteBuffer buffer) {
+			return buffer.putUTF(key).put(getValue());
 		}
 	}
 
@@ -84,9 +84,10 @@ public class Props extends Value.Simple<Props, Map<String, ?>> implements Config
 	}
 
 	@Override
-	public void serialize(WriteBuffer buffer) {
+	public WriteBuffer serialize(WriteBuffer buffer) {
 		buffer.putInt(entries.size());
 		entries.values().forEach(e -> e.serialize(buffer));
+		return buffer;
 	}
 
 	public Seq<Entry> toSeq() {

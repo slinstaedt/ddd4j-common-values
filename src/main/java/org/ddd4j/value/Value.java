@@ -15,10 +15,11 @@ public interface Value<V extends Value<V>> extends Self<V> {
 	abstract class Comlex<V extends Comlex<V>> extends Simple<V, Value<?>[]> {
 
 		@Override
-		public void serialize(WriteBuffer buffer) {
+		public Object serialize(WriteBuffer buffer) {
 			for (Value<?> value : value()) {
 				value.serialize(buffer);
 			}
+			return buffer;
 		}
 	}
 
@@ -92,8 +93,8 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		}
 
 		@Override
-		public void serialize(WriteBuffer buffer) {
-			buffer.putUTF(value);
+		public Object serialize(WriteBuffer buffer) {
+			return buffer.putUTF(value);
 		}
 
 		@Override
@@ -154,7 +155,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		return type.isInstance(this) ? Optional.of(type.cast(this)) : Optional.empty();
 	}
 
-	default void serialize(WriteBuffer buffer) {
+	default Object serialize(WriteBuffer buffer) {
 		throw new UnsupportedOperationException();
 	}
 }

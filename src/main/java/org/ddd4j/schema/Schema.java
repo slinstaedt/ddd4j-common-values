@@ -51,9 +51,9 @@ public interface Schema<T> extends Value<Schema<T>> {
 
 	boolean equal(Object o1, Object o2);
 
-	Fingerprint getFingerprint();
-
 	String getFactoryName();
+
+	Fingerprint getFingerprint();
 
 	int hashCode(Object object);
 
@@ -61,12 +61,15 @@ public interface Schema<T> extends Value<Schema<T>> {
 		return createReader(readerType).read(buffer);
 	}
 
-	default void write(WriteBuffer buffer, T value) {
-		createWriter().write(buffer, value);
-	}
+	@Override
+	WriteBuffer serialize(WriteBuffer buffer);
 
 	default void serializeWithFactoryName(WriteBuffer buffer) {
 		buffer.putUTF(getFactoryName());
 		buffer.accept(this::serialize);
+	}
+
+	default void write(WriteBuffer buffer, T value) {
+		createWriter().write(buffer, value);
 	}
 }

@@ -243,8 +243,8 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 	}
 
 	@Override
-	public void serialize(WriteBuffer buffer) {
-		buffer.putUTF(getGenericType().getTypeName());
+	public WriteBuffer serialize(WriteBuffer buffer) {
+		return buffer.putUTF(getGenericType().getTypeName());
 	}
 
 	@Override

@@ -48,13 +48,13 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public Fingerprint getFingerprint() {
-			return new Fingerprint(baseType.getName().getBytes());
+		public String getFactoryName() {
+			return ClassBasedSchemaFactory.this.getName();
 		}
 
 		@Override
-		public String getFactoryName() {
-			return ClassBasedSchemaFactory.this.getName();
+		public Fingerprint getFingerprint() {
+			return new Fingerprint(baseType.getName().getBytes());
 		}
 
 		@Override
@@ -63,8 +63,8 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public void serialize(WriteBuffer buffer) {
-			buffer.putUTF(baseType.getName());
+		public WriteBuffer serialize(WriteBuffer buffer) {
+			return buffer.putUTF(baseType.getName());
 		}
 
 		@Override

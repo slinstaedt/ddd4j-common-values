@@ -42,7 +42,7 @@ public interface CommandHandler<ID extends Value<ID>, C, E> extends Named {
 
 			ChannelRevisions revisions = new ChannelRevisions();
 			Channels channels = context.get(Channels.KEY);
-			Committer<ID, Reaction<E>> submitter = channels.createSubmitter(eventSpec, Reaction::write);
+			Committer<ID, Reaction<E>> submitter = channels.createSubmitter(eventSpec, Reaction::serialize);
 			CommitListener<ID, C> commit = (n, c) -> handle.apply(c).thenApply(r -> r.fold( //
 					acc -> submitter.commit(
 							Recorded.uncommitted(c.getKey(), acc.getResult(), Headers.EMPTY, Instant.now(), c.getHeader(EXPECTED).get())),

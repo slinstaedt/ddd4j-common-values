@@ -215,7 +215,7 @@ public interface Promise<T> {
 
 	static Promise<Void> completed() {
 		return completed(null);
-	};
+	}
 
 	static <T> Promise<T> completed(T value) {
 		CompletableFuture<T> future = new CompletableFuture<>();

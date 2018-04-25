@@ -48,6 +48,20 @@ public class Array<E> implements Iterable<E>, Sequence<E> {
 		elements.clear();
 	}
 
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		} else if (obj == null) {
+			return false;
+		} else if (getClass() != obj.getClass()) {
+			return false;
+		} else {
+			Array<?> other = (Array<?>) obj;
+			return this.elements.equals(other.elements);
+		}
+	}
+
 	public E get(int index) {
 		return elements.get(index);
 	}
@@ -72,6 +86,11 @@ public class Array<E> implements Iterable<E>, Sequence<E> {
 		} else {
 			return defaultElement;
 		}
+	}
+
+	@Override
+	public int hashCode() {
+		return elements.hashCode();
 	}
 
 	@Override

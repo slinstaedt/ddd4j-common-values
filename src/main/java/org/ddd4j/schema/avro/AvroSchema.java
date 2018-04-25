@@ -63,13 +63,13 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 	}
 
 	@Override
-	public Fingerprint getFingerprint() {
-		return factory.getFingerprintAlgorithm().parsingFingerprint(writerSchema);
+	public String getFactoryName() {
+		return factory.getName();
 	}
 
 	@Override
-	public String getFactoryName() {
-		return factory.getName();
+	public Fingerprint getFingerprint() {
+		return factory.getFingerprintAlgorithm().parsingFingerprint(writerSchema);
 	}
 
 	@Override
@@ -78,9 +78,8 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 	}
 
 	@Override
-	public void serialize(WriteBuffer buffer) {
-		buffer.putInt(writerCoder.ordinal());
-		buffer.putUTF(writerSchema.toString());
+	public WriteBuffer serialize(WriteBuffer buffer) {
+		return buffer.putInt(writerCoder.ordinal()).putUTF(writerSchema.toString());
 	}
 
 	@Override

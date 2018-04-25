@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 
 import org.ddd4j.Require;
 import org.ddd4j.Throwing;
+import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.spi.ColdReader;
 import org.ddd4j.infrastructure.channel.spi.Reader;
@@ -94,21 +95,35 @@ public enum SchemaCodec {
 		@FunctionalInterface
 		interface Extender<T, S> {
 
-			interface Constructor<T, S> {
+			interface Wrapper<T, S> {
 
-				Promise<S> construct(Supplier<Promise<T>> value, ReadBuffer buffer);
+				static <T, S> Wrapper<T, S> valueDeserialized(TFunction<ReadBuffer, ? extends S> deserializer) {
+					return (buf, t) -> Promise.completed(deserializer.apply(buf));
+				}
+
+				static <T, S> Wrapper<T, S> valueEmpty(S value) {
+					return (buf, t) -> Promise.completed(value);
+				}
+
+				static <T, S> Wrapper<T, S> valuePresent(TFunction<? super T, ? extends S> constructor) {
+					return (buf, t) -> t.get().thenApply(constructor);
+				}
+
+				Promise<S> wrap(ReadBuffer buffer, Supplier<Promise<T>> promise);
 			}
 
-			Constructor<T, S> constructor(ReadBuffer buffer);
+			static <X> Extender<X, X> none() {
+				return buf -> Wrapper.valuePresent(t -> t);
+			}
+
+			Wrapper<T, S> wrapper(ReadBuffer buffer);
 		}
 
 		Promise<T> decode(ReadBuffer buffer, Revision revision);
 
 		default <X> Decoder<X> extend(Extender<T, X> extender) {
 			Require.nonNull(extender);
-			return (buf, rev) -> {
-				return extender.constructor(buf).apply(() -> decode(buf, rev));
-			};
+			return (buf, rev) -> extender.wrapper(buf).wrap(buf, () -> decode(buf, rev));
 		}
 	}
 

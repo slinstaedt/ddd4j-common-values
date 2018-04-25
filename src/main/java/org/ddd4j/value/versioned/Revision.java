@@ -100,8 +100,8 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 	}
 
 	@Override
-	public void serialize(WriteBuffer buffer) {
-		buffer.putInt(partition).putLong(offset);
+	public WriteBuffer serialize(WriteBuffer buffer) {
+		return buffer.putInt(partition).putLong(offset);
 	}
 
 	public byte[] toBytes() {
