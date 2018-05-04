@@ -4,8 +4,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.infrastructure.channel.Channels;
 import org.ddd4j.infrastructure.channel.Channels.DecodingFactory;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
@@ -13,6 +11,8 @@ import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelSpec;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing.Closeable;
 
 public class ChannelPublisher<C> implements Closeable {
 

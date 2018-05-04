@@ -1,10 +1,10 @@
 package org.ddd4j.value.versioned;
 
-import org.ddd4j.Require;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Value;
 import org.ddd4j.value.math.Ordered;
 
 public class Revision implements Value<Revision>, Ordered<Revision> {
@@ -100,8 +100,8 @@ public class Revision implements Value<Revision>, Ordered<Revision> {
 	}
 
 	@Override
-	public WriteBuffer serialize(WriteBuffer buffer) {
-		return buffer.putInt(partition).putLong(offset);
+	public void serialize(WriteBuffer buffer) {
+		buffer.putInt(partition).putLong(offset);
 	}
 
 	public byte[] toBytes() {

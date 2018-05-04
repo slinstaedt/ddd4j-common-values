@@ -1,6 +1,6 @@
 package org.ddd4j.value.math;
 
-import org.ddd4j.value.Self;
+import org.ddd4j.util.Self;
 import org.ddd4j.value.ValueWrapper;
 
 public interface Summable<T extends Summable<T>> extends Self<T> {

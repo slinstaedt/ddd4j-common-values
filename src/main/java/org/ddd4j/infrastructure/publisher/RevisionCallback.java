@@ -1,6 +1,5 @@
 package org.ddd4j.infrastructure.publisher;
 
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
@@ -14,9 +13,10 @@ import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.infrastructure.domain.value.ChannelRevision;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.spi.Key;
+import org.ddd4j.spi.Ref;
 import org.ddd4j.util.Lazy;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Sequence;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Position;
 
@@ -130,7 +130,7 @@ public interface RevisionCallback {
 		}
 	}
 
-	Key<ChannelPublisher<RevisionCallback>> PUBLISHER = Key.of("revisionCallbackChannelPublisher",
+	Ref<ChannelPublisher<RevisionCallback>> PUBLISHER = Ref.of("revisionCallbackChannelPublisher",
 			ctx -> new SubscribedChannelsListener(ctx.get(ColdSource.FACTORY), ctx.get(HotSource.FACTORY)).getPublisher());
 
 	RevisionCallback VOID = new RevisionCallback() {

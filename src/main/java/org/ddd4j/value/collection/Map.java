@@ -8,8 +8,8 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
 import org.ddd4j.value.Opt;
 
 @FunctionalInterface

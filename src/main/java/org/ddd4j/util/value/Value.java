@@ -1,4 +1,4 @@
-package org.ddd4j.value;
+package org.ddd4j.util.value;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -7,19 +7,19 @@ import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
-import org.ddd4j.Require;
 import org.ddd4j.io.WriteBuffer;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Self;
 
 public interface Value<V extends Value<V>> extends Self<V> {
 
-	abstract class Comlex<V extends Comlex<V>> extends Simple<V, Value<?>[]> {
+	abstract class Complex<V extends Complex<V>> extends Simple<V, Value<?>[]> {
 
 		@Override
-		public Object serialize(WriteBuffer buffer) {
+		public void serialize(WriteBuffer buffer) {
 			for (Value<?> value : value()) {
 				value.serialize(buffer);
 			}
-			return buffer;
 		}
 	}
 
@@ -52,7 +52,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		}
 
 		@Override
-		public boolean equals(Object obj) {
+		public final boolean equals(Object obj) {
 			if (this == obj) {
 				return true;
 			} else if (obj == null) {
@@ -67,7 +67,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		}
 
 		@Override
-		public int hashCode() {
+		public final int hashCode() {
 			return hasher.getAsInt();
 		}
 
@@ -93,8 +93,8 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		}
 
 		@Override
-		public Object serialize(WriteBuffer buffer) {
-			return buffer.putUTF(value);
+		public void serialize(WriteBuffer buffer) {
+			buffer.putUTF(value);
 		}
 
 		@Override
@@ -155,7 +155,7 @@ public interface Value<V extends Value<V>> extends Self<V> {
 		return type.isInstance(this) ? Optional.of(type.cast(this)) : Optional.empty();
 	}
 
-	default Object serialize(WriteBuffer buffer) {
+	default void serialize(WriteBuffer buffer) {
 		throw new UnsupportedOperationException();
 	}
 }

@@ -9,10 +9,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
-import org.ddd4j.util.Cache;
-import org.ddd4j.value.Named;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
+import org.ddd4j.util.collection.Cache;
+import org.ddd4j.util.value.Named;
 import org.ddd4j.value.config.Configuration;
 
 public interface Registry extends Context, ServiceBinder, AutoCloseable {
@@ -21,9 +21,9 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 
 		private final Configuration configuration;
 		private final Map<String, BoundChild> children;
-		private final Map<Key<?>, Set<ServiceFactory<?>>> bound;
+		private final Map<Ref<?>, Set<ServiceFactory<?>>> bound;
 		@SuppressWarnings("rawtypes")
-		private final Cache.Aside<Key, Object> instances;
+		private final Cache.Aside<Ref, Object> instances;
 
 		protected Bound(Configuration configuration) {
 			this.configuration = Require.nonNull(configuration);
@@ -33,43 +33,43 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		@Override
-		public <T> void bind(Key<T> key, ServiceFactory<? extends T> factory, Key<?>... path) {
+		public <T> void bind(Ref<T> ref, ServiceFactory<? extends T> factory, Ref<?>... path) {
 			@SuppressWarnings("resource")
 			Bound current = this;
-			for (Key<?> target : path) {
+			for (Ref<?> target : path) {
 				current = current.boundChild(target);
 			}
-			current.bound.computeIfAbsent(key, k -> new HashSet<>()).add(Require.nonNull(factory));
+			current.bound.computeIfAbsent(ref, k -> new HashSet<>()).add(Require.nonNull(factory));
 		}
 
 		private BoundChild boundChild(Named value) {
-			return children.computeIfAbsent(value.getName(), n -> new BoundChild(configuration.prefixed(n), this));
+			return children.computeIfAbsent(value.name(), n -> new BoundChild(configuration.prefixed(n), this));
 		}
 
 		@SuppressWarnings("unchecked")
-		protected <T> Set<ServiceFactory<T>> boundFactories(Key<T> key) {
-			Set<?> entries = bound.getOrDefault(key, Collections.emptySet());
+		protected <T> Set<ServiceFactory<T>> boundFactories(Ref<T> ref) {
+			Set<?> entries = bound.getOrDefault(ref, Collections.emptySet());
 			return (Set<ServiceFactory<T>>) entries;
 		}
 
-		private <T> ServiceFactory<T> boundFactory(Key<T> key) {
-			Set<ServiceFactory<T>> factories = boundFactories(key);
+		private <T> ServiceFactory<T> boundFactory(Ref<T> ref) {
+			Set<ServiceFactory<T>> factories = boundFactories(ref);
 			switch (factories.size()) {
 			case 0:
-				return key;
+				return ref;
 			case 1:
 				return factories.iterator().next();
 			default:
-				throw new IllegalStateException("Multiple factories found in classpath for " + key
+				throw new IllegalStateException("Multiple factories found in classpath for " + ref
 						+ ". Either strip your classpath or select one implementation via configration.");
 			}
 		}
 
 		@Override
 		public Context child(Named value) {
-			Context child = children.get(value.getName());
+			Context child = children.get(value.name());
 			if (child == null) {
-				if (configuration.getString(value.getName()).isPresent()) {
+				if (configuration.getString(value.name()).isPresent()) {
 					child = boundChild(value);
 				} else {
 					child = transientChild(value);
@@ -89,30 +89,30 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 			return configuration;
 		}
 
-		private <T> Optional<ServiceFactory<T>> configuredFactory(Key<T> key) {
-			return configuration.getString(key.getName())
+		private <T> Optional<ServiceFactory<T>> configuredFactory(Ref<T> ref) {
+			return configuration.getString(ref.name())
 					.map(s -> s.isEmpty() ? null : s)
 					.map(Throwing.TFunction.of(Class::forName))
-					.map(Throwing.TFunction.of(c -> newInstance(c, key)))
+					.map(Throwing.TFunction.of(c -> newInstance(c, ref)))
 					.map(ServiceFactory.class::cast);
 		}
 
-		private <T> T createService(Key<T> key) throws Exception {
-			return factory(key).create(child(key));
+		private <T> T createService(Ref<T> ref) throws Exception {
+			return factory(ref).create(child(ref));
 		}
 
-		private <T> void destroyService(Key<T> key, T service) throws Exception {
-			factory(key).destroy(service);
+		private <T> void destroyService(Ref<T> ref, T service) throws Exception {
+			factory(ref).destroy(service);
 		}
 
-		private <T> ServiceFactory<T> factory(Key<T> key) {
-			return configuredFactory(key).orElseGet(() -> boundFactory(key));
+		private <T> ServiceFactory<T> factory(Ref<T> ref) {
+			return configuredFactory(ref).orElseGet(() -> boundFactory(ref));
 		}
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public <T> T get(Key<T> key) {
-			return (T) instances.acquire(key, this::createService);
+		public <T> T get(Ref<T> ref) {
+			return (T) instances.acquire(ref, this::createService);
 		}
 
 		private Object newInstance(Class<?> type, Named value) throws ReflectiveOperationException {
@@ -124,7 +124,7 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		private Context transientChild(Named value) {
-			return new TransientChild(configuration.prefixed(value.getName()), this);
+			return new TransientChild(configuration.prefixed(value.name()), this);
 		}
 	}
 
@@ -138,29 +138,29 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		@Override
-		public <T> T get(Key<T> key) {
-			if (boundFactories(key).isEmpty()) {
-				return parent.get(key);
+		public <T> T get(Ref<T> ref) {
+			if (boundFactories(ref).isEmpty()) {
+				return parent.get(ref);
 			} else {
-				return super.get(key);
+				return super.get(ref);
 			}
 		}
 
 		@Override
-		public void initializeEager(Key<?> key) {
-			parent.initializeEager(key);
+		public void initializeEager(Ref<?> ref) {
+			parent.initializeEager(ref);
 		}
 
 		@Override
-		public <T extends Named> Optional<T> specific(Key<T> key, String name) {
-			return parent.specific(key, name);
+		public <T extends Named> Optional<T> specific(Ref<T> ref, String name) {
+			return parent.specific(ref, name);
 		}
 	}
 
 	class Root extends Bound implements Registry {
 
-		private final Set<Key<?>> eager;
-		private Cache.Aside<Key<?>, Map<String, Object>> named;
+		private final Set<Ref<?>> eager;
+		private Cache.Aside<Ref<?>, Map<String, Object>> named;
 
 		Root(Configuration configuration) {
 			super(configuration);
@@ -168,16 +168,16 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		@Override
-		public void initializeEager(Key<?> key) {
-			eager.add(Require.nonNull(key));
+		public void initializeEager(Ref<?> ref) {
+			eager.add(Require.nonNull(ref));
 		}
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public <T extends Named> Optional<T> specific(Key<T> key, String name) {
-			Context child = child(key);
-			T service = (T) named.acquire(key, k -> boundFactories(key).stream().map(f -> f.createUnchecked(child)).collect(
-					Collectors.toMap(Named::getName, Function.identity()))).get(name);
+		public <T extends Named> Optional<T> specific(Ref<T> ref, String name) {
+			Context child = child(ref);
+			T service = (T) named.acquire(ref, k -> boundFactories(ref).stream().map(f -> f.createUnchecked(child)).collect(
+					Collectors.toMap(Named::name, Function.identity()))).get(name);
 			return Optional.ofNullable(service);
 		}
 
@@ -209,13 +209,13 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		}
 
 		@Override
-		public <T> T get(Key<T> key) {
-			return parent.get(key);
+		public <T> T get(Ref<T> ref) {
+			return parent.get(ref);
 		}
 
 		@Override
-		public <T extends Named> Optional<T> specific(Key<T> key, String name) {
-			return parent.specific(key, name);
+		public <T extends Named> Optional<T> specific(Ref<T> ref, String name) {
+			return parent.specific(ref, name);
 		}
 	}
 

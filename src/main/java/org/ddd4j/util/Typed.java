@@ -1,6 +1,5 @@
-package org.ddd4j.value;
+package org.ddd4j.util;
 
-import org.ddd4j.util.Type;
 import org.ddd4j.util.Type.Variable;
 
 public interface Typed<T> {

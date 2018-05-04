@@ -1,7 +1,7 @@
 package org.ddd4j.spi;
 
-import org.ddd4j.value.Named;
-import org.ddd4j.value.Typed;
+import org.ddd4j.util.Typed;
+import org.ddd4j.util.value.Named;
 
 public interface ServiceConfigurer {
 
@@ -9,9 +9,9 @@ public interface ServiceConfigurer {
 
 		@Override
 		default void bindServices(ServiceBinder binder) {
-			binder.initializeEager(Key.of(getName(), ctx -> {
+			binder.initializeEager(Ref.of(name(), ctx -> {
 				Class<? extends C> type = getType().getRawType();
-				ctx.get(ContextProvisioning.KEY).loadRegistered(type).forEach(c -> configure(ctx.child(c), c));
+				ctx.get(ContextProvisioning.REF).loadRegistered(type).forEach(c -> configure(ctx.child(c), c));
 				return new Object();
 			}));
 		}

@@ -4,7 +4,7 @@ import java.util.UUID;
 
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.value.Value;
 
 public class Identifier extends Value.Simple<Identifier, UUID> {
 

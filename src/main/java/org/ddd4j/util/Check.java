@@ -3,8 +3,6 @@ package org.ddd4j.util;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import org.ddd4j.Require;
-
 @FunctionalInterface
 public interface Check<V, T extends V> {
 

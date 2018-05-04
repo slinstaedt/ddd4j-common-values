@@ -1,14 +1,14 @@
 package org.ddd4j.spi;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public interface ServiceBinder {
 
 	interface ScopedBinder<T> extends TargetBinder<T> {
 
-		void bind(ServiceFactory<? extends T> factory, Key<?>... path);
+		void bind(ServiceFactory<? extends T> factory, Ref<?>... path);
 
-		default TargetBinder<T> of(Key<?>... path) {
+		default TargetBinder<T> of(Ref<?>... path) {
 			Require.nonNull(path);
 			return f -> bind(f, path);
 		}
@@ -21,9 +21,9 @@ public interface ServiceBinder {
 
 	interface TargetBinder<T> {
 
-		default void toDelegate(Key<? extends T> delegationKey) {
-			Require.nonNull(delegationKey);
-			toFactory(ctx -> ctx.get(delegationKey));
+		default void toDelegate(Ref<? extends T> delegate) {
+			Require.nonNull(delegate);
+			toFactory(ctx -> ctx.get(delegate));
 		}
 
 		void toFactory(ServiceFactory<? extends T> factory);
@@ -34,16 +34,16 @@ public interface ServiceBinder {
 		}
 	}
 
-	default <T> ScopedBinder<T> bind(Key<T> key) {
-		Require.nonNull(key);
-		return (f, p) -> bind(key, f, p);
-	}
-
 	default void accept(ServiceConfigurer configurer) {
 		configurer.bindServices(this);
 	}
 
-	<T> void bind(Key<T> key, ServiceFactory<? extends T> factory, Key<?>... dependencyPath);
+	default <T> ScopedBinder<T> bind(Ref<T> ref) {
+		Require.nonNull(ref);
+		return (f, p) -> bind(ref, f, p);
+	}
 
-	void initializeEager(Key<?> key);
+	<T> void bind(Ref<T> ref, ServiceFactory<? extends T> factory, Ref<?>... dependencyPath);
+
+	void initializeEager(Ref<?> ref);
 }

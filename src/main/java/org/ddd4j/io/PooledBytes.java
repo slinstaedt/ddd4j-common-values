@@ -1,42 +1,13 @@
 package org.ddd4j.io;
 
-import static java.lang.Integer.bitCount;
-import static java.lang.Integer.highestOneBit;
-import static java.lang.Integer.min;
-
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-import java.util.function.Supplier;
 
-import org.ddd4j.Require;
-import org.ddd4j.spi.Key;
-import org.ddd4j.util.Cache;
-import org.ddd4j.util.Cache.Pool;
-import org.ddd4j.value.config.ConfKey;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.collection.Cache;
 
 public class PooledBytes<B extends Bytes> extends Bytes {
-
-	static final ConfKey<Integer> BUFFER_SIZE = ConfKey.ofInteger("bufferSize", 4096);
-	static final ConfKey<Integer> POOL_SIZE = ConfKey.ofInteger("poolSize", 512);
-
-	public static final Key<Cache.ReadThrough<Integer, byte[]>> BYTE_ARRAY_CACHE = Key.of("byteArrayCache",
-			ctx -> Cache.<Integer, byte[]>exclusive(b -> b.length)
-					.evict()
-					.withMaximumCapacity(ctx.conf(POOL_SIZE))
-					.lookupValues(Cache.KeyLookup.CEILING, k -> min(bitCount(k) == 1 ? k : highestOneBit(k) << 1, 4096))
-					.withFactory(byte[]::new));
-
-	public static final Key<Cache.ReadThrough<Integer, java.nio.ByteBuffer>> BYTE_BUFFER_CACHE = Key.of("byteBufferCache",
-			ctx -> ctx.get(BYTE_ARRAY_CACHE).wrapEntries(java.nio.ByteBuffer::wrap, java.nio.ByteBuffer::array));
-
-	public static final Key<Cache.ReadThrough<Integer, Bytes.Arrayed>> BYTES_CACHE = Key.of("bytesCache",
-			ctx -> ctx.get(BYTE_ARRAY_CACHE).wrapEntries(Bytes.Arrayed::new, Bytes.Arrayed::backing));
-
-	public static final Key<Supplier<Bytes>> POOL = Key.of("pooledBytesPool", ctx -> {
-		Pool<Bytes.Arrayed> pool = ctx.get(BYTES_CACHE).pooledBy(ctx.conf(BUFFER_SIZE));
-		return () -> new PooledBytes<>(pool);
-	});
 
 	private final Cache.Pool<B> pool;
 	private final NavigableMap<Integer, B> bytes;

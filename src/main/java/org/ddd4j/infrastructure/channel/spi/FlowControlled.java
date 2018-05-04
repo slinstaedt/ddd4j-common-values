@@ -3,9 +3,9 @@ package org.ddd4j.infrastructure.channel.spi;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Sequence;
 
 public interface FlowControlled<T> {
 

@@ -6,9 +6,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
 import org.ddd4j.io.ByteOrder.IndexedBytes;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
 
 public abstract class Bytes implements IndexedBytes, AutoCloseable {
 
@@ -18,17 +18,17 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		private final int offset;
 		private final int length;
 
-		Arrayed(byte[] bytes) {
+		public Arrayed(byte[] bytes) {
 			this(bytes, 0, bytes.length);
 		}
 
-		Arrayed(byte[] bytes, int offset, int length) {
+		public Arrayed(byte[] bytes, int offset, int length) {
 			this.bytes = Require.nonNull(bytes);
 			this.offset = Require.that(offset, offset >= 0 && offset < bytes.length);
 			this.length = Require.that(length, length <= bytes.length - offset);
 		}
 
-		byte[] backing() {
+		public byte[] backing() {
 			return bytes;
 		}
 
@@ -55,13 +55,13 @@ public abstract class Bytes implements IndexedBytes, AutoCloseable {
 		private final int position;
 		private final int limit;
 
-		Buffered(ByteBuffer buffer) {
+		public Buffered(ByteBuffer buffer) {
 			this.buffer = Require.nonNull(buffer);
 			this.position = buffer.position();
 			this.limit = buffer.limit();
 		}
 
-		ByteBuffer backing() {
+		public ByteBuffer backing() {
 			return buffer;
 		}
 

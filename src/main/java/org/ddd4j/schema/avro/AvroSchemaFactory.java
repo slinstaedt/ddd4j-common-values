@@ -11,26 +11,26 @@ import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.reflect.ReflectData;
-import org.ddd4j.Throwing;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.schema.avro.conversion.UUIDConversions;
 import org.ddd4j.spi.Context;
-import org.ddd4j.spi.Key;
+import org.ddd4j.spi.Ref;
+import org.ddd4j.util.Throwing;
 import org.ddd4j.util.Type;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.config.Configuration;
 
 public class AvroSchemaFactory implements SchemaFactory {
 
-	public static final Key<ReflectData> AVRO_DATA = Key.of(ReflectData.class, c -> new ReflectData());
-	public static final Key<DecoderFactory> DECODER_FACTORY = Key.of(DecoderFactory.class, c -> DecoderFactory.get());
-	public static final Key<EncoderFactory> ENCODER_FACTORY = Key.of(EncoderFactory.class, c -> EncoderFactory.get());
+	public static final Ref<ReflectData> AVRO_DATA = Ref.of(ReflectData.class, c -> new ReflectData());
+	public static final Ref<DecoderFactory> DECODER_FACTORY = Ref.of(DecoderFactory.class, c -> DecoderFactory.get());
+	public static final Ref<EncoderFactory> ENCODER_FACTORY = Ref.of(EncoderFactory.class, c -> EncoderFactory.get());
 
 	public static final ConfKey<AvroCoder> CODING = ConfKey.ofEnum(AvroCoder.class, "coding", AvroCoder.BINARY);
-	public static final ConfKey<AvroFingerprintAlgorithm> FINGERPRINT = ConfKey.ofEnum(AvroFingerprintAlgorithm.class,
-			"fingerprint", AvroFingerprintAlgorithm.SHA_256);
+	public static final ConfKey<AvroFingerprintAlgorithm> FINGERPRINT = ConfKey.ofEnum(AvroFingerprintAlgorithm.class, "fingerprint",
+			AvroFingerprintAlgorithm.SHA_256);
 
 	private final Configuration configuration;
 	private final DecoderFactory decoderFactory;
@@ -53,35 +53,6 @@ public class AvroSchemaFactory implements SchemaFactory {
 		}
 	}
 
-	@Override
-	public <T> Schema<T> createSchema(Type<T> type) {
-		return new AvroSchema<>(this, coder, getData().getSchema(type.getRawType()));
-	}
-
-	@Override
-	public Schema<?> readSchema(ReadBuffer buffer) {
-		AvroCoder writerCoder = AvroCoder.values()[buffer.getInt()];
-		org.apache.avro.Schema writerSchema = new Parser().parse(buffer.getUTF());
-		Class<?> type = getData().getClass(writerSchema);
-		if (type == null || type == Object.class) {
-			type = SchemaFactory.classForName(writerSchema.getFullName(), e -> Record.class);
-		}
-		return new AvroSchema<>(this, writerCoder, writerSchema);
-	}
-
-	ReflectData getData() {
-		return data;
-	}
-
-	AvroFingerprintAlgorithm getFingerprintAlgorithm() {
-		return configuration.get(FINGERPRINT);
-	}
-
-	@Override
-	public String getName() {
-		return "avro";
-	}
-
 	Decoder createDecoder(AvroCoder coder, org.apache.avro.Schema schema, InputStream in) {
 		try {
 			return coder.decoder(decoderFactory, schema, in);
@@ -96,5 +67,34 @@ public class AvroSchemaFactory implements SchemaFactory {
 		} catch (IOException e) {
 			return Throwing.unchecked(e);
 		}
+	}
+
+	@Override
+	public <T> Schema<T> createSchema(Type<T> type) {
+		return new AvroSchema<>(this, coder, getData().getSchema(type.getRawType()));
+	}
+
+	ReflectData getData() {
+		return data;
+	}
+
+	AvroFingerprintAlgorithm getFingerprintAlgorithm() {
+		return configuration.get(FINGERPRINT);
+	}
+
+	@Override
+	public String name() {
+		return "avro";
+	}
+
+	@Override
+	public Schema<?> readSchema(ReadBuffer buffer) {
+		AvroCoder writerCoder = AvroCoder.values()[buffer.getInt()];
+		org.apache.avro.Schema writerSchema = new Parser().parse(buffer.getUTF());
+		Class<?> type = getData().getClass(writerSchema);
+		if (type == null || type == Object.class) {
+			type = SchemaFactory.classForName(writerSchema.getFullName(), e -> Record.class);
+		}
+		return new AvroSchema<>(this, writerCoder, writerSchema);
 	}
 }

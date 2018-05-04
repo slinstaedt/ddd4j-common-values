@@ -2,8 +2,8 @@ package org.ddd4j.generator.builder;
 
 import static java.util.Objects.requireNonNull;
 
-import org.ddd4j.Throwing;
 import org.ddd4j.generator.Modifiers;
+import org.ddd4j.util.Throwing;
 
 import com.helger.jcodemodel.EClassType;
 import com.helger.jcodemodel.JClassAlreadyExistsException;

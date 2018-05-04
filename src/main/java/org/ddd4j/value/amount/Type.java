@@ -2,7 +2,7 @@ package org.ddd4j.value.amount;
 
 import java.util.function.UnaryOperator;
 
-import org.ddd4j.value.Self;
+import org.ddd4j.util.Self;
 
 public interface Type<T extends Type<T, Q>, Q> extends Self<T> {
 

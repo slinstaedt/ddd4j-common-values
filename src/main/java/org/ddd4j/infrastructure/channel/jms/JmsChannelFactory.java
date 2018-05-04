@@ -13,7 +13,7 @@ import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
-import org.ddd4j.spi.Key;
+import org.ddd4j.spi.Ref;
 import org.ddd4j.spi.ServiceBinder;
 import org.ddd4j.spi.ServiceConfigurer;
 
@@ -23,13 +23,13 @@ public class JmsChannelFactory implements HotSource.Factory, Writer.Factory {
 
 		@Override
 		public void bindServices(ServiceBinder binder) {
-			binder.bind(HotSource.FACTORY).toDelegate(JmsChannelFactory.KEY);
-			binder.bind(Writer.FACTORY).toDelegate(JmsChannelFactory.KEY);
+			binder.bind(HotSource.FACTORY).toDelegate(JmsChannelFactory.REF);
+			binder.bind(Writer.FACTORY).toDelegate(JmsChannelFactory.REF);
 		}
 	}
 
-	public static final Key<JmsChannelFactory> KEY = Key.of(JmsChannelFactory.class, JmsChannelFactory::new);
-	public static final Key<ConnectionFactory> CONNECTION_FACTORY = Key.reflective(ConnectionFactory.class);
+	public static final Ref<JmsChannelFactory> REF = Ref.of(JmsChannelFactory.class, JmsChannelFactory::new);
+	public static final Ref<ConnectionFactory> CONNECTION_FACTORY = Ref.reflective(ConnectionFactory.class);
 	static final int PARTITION = 0;
 	static final int PARTITION_COUNT = PARTITION + 1;
 
@@ -37,7 +37,7 @@ public class JmsChannelFactory implements HotSource.Factory, Writer.Factory {
 
 	public JmsChannelFactory(Context context) {
 		JMSContext jmsContext = context.get(CONNECTION_FACTORY).createContext(JMSContext.DUPS_OK_ACKNOWLEDGE);
-		this.client = context.get(Scheduler.KEY).createAgent(jmsContext);
+		this.client = context.get(Scheduler.REF).createAgent(jmsContext);
 	}
 
 	@Override

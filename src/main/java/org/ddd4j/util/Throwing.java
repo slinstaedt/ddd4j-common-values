@@ -1,4 +1,4 @@
-package org.ddd4j;
+package org.ddd4j.util;
 
 import java.util.Arrays;
 import java.util.concurrent.Callable;
@@ -13,6 +13,7 @@ import org.ddd4j.value.Either;
 import org.ddd4j.value.Opt;
 
 //TODO remove "T" prefix from all inner types?
+//TODO rename to java function types
 @FunctionalInterface
 public interface Throwing {
 
@@ -96,12 +97,12 @@ public interface Throwing {
 	@FunctionalInterface
 	interface Task extends Runnable {
 
+		Task NONE = () -> {
+		};
+
 		static Task of(Task task) {
 			return Require.nonNull(task);
 		}
-
-		Task NONE = () -> {
-		};
 
 		default <T> Producer<T> andThen(Producer<T> producer) {
 			return () -> {
@@ -191,6 +192,43 @@ public interface Throwing {
 	}
 
 	@FunctionalInterface
+	interface TBiPredicate<T, U> extends BiPredicate<T, U> {
+
+		default TBiPredicate<T, U> returningFalseOn(Class<? extends Exception> exceptionType) {
+			return (t, u) -> {
+				try {
+					return testChecked(t, u);
+				} catch (Exception e) {
+					return exceptionType.isInstance(e) ? false : Throwing.unchecked(e);
+				}
+			};
+		}
+
+		default TBiPredicate<T, U> returningFalseOnException() {
+			return returningFalseOn(Exception.class);
+		}
+
+		@Override
+		default boolean test(T t, U u) {
+			try {
+				return testChecked(t, u);
+			} catch (Exception e) {
+				return Throwing.unchecked(e);
+			}
+		}
+
+		boolean testChecked(T t, U u) throws Exception;
+
+		default TBiConsumer<T, U> throwOnFail(Function<String, Exception> exceptionFactory) {
+			return (t, u) -> {
+				if (!testChecked(t, u)) {
+					throw exceptionFactory.apply("Failed test " + this + " on t=" + t + " , u=" + u);
+				}
+			};
+		}
+	}
+
+	@FunctionalInterface
 	interface TConsumer<T> extends Consumer<T> {
 
 		static <T> TConsumer<T> of(TConsumer<T> consumer) {
@@ -273,6 +311,11 @@ public interface Throwing {
 		}
 
 		@Override
+		default <V> TFunction<T, V> andThen(Function<? super R, ? extends V> after) {
+			return Function.super.andThen(after)::apply;
+		}
+
+		@Override
 		default R apply(T t) {
 			try {
 				return applyChecked(t);
@@ -282,11 +325,6 @@ public interface Throwing {
 		}
 
 		R applyChecked(T t) throws Exception;
-
-		@Override
-		default <V> TFunction<T, V> andThen(Function<? super R, ? extends V> after) {
-			return Function.super.andThen(after)::apply;
-		}
 
 		default Function<T, Either<R, Exception>> asEither() {
 			return t -> {
@@ -345,43 +383,6 @@ public interface Throwing {
 			return t -> {
 				if (!testChecked(t)) {
 					throw exceptionFactory.apply("Failed test " + this + " on: " + t);
-				}
-			};
-		}
-	}
-
-	@FunctionalInterface
-	interface TBiPredicate<T, U> extends BiPredicate<T, U> {
-
-		default TBiPredicate<T, U> returningFalseOn(Class<? extends Exception> exceptionType) {
-			return (t, u) -> {
-				try {
-					return testChecked(t, u);
-				} catch (Exception e) {
-					return exceptionType.isInstance(e) ? false : Throwing.unchecked(e);
-				}
-			};
-		}
-
-		default TBiPredicate<T, U> returningFalseOnException() {
-			return returningFalseOn(Exception.class);
-		}
-
-		@Override
-		default boolean test(T t, U u) {
-			try {
-				return testChecked(t, u);
-			} catch (Exception e) {
-				return Throwing.unchecked(e);
-			}
-		}
-
-		boolean testChecked(T t, U u) throws Exception;
-
-		default TBiConsumer<T, U> throwOnFail(Function<String, Exception> exceptionFactory) {
-			return (t, u) -> {
-				if (!testChecked(t, u)) {
-					throw exceptionFactory.apply("Failed test " + this + " on t=" + t + " , u=" + u);
 				}
 			};
 		}

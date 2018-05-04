@@ -1,4 +1,4 @@
-package org.ddd4j;
+package org.ddd4j.util;
 
 import java.util.Collection;
 import java.util.Objects;

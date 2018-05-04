@@ -5,7 +5,6 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.Channels.DecodingFactory;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
@@ -15,6 +14,7 @@ import org.ddd4j.infrastructure.channel.spi.FlowControlled;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.publisher.ChannelPublisher.ListenerFactory;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.versioned.Committed;
 
 public class FlowSubscription<K, V> implements Subscription, CommitListener<K, V>, ErrorListener, CompletionListener {

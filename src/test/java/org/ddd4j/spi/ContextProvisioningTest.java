@@ -2,7 +2,7 @@ package org.ddd4j.spi;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.ddd4j.util.Props;
+import org.ddd4j.value.config.Props;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,8 +19,8 @@ public class ContextProvisioningTest {
 	@Test
 	public void initEagerContext() {
 		AtomicLong value = new AtomicLong(0);
-		Key<Long> eagerKey = Key.of(Long.class, ctx -> value.incrementAndGet());
-		provisioning.withConfigurer(b -> b.initializeEager(eagerKey));
+		Ref<Long> eagerRef = Ref.of(Long.class, ctx -> value.incrementAndGet());
+		provisioning.withConfigurer(b -> b.initializeEager(eagerRef));
 
 		provisioning.createContext(Props.EMPTY);
 
@@ -31,6 +31,6 @@ public class ContextProvisioningTest {
 	public void initSimpleContext() {
 		Context context = provisioning.createContext(Props.EMPTY);
 
-		Assert.assertNotNull(context.get(ContextProvisioning.KEY));
+		Assert.assertNotNull(context.get(ContextProvisioning.REF));
 	}
 }

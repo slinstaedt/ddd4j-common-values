@@ -3,10 +3,10 @@ package org.ddd4j.infrastructure.channel.api;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 

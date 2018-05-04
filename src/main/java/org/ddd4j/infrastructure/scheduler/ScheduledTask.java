@@ -2,8 +2,8 @@ package org.ddd4j.infrastructure.scheduler;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
+import org.ddd4j.util.Require;
 
 public interface ScheduledTask {
 

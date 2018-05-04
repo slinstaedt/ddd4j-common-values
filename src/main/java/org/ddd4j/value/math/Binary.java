@@ -1,6 +1,6 @@
 package org.ddd4j.value.math;
 
-import org.ddd4j.value.Self;
+import org.ddd4j.util.Self;
 import org.ddd4j.value.ValueWrapper;
 
 public interface Binary<T extends Binary<T>> extends Self<T> {

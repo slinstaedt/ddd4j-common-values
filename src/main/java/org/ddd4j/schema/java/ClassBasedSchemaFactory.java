@@ -4,15 +4,15 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Objects;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
 import org.ddd4j.util.Type;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.value.Value;
 
 public class ClassBasedSchemaFactory implements SchemaFactory {
 
@@ -34,7 +34,6 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 			return buf -> Throwing.Producer.of(Throwing.TFunction.of(ObjectInputStream::new).apply(buf.asInputStream())::readObject)
 					.map(readerType::cast)
 					.get();
-
 		}
 
 		@Override
@@ -49,7 +48,7 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 
 		@Override
 		public String getFactoryName() {
-			return ClassBasedSchemaFactory.this.getName();
+			return name();
 		}
 
 		@Override
@@ -63,8 +62,8 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public WriteBuffer serialize(WriteBuffer buffer) {
-			return buffer.putUTF(baseType.getName());
+		public void serialize(WriteBuffer buffer) {
+			buffer.putUTF(baseType.getName());
 		}
 
 		@Override
@@ -76,6 +75,11 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 	@Override
 	public <T> Schema<T> createSchema(Type<T> type) {
 		return new JavaSchema<>(type.getRawType());
+	}
+
+	@Override
+	public String name() {
+		return "java-serialization";
 	}
 
 	@Override

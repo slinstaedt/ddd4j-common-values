@@ -18,7 +18,7 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ddd4j.Throwing;
+import org.ddd4j.util.Throwing;
 
 @FunctionalInterface
 public interface Try<T> extends Callable<T> {

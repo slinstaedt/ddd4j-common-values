@@ -5,41 +5,11 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.spi.Context;
-import org.ddd4j.spi.Key;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing.TConsumer;
 
 public interface WriteBuffer extends RelativeBuffer {
-
-	class Pool implements Supplier<WriteBuffer> {
-
-		private final Supplier<Bytes> bytesPool;
-
-		public Pool(Context context) {
-			this.bytesPool = context.get(PooledBytes.POOL);
-		}
-
-		@Override
-		public WriteBuffer get() {
-			return bytesPool.get().buffered();
-		}
-
-		public ReadBuffer serialized(Consumer<WriteBuffer> serializer) {
-			WriteBuffer buffer = get();
-			try {
-				serializer.accept(buffer);
-				return buffer.flip();
-			} catch (Exception e) {
-				buffer.close();
-				throw e;
-			}
-		}
-	}
-
-	Key<WriteBuffer.Pool> POOL = Key.of(Pool.class, Pool::new);
 
 	default WriteBuffer accept(Consumer<? super WriteBuffer> visitor) {
 		visitor.accept(this);
@@ -134,12 +104,38 @@ public interface WriteBuffer extends RelativeBuffer {
 		return this;
 	}
 
+	default WriteBuffer putSignedVarInt(int value) {
+		return putUnsignedVarInt((value << 1) ^ (value >> 31));
+	}
+
+	default WriteBuffer putSignedVarLong(long value) {
+		return putUnsignedVarLong((value << 1) ^ (value >> 63));
+	}
+
 	default WriteBuffer putUnsignedByte(int value) {
 		return put((byte) value);
 	}
 
 	default WriteBuffer putUnsignedShort(int value) {
 		return putShort((short) value);
+	}
+
+	default WriteBuffer putUnsignedVarInt(int value) {
+		Require.that(value >= 0);
+		while ((value & 0xFFFFFF80) != 0) {
+			putUnsignedByte((value & 0x7F) | 0x80);
+			value >>>= 7;
+		}
+		return putUnsignedByte(value & 0x7F);
+	}
+
+	default WriteBuffer putUnsignedVarLong(long value) {
+		Require.that(value >= 0L);
+		while ((value & 0xFFFFFFFFFFFFFF80L) != 0L) {
+			putUnsignedByte(((int) value & 0x7F) | 0x80);
+			value >>>= 7;
+		}
+		return putUnsignedByte((int) value & 0x7F);
 	}
 
 	default WriteBuffer putUTF(CharSequence chars) {

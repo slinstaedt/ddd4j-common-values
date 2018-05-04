@@ -6,8 +6,8 @@ import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.EnumSymbol;
+import org.ddd4j.util.Require;
 import org.apache.avro.generic.GenericEnumSymbol;
-import org.ddd4j.Require;
 
 public class EnumConversion<T extends Enum<T>> extends Conversion<T> {
 

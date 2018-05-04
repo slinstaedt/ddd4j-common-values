@@ -1,4 +1,4 @@
-package org.ddd4j.util;
+package org.ddd4j.util.collection;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public class RingBuffer<E> implements Iterable<E>, Iterator<E> {
 

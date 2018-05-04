@@ -1,16 +1,20 @@
 package org.ddd4j.util;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing.Closeable;
-import org.ddd4j.Throwing.Producer;
-import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.Throwing.TFunction;
+import org.ddd4j.util.Throwing.Closeable;
+import org.ddd4j.util.Throwing.Producer;
+import org.ddd4j.util.Throwing.TConsumer;
+import org.ddd4j.util.Throwing.TFunction;
 
 public class Lazy<T> implements Closeable, Supplier<T> {
+
+	public static <T> Lazy<T> of(Producer<? extends T> creator) {
+		return new Lazy<>(creator);
+	}
 
 	public static <T extends AutoCloseable> Lazy<T> ofCloseable(Producer<? extends T> creator) {
 		return new Lazy<>(creator, AutoCloseable::close);
@@ -28,6 +32,10 @@ public class Lazy<T> implements Closeable, Supplier<T> {
 		this.creator = Require.nonNull(creator);
 		this.destroyer = Require.nonNull(destroyer);
 		this.reference = new AtomicReference<>();
+	}
+
+	public <X> Consumer<X> asConsumer() {
+		return x -> get();
 	}
 
 	public Stream<T> asStream() {
@@ -66,13 +74,17 @@ public class Lazy<T> implements Closeable, Supplier<T> {
 		}
 	}
 
-	public <X> X ifPresent(TFunction<? super T, ? extends X> function, X defaultValue) {
+	public <X> X ifPresent(TFunction<? super T, ? extends X> function, Supplier<X> defaultValue) {
 		T value = reference.get();
 		if (value != null) {
 			return function.apply(value);
 		} else {
-			return defaultValue;
+			return defaultValue.get();
 		}
+	}
+
+	public <X> X ifPresent(TFunction<? super T, ? extends X> function, X defaultValue) {
+		return ifPresent(function, () -> defaultValue);
 	}
 
 	public boolean isInitialized() {

@@ -1,4 +1,4 @@
-package org.ddd4j.util;
+package org.ddd4j.util.collection;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -32,16 +32,16 @@ import java.util.function.Supplier;
 import java.util.function.ToLongFunction;
 import java.util.function.UnaryOperator;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
-import org.ddd4j.Throwing.Producer;
-import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.util.Cache.Access.Exclusive;
-import org.ddd4j.util.Cache.Access.Shared;
-import org.ddd4j.util.Cache.Decorating.Blocking;
-import org.ddd4j.util.Cache.Decorating.Evicting;
-import org.ddd4j.util.Cache.Decorating.Listening;
-import org.ddd4j.util.Cache.Decorating.Retrying;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
+import org.ddd4j.util.Throwing.Producer;
+import org.ddd4j.util.Throwing.TConsumer;
+import org.ddd4j.util.collection.Cache.Access.Exclusive;
+import org.ddd4j.util.collection.Cache.Access.Shared;
+import org.ddd4j.util.collection.Cache.Decorating.Blocking;
+import org.ddd4j.util.collection.Cache.Decorating.Evicting;
+import org.ddd4j.util.collection.Cache.Decorating.Listening;
+import org.ddd4j.util.collection.Cache.Decorating.Retrying;
 import org.ddd4j.value.config.ConfKey;
 
 public interface Cache<K, V> {

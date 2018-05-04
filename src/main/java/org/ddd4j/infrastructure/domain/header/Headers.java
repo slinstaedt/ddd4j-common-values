@@ -7,9 +7,9 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
+import org.ddd4j.util.Require;
 
 public class Headers {
 

@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 import org.ddd4j.util.Type;
 
 public class Property<D, T> {

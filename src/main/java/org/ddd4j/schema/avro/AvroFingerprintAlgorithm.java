@@ -3,8 +3,8 @@ package org.ddd4j.schema.avro;
 import java.security.NoSuchAlgorithmException;
 
 import org.apache.avro.SchemaNormalization;
-import org.ddd4j.Require;
 import org.ddd4j.schema.Fingerprint;
+import org.ddd4j.util.Require;
 
 public enum AvroFingerprintAlgorithm {
 	CRC_64_AVRO("CRC-64-AVRO"), MD5("MD5"), SHA_256("SHA-256");

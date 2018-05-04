@@ -4,11 +4,11 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.function.Consumer;
 
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.versioned.Committed;
 
 public class FlowSubscriber<K, V> implements Subscriber<Committed<K, V>> {

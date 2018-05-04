@@ -5,9 +5,9 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.domain.header.HeaderKey;
 import org.ddd4j.infrastructure.domain.header.Headers;
+import org.ddd4j.util.Require;
 
 public interface Recorded<K, V> {
 
