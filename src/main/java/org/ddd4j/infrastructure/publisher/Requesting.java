@@ -2,7 +2,7 @@ package org.ddd4j.infrastructure.publisher;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public class Requesting {
 

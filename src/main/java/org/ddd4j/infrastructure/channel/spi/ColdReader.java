@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Promise.Cancelable;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
@@ -21,8 +20,9 @@ import org.ddd4j.infrastructure.domain.value.CommittedRecords;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
-import org.ddd4j.spi.Key;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.spi.Ref;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Sequence;
 import org.ddd4j.value.config.ConfKey;
 import org.ddd4j.value.versioned.Committed;
 
@@ -43,7 +43,7 @@ public interface ColdReader extends TimeIndexed {
 
 			@Override
 			public ColdReader createColdReader() {
-				return new ColdSourceBased(context.get(Scheduler.KEY), context.get(ColdSource.FACTORY), context.conf(TIMEOUT));
+				return new ColdSourceBased(context.get(Scheduler.REF), context.get(ColdSource.FACTORY), context.conf(TIMEOUT));
 			}
 
 			@Override
@@ -131,7 +131,7 @@ public interface ColdReader extends TimeIndexed {
 		ColdReader createColdReader();
 	}
 
-	Key<Factory> FACTORY = Key.of(Factory.class, ColdSourceBased.Factory::new);
+	Ref<Factory> FACTORY = Ref.of(Factory.class, ColdSourceBased.Factory::new);
 
 	default Promise<CommittedRecords> get(ChannelRevision... revisions) {
 		return get(Sequence.of(revisions));

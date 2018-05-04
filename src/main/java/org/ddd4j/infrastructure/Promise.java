@@ -18,18 +18,19 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
-import org.ddd4j.Throwing.Producer;
-import org.ddd4j.Throwing.TBiConsumer;
-import org.ddd4j.Throwing.TBiFunction;
-import org.ddd4j.Throwing.TBiPredicate;
-import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.Throwing.TFunction;
-import org.ddd4j.Throwing.TPredicate;
-import org.ddd4j.Throwing.Task;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
+import org.ddd4j.util.Throwing.Producer;
+import org.ddd4j.util.Throwing.TBiConsumer;
+import org.ddd4j.util.Throwing.TBiFunction;
+import org.ddd4j.util.Throwing.TBiPredicate;
+import org.ddd4j.util.Throwing.TConsumer;
+import org.ddd4j.util.Throwing.TFunction;
+import org.ddd4j.util.Throwing.TPredicate;
+import org.ddd4j.util.Throwing.Task;
+import org.ddd4j.util.value.Monad;
 
-public interface Promise<T> {
+public interface Promise<T> extends Monad<T> {
 
 	class Base<T, S extends CompletionStage<T>> implements Promise<T> {
 
@@ -325,6 +326,11 @@ public interface Promise<T> {
 
 	default T join() {
 		return toCompletionStage().toCompletableFuture().join();
+	}
+
+	@Override
+	default <U> Promise<U> map(java.util.function.Function<? super T, ? extends U> fn) {
+		return apply((e, s) -> s.thenApplyAsync(fn, e));
 	}
 
 	default <X> Promise<X> on(T value, Function<Promise<T>, Promise<X>> then, Function<Promise<T>, Promise<X>> orElse) {

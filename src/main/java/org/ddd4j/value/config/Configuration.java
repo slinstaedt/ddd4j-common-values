@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Properties;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 import org.ddd4j.util.Type;
 
 public interface Configuration {

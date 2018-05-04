@@ -5,7 +5,7 @@ import java.util.Collection;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.math.Ordered.Comparison;
 
 public class Revisions {

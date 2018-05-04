@@ -1,12 +1,12 @@
 package org.ddd4j.infrastructure.channel.kafka;
 
 import org.apache.kafka.clients.producer.Producer;
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.spi.Writer;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.versioned.Committed.Published;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;

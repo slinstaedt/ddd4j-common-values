@@ -4,9 +4,9 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.Throwing.TFunction;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing.TConsumer;
+import org.ddd4j.util.Throwing.TFunction;
 
 @FunctionalInterface
 public interface Blocked<T> {

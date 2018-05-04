@@ -10,12 +10,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
-import org.ddd4j.Throwing.TFunction;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.Throwing.TFunction;
+import org.ddd4j.util.value.Value;
 import org.ddd4j.value.function.Curry;
 
 public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Type> implements Value<Type<T>>, Serializable {
@@ -172,18 +170,6 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		}
 	}
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		} else if (!(o instanceof Type)) {
-			return false;
-		} else {
-			Type<?> other = (Type<?>) o;
-			return getGenericType().equals(other.getGenericType());
-		}
-	}
-
 	public ClassLoader getClassLoader() {
 		return getRawType().getClassLoader();
 	}
@@ -225,11 +211,6 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 		return toString();
 	}
 
-	@Override
-	public int hashCode() {
-		return getGenericType().hashCode();
-	}
-
 	public boolean isAssignableFrom(java.lang.reflect.Type fromType) {
 		return TypeUtils.isAssignable(fromType, getGenericType());
 	}
@@ -243,8 +224,8 @@ public abstract class Type<T> extends Value.Simple<Type<T>, java.lang.reflect.Ty
 	}
 
 	@Override
-	public WriteBuffer serialize(WriteBuffer buffer) {
-		return buffer.putUTF(getGenericType().getTypeName());
+	public void serialize(WriteBuffer buffer) {
+		buffer.putUTF(getGenericType().getTypeName());
 	}
 
 	@Override

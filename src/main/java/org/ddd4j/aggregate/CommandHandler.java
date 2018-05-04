@@ -17,9 +17,9 @@ import org.ddd4j.infrastructure.publisher.RevisionCallback;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.ServiceConfigurer;
 import org.ddd4j.util.Type;
-import org.ddd4j.value.Named;
-import org.ddd4j.value.Typed;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.Typed;
+import org.ddd4j.util.value.Named;
+import org.ddd4j.util.value.Value;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
 
@@ -35,17 +35,17 @@ public interface CommandHandler<ID extends Value<ID>, C, E> extends Named {
 			ErrorListener error = handler.createErrorListener(context);
 			RevisionCallback callback = handler.createRevisionCallback(context);
 
-			DomainChannelNameFactory nameFactory = context.get(DomainChannelNameFactory.KEY);
+			DomainChannelNameFactory nameFactory = context.get(DomainChannelNameFactory.REF);
 			ChannelSpec<ID, C> commandSpec = handler.commandSpec(nameFactory);
 			ChannelSpec<ID, E> eventSpec = handler.eventSpec(nameFactory);
 			ChannelSpec<ID, ?> errorSpec = handler.errorSpec(nameFactory);
 
 			ChannelRevisions revisions = new ChannelRevisions();
-			Channels channels = context.get(Channels.KEY);
+			Channels channels = context.get(Channels.REF);
 			Committer<ID, Reaction<E>> submitter = channels.createSubmitter(eventSpec, Reaction::serialize);
 			CommitListener<ID, C> commit = (n, c) -> handle.apply(c).thenApply(r -> r.fold( //
 					acc -> submitter.commit(
-							Recorded.uncommitted(c.getKey(), acc.getResult(), Headers.EMPTY, Instant.now(), c.getHeader(EXPECTED).get())),
+							Recorded.uncommitted(c.getKey(), acc.getEvents(), Headers.EMPTY, Instant.now(), c.getHeader(EXPECTED).get())),
 					rej -> null));
 			channels.subscribe(commandSpec, commit, error, callback);
 		}
@@ -58,7 +58,7 @@ public interface CommandHandler<ID extends Value<ID>, C, E> extends Named {
 	}
 
 	default ChannelSpec<ID, C> commandSpec(DomainChannelNameFactory factory) {
-		ChannelName name = factory.create(getName(), DomainChannelNameFactory.COMMAND);
+		ChannelName name = factory.create(name(), DomainChannelNameFactory.COMMAND);
 		return ChannelSpec.of(name, getIdentifierType(), getCommandType());
 	}
 
@@ -71,12 +71,12 @@ public interface CommandHandler<ID extends Value<ID>, C, E> extends Named {
 	RevisionCallback createRevisionCallback(Context context);
 
 	default ChannelSpec<ID, ?> errorSpec(DomainChannelNameFactory factory) {
-		ChannelName name = factory.create(getName(), DomainChannelNameFactory.ERROR);
+		ChannelName name = factory.create(name(), DomainChannelNameFactory.ERROR);
 		return ChannelSpec.of(name, getIdentifierType(), null); // TODO
 	}
 
 	default ChannelSpec<ID, E> eventSpec(DomainChannelNameFactory factory) {
-		ChannelName name = factory.create(getName(), DomainChannelNameFactory.EVENT);
+		ChannelName name = factory.create(name(), DomainChannelNameFactory.EVENT);
 		return ChannelSpec.of(name, getIdentifierType(), getEventType());
 	}
 

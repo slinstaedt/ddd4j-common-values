@@ -6,8 +6,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.function.Consumer;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing.TConsumer;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing.TConsumer;
 
 public interface ReadBuffer extends RelativeBuffer {
 
@@ -86,12 +86,44 @@ public interface ReadBuffer extends RelativeBuffer {
 		return backing().getShort(advancePosition(Short.BYTES));
 	}
 
+	default int getSignedVarInt() {
+		int value = getUnsignedVarInt();
+		return (value >>> 1) ^ -(value & 1);
+	}
+
+	default long getSignedVarLong() {
+		long value = getUnsignedVarLong();
+		return (value >>> 1) ^ -(value & 1);
+	}
+
 	default int getUnsignedByte() {
 		return backing().getUnsignedByte(advancePosition(Byte.BYTES));
 	}
 
 	default int getUnsignedShort() {
 		return backing().getUnsignedShort(advancePosition(Short.BYTES));
+	}
+
+	default int getUnsignedVarInt() {
+		int value = 0;
+		int i = 0;
+		int b;
+		while (((b = get()) & 0x80) != 0) {
+			value |= (b & 0x7F) << i;
+			Require.that((i += 7) <= 35);
+		}
+		return value | (b << i);
+	}
+
+	default long getUnsignedVarLong() {
+		long value = 0L;
+		int i = 0;
+		long b;
+		while (((b = get()) & 0x80L) != 0) {
+			value |= (b & 0x7F) << i;
+			Require.that((i += 7) <= 63);
+		}
+		return value | (b << i);
 	}
 
 	default String getUTF() {

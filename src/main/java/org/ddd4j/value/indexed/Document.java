@@ -2,7 +2,7 @@ package org.ddd4j.value.indexed;
 
 import java.util.Map;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public class Document<T> {
 

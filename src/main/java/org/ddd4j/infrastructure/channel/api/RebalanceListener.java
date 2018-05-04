@@ -2,7 +2,7 @@ package org.ddd4j.infrastructure.channel.api;
 
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.util.value.Sequence;
 
 @FunctionalInterface
 public interface RebalanceListener {

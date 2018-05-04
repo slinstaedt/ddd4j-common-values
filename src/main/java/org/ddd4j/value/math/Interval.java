@@ -2,7 +2,7 @@ package org.ddd4j.value.math;
 
 import java.util.function.BiFunction;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 @FunctionalInterface
 public interface Interval<T extends Ordered<T>> {

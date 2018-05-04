@@ -1,4 +1,4 @@
-package org.ddd4j.util;
+package org.ddd4j.value.config;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -8,13 +8,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import org.ddd4j.Require;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Value;
 import org.ddd4j.value.collection.Seq;
-import org.ddd4j.value.config.Configuration;
 
 public class Props extends Value.Simple<Props, Map<String, ?>> implements Configuration {
 
@@ -42,8 +41,8 @@ public class Props extends Value.Simple<Props, Map<String, ?>> implements Config
 		}
 
 		@Override
-		public WriteBuffer serialize(WriteBuffer buffer) {
-			return buffer.putUTF(key).put(getValue());
+		public void serialize(WriteBuffer buffer) {
+			buffer.putUTF(key).put(getValue());
 		}
 	}
 
@@ -84,10 +83,9 @@ public class Props extends Value.Simple<Props, Map<String, ?>> implements Config
 	}
 
 	@Override
-	public WriteBuffer serialize(WriteBuffer buffer) {
+	public void serialize(WriteBuffer buffer) {
 		buffer.putInt(entries.size());
 		entries.values().forEach(e -> e.serialize(buffer));
-		return buffer;
 	}
 
 	public Seq<Entry> toSeq() {

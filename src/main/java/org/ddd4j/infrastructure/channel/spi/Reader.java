@@ -6,7 +6,7 @@ import java.util.function.Function;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.spi.Key;
+import org.ddd4j.spi.Ref;
 import org.ddd4j.value.versioned.Committed;
 
 public interface Reader<K, V> {
@@ -16,7 +16,7 @@ public interface Reader<K, V> {
 		Reader<ReadBuffer, ReadBuffer> create(ChannelName name);
 	}
 
-	Key<Factory> FACTORY = Key.of(Factory.class);
+	Ref<Factory> FACTORY = Ref.of(Factory.class);
 
 	Promise<Optional<Committed<K, V>>> get(K key);
 

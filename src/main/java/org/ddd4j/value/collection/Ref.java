@@ -10,7 +10,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.Opt;
 
 @FunctionalInterface

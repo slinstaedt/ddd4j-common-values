@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.Promise.Cancelable;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
@@ -26,7 +25,8 @@ import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Sequence;
 
 public class KafkaColdSource implements ColdSource, ScheduledTask {
 

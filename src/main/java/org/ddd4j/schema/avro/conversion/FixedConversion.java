@@ -9,7 +9,7 @@ import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericFixed;
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public class FixedConversion<T> extends Conversion<T> {
 

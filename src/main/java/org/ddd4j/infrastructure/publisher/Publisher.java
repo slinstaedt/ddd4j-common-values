@@ -4,7 +4,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.function.Function;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.versioned.Committed;
 
 public interface Publisher<K, V, C> {

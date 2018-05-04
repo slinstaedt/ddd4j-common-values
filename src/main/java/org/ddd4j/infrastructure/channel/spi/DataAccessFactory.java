@@ -4,10 +4,10 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
 
-import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.domain.header.Headers;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.io.ReadBuffer;
+import org.ddd4j.util.Throwing;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Revision;
 

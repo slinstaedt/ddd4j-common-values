@@ -20,7 +20,6 @@ import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
@@ -36,11 +35,12 @@ import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.Bytes;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
-import org.ddd4j.spi.Key;
+import org.ddd4j.spi.Ref;
 import org.ddd4j.spi.ServiceBinder;
 import org.ddd4j.spi.ServiceConfigurer;
 import org.ddd4j.util.Lazy;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Sequence;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
@@ -51,12 +51,12 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 
 		@Override
 		public void bindServices(ServiceBinder binder) {
-			binder.bind(ColdSource.FACTORY).toDelegate(KafkaChannelFactory.KEY);
-			binder.bind(HotSource.FACTORY).toDelegate(KafkaChannelFactory.KEY);
+			binder.bind(ColdSource.FACTORY).toDelegate(KafkaChannelFactory.REF);
+			binder.bind(HotSource.FACTORY).toDelegate(KafkaChannelFactory.REF);
 		}
 	}
 
-	public static final Key<KafkaChannelFactory> KEY = Key.of(KafkaChannelFactory.class, KafkaChannelFactory::new);
+	public static final Ref<KafkaChannelFactory> REF = Ref.of(KafkaChannelFactory.class, KafkaChannelFactory::new);
 
 	static final ZoneOffset ZONE_OFFSET = ZoneOffset.UTC; // TODO
 
@@ -118,7 +118,7 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 
 	@Override
 	public ColdSource createColdSource(CommitListener<ReadBuffer, ReadBuffer> commit, CompletionListener completion, ErrorListener error) {
-		Scheduler scheduler = context.get(Scheduler.KEY);
+		Scheduler scheduler = context.get(Scheduler.REF);
 		Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
 		// TODO
 		return null;
@@ -126,19 +126,19 @@ public class KafkaChannelFactory implements ColdSource.Factory, HotSource.Factor
 
 	@Override
 	public Committer<ReadBuffer, ReadBuffer> createCommitter(ChannelName name) {
-		return new KafkaCommitter(context.get(Scheduler.KEY), producer.get(), name);
+		return new KafkaCommitter(context.get(Scheduler.REF), producer.get(), name);
 	}
 
 	@Override
 	public HotSource createHotSource(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error, RebalanceListener rebalance) {
-		Scheduler scheduler = context.get(Scheduler.KEY);
+		Scheduler scheduler = context.get(Scheduler.REF);
 		Consumer<byte[], byte[]> consumer = new KafkaConsumer<>(propsFor(null, 200));
 		return new KafkaHotSource(scheduler, consumer, commit, error, rebalance);
 	}
 
 	@Override
 	public Writer<ReadBuffer, ReadBuffer> createWriter(ChannelName name) {
-		return new KafkaWriter(context.get(Scheduler.KEY), producer.get(), name);
+		return new KafkaWriter(context.get(Scheduler.REF), producer.get(), name);
 	}
 
 	@Override

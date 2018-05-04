@@ -4,6 +4,8 @@ import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.function.UnaryOperator;
 
+import org.ddd4j.util.Self;
+
 public interface ValueWrapper<T extends ValueWrapper<T, V>, V> extends Self<T> {
 
 	default T apply(BinaryOperator<V> operator, T other) {

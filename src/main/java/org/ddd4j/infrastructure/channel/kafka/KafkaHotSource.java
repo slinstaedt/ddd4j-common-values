@@ -9,7 +9,6 @@ import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
@@ -22,7 +21,8 @@ import org.ddd4j.infrastructure.scheduler.Agent;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Sequence;
 
 public class KafkaHotSource implements HotSource, ScheduledTask {
 

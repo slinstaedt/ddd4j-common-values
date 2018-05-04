@@ -1,4 +1,4 @@
-package org.ddd4j.value;
+package org.ddd4j.util.value;
 
 public interface Named {
 
@@ -19,7 +19,7 @@ public interface Named {
 		}
 	}
 
-	default String getName() {
+	default String name() {
 		return decapitalize(getClass().getSimpleName());
 	}
 }

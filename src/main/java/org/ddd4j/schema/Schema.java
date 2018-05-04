@@ -1,18 +1,27 @@
 package org.ddd4j.schema;
 
 import java.io.IOException;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
-import org.ddd4j.Throwing;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.spi.Context;
+import org.ddd4j.spi.Context.NamedService;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
 import org.ddd4j.util.Type;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.value.Value;
 
 public interface Schema<T> extends Value<Schema<T>> {
 
 	@FunctionalInterface
 	interface Reader<T> {
+
+		default Supplier<T> asSupplier(ReadBuffer buffer) {
+			Require.nonNull(buffer);
+			return () -> read(buffer);
+		}
 
 		default T read(ReadBuffer buffer) {
 			try {
@@ -28,6 +37,11 @@ public interface Schema<T> extends Value<Schema<T>> {
 	@FunctionalInterface
 	interface Writer<T> {
 
+		default Consumer<T> asConsumer(WriteBuffer buffer) {
+			Require.nonNull(buffer);
+			return value -> write(buffer, value);
+		}
+
 		default void write(WriteBuffer buffer, T value) {
 			try {
 				writeChecked(buffer, value);
@@ -39,8 +53,13 @@ public interface Schema<T> extends Value<Schema<T>> {
 		void writeChecked(WriteBuffer buffer, T value) throws IOException;
 	}
 
+	// TODO remove
 	static Schema<?> deserializeFromFactory(Context context, ReadBuffer buffer) {
-		return context.specific(SchemaFactory.KEY).withOrFail(buffer.getUTF()).readSchema(buffer);
+		return deserializeFromFactory(context.specific(SchemaFactory.REF), buffer);
+	}
+
+	static Schema<?> deserializeFromFactory(NamedService<SchemaFactory> factory, ReadBuffer buffer) {
+		return factory.withOrFail(buffer.getUTF()).readSchema(buffer);
 	}
 
 	boolean compatibleWith(Schema<?> existing);
@@ -57,19 +76,10 @@ public interface Schema<T> extends Value<Schema<T>> {
 
 	int hashCode(Object object);
 
-	default <X> X read(Type<X> readerType, ReadBuffer buffer) {
-		return createReader(readerType).read(buffer);
-	}
-
 	@Override
-	WriteBuffer serialize(WriteBuffer buffer);
+	void serialize(WriteBuffer buffer);
 
 	default void serializeWithFactoryName(WriteBuffer buffer) {
-		buffer.putUTF(getFactoryName());
-		buffer.accept(this::serialize);
-	}
-
-	default void write(WriteBuffer buffer, T value) {
-		createWriter().write(buffer, value);
+		buffer.putUTF(getFactoryName()).accept(this::serialize);
 	}
 }

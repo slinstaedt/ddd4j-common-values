@@ -5,8 +5,8 @@ import java.net.URL;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing.TFunction;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing.TFunction;
 
 public interface ConfKey<V> {
 

@@ -2,8 +2,8 @@ package org.ddd4j.infrastructure.domain.value;
 
 import java.util.regex.Pattern;
 
-import org.ddd4j.Require;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Value;
 
 public class ChannelName extends Value.StringBased<ChannelName> {
 

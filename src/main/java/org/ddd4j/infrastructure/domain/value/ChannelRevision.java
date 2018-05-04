@@ -2,11 +2,11 @@ package org.ddd4j.infrastructure.domain.value;
 
 import java.util.function.BiFunction;
 
-import org.ddd4j.Require;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Value;
 import org.ddd4j.value.versioned.Revision;
 
-public class ChannelRevision extends Value.Comlex<ChannelRevision> {
+public class ChannelRevision extends Value.Complex<ChannelRevision> {
 
 	private final ChannelName name;
 	private final Revision revision;

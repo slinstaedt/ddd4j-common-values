@@ -1,32 +1,25 @@
 package org.ddd4j.aggregate.domain;
 
-import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
-import org.ddd4j.Require;
-import org.ddd4j.infrastructure.channel.SchemaCodec.Decoder.Extender.Wrapper;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.util.Sequence;
-import org.ddd4j.value.Value;
+import org.ddd4j.io.codec.Decoding;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Sequence;
+import org.ddd4j.util.value.Value;
 
 public interface Reaction<E> extends Value<Reaction<E>> {
 
 	class Accepted<E> implements Reaction<E> {
 
-		private static final byte EMPTY = 0;
-		private static final byte SINGLE = 1;
+		private static final byte TYPE = 0;
 
-		private final Sequence<? extends E> events;
+		private final Sequence<E> events;
 
-		@SafeVarargs
-		private Accepted(E... events) {
-			this.events = Sequence.of(Require.nonNulls(events));
-		}
-
-		@Override
-		public Sequence<Reaction<E>> flatten() {
-			return events.isEmpty() ? Sequence.of(this) : events.map(Accepted::new);
+		private Accepted(Sequence<E> events) {
+			this.events = Require.nonNull(events);
 		}
 
 		@Override
@@ -39,21 +32,15 @@ public interface Reaction<E> extends Value<Reaction<E>> {
 		}
 
 		@Override
-		public Optional<E> serialize(WriteBuffer buffer) {
-			if (events.isEmpty()) {
-				buffer.put(EMPTY);
-				return Optional.empty();
-			} else {
-				Require.that(events.size() == 1);
-				buffer.put(SINGLE);
-				return Optional.of(events.iterator().next());
-			}
+		public void serialize(WriteBuffer buffer, Consumer<Sequence<E>> writer) {
+			buffer.put(TYPE);
+			writer.accept(events);
 		}
 	}
 
 	class Rejected<E> extends Value.StringBased<Reaction<E>> implements Reaction<E> {
 
-		private static final byte TYPE = 2;
+		private static final byte TYPE = 1;
 
 		private Rejected(String reason) {
 			super(reason);
@@ -69,25 +56,22 @@ public interface Reaction<E> extends Value<Reaction<E>> {
 		}
 
 		@Override
-		public Optional<E> serialize(WriteBuffer buffer) {
-			buffer.put(TYPE).putUTF(value());
-			return Optional.empty();
+		public void serialize(WriteBuffer buffer, Consumer<Sequence<E>> writer) {
+			buffer.put(TYPE).putUTF(getReason());
 		}
 	}
 
 	@SafeVarargs
 	static <E> Reaction<E> accepted(E... events) {
-		return new Accepted<>(events);
+		return new Accepted<>(Sequence.of(events));
 	}
 
-	static <E> Wrapper<E, Reaction<E>> deserialize(ReadBuffer buffer) {
+	static <E> Decoding<Sequence<E>, Reaction<E>> deserialize(ReadBuffer buffer) {
 		switch (buffer.get()) {
-		case Accepted.SINGLE:
-			return Wrapper.valuePresent(Accepted::new);
-		case Accepted.EMPTY:
-			return Wrapper.valueEmpty(new Accepted<>());
+		case Accepted.TYPE:
+			return Decoding.valueRead(Accepted::new);
 		case Rejected.TYPE:
-			return Wrapper.valueDeserialized(buf -> new Rejected<>(buf.getUTF()));
+			return Decoding.valueDeserialized(buf -> new Rejected<>(buf.getUTF()));
 		default:
 			throw new IllegalArgumentException("Unknown Reaction type");
 		}
@@ -97,15 +81,7 @@ public interface Reaction<E> extends Value<Reaction<E>> {
 		return new Rejected<>(reason);
 	}
 
-	default Sequence<Reaction<E>> flatten() {
-		return Sequence.of(this);
-	}
-
 	<X> X fold(Function<? super Accepted<E>, ? extends X> left, Function<? super Rejected<E>, ? extends X> right);
 
-	@Override
-	default Optional<E> serialize(WriteBuffer buffer) {
-		serialize(buffer);
-		return Optional.empty();
-	}
+	void serialize(WriteBuffer buffer, Consumer<Sequence<E>> writer);
 }

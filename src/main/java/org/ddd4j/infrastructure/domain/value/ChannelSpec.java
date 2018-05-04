@@ -3,11 +3,11 @@ package org.ddd4j.infrastructure.domain.value;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
+import org.ddd4j.util.Require;
 import org.ddd4j.util.Type;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.value.Value;
 
 public class ChannelSpec<K, V> {
 

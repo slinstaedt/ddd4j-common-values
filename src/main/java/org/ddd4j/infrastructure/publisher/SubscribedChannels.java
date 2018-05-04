@@ -5,9 +5,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
-import org.ddd4j.Throwing.Closeable;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
@@ -15,7 +12,10 @@ import org.ddd4j.infrastructure.channel.api.RebalanceListener;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
+import org.ddd4j.util.Throwing.Closeable;
+import org.ddd4j.util.value.Sequence;
 import org.ddd4j.value.versioned.Committed;
 
 public class SubscribedChannels implements CommitListener<ReadBuffer, ReadBuffer>, ErrorListener, RebalanceListener, Closeable {

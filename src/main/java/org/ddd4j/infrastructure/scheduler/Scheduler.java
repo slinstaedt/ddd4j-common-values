@@ -7,14 +7,14 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing.Producer;
-import org.ddd4j.Throwing.Task;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.scheduler.BlockingExecutor.DelayedStage;
 import org.ddd4j.infrastructure.scheduler.ScheduledTask.Rescheduler;
 import org.ddd4j.spi.Context;
-import org.ddd4j.spi.Key;
+import org.ddd4j.spi.Ref;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing.Producer;
+import org.ddd4j.util.Throwing.Task;
 import org.ddd4j.value.Nothing;
 import org.ddd4j.value.config.ConfKey;
 
@@ -58,7 +58,7 @@ public class Scheduler implements AutoCloseable {
 	public static final ConfKey<Integer> BURST_PROCESSING = ConfKey.ofInteger("burst", Integer.MAX_VALUE);
 	public static final ConfKey<Integer> JOB_BUFFER_SIZE = ConfKey.ofInteger("jobBufferSize", 100);
 	public static final ConfKey<Long> MAX_BLOCKING_IN_MILLIS = ConfKey.ofLong("maxBlockingInMillis", 2000L);
-	public static final Key<Scheduler> KEY = Key.of(Scheduler.class, Scheduler::create);
+	public static final Ref<Scheduler> REF = Ref.of(Scheduler.class, Scheduler::create);
 
 	public static Scheduler create(Context context) {
 		Executor executor = context.conf(POOL_TYPE).create(context.conf(POOL_SIZE));

@@ -7,7 +7,7 @@ import javax.sql.ConnectionPoolDataSource;
 import javax.sql.DataSource;
 import javax.sql.XADataSource;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public interface ConnectionFactory {
 

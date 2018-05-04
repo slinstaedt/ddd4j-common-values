@@ -6,8 +6,8 @@ import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Fixed;
+import org.ddd4j.util.Require;
 import org.apache.avro.generic.GenericFixed;
-import org.ddd4j.Require;
 
 public class ByteConversion<T> extends Conversion<T> {
 

@@ -2,7 +2,7 @@ package org.ddd4j.value.versioned;
 
 import java.util.function.Function;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public final class Conflicting<K, V> implements CommitResult<K, V> {
 

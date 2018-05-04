@@ -3,20 +3,20 @@ package org.ddd4j.aggregate;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.ddd4j.aggregate.CommandHandlerConfigurer;
-import org.ddd4j.log.Log;
-import org.ddd4j.spi.TestProvisioning;
-import org.ddd4j.util.Props;
+import org.ddd4j.infrastructure.publisher.ChannelPublisher;
+import org.ddd4j.spi.ContextProvisioning;
+import org.ddd4j.value.config.Props;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 public class AggregateConfigurerTest {
 
-	private TestProvisioning provisioning;
+	private ContextProvisioning.Programmatic provisioning;
 
 	@Before
 	public void init() {
-		provisioning = new TestProvisioning();
+		provisioning = ContextProvisioning.programmatic();
 	}
 
 	@Test

@@ -3,8 +3,6 @@ package org.ddd4j.infrastructure.channel.spi;
 import java.time.Instant;
 import java.util.Map;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.CompletionListener;
@@ -17,9 +15,11 @@ import org.ddd4j.infrastructure.scheduler.ScheduledTask;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.spi.Context;
-import org.ddd4j.spi.Key;
-import org.ddd4j.util.Array;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.spi.Ref;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
+import org.ddd4j.util.collection.Array;
+import org.ddd4j.util.value.Sequence;
 import org.ddd4j.value.versioned.Committed;
 
 public interface ColdSource extends FlowControlled<ChannelPartition>, TimeIndexed, Throwing.Closeable {
@@ -104,7 +104,7 @@ public interface ColdSource extends FlowControlled<ChannelPartition>, TimeIndexe
 			@Override
 			public ColdSource createColdSource(CommitListener<ReadBuffer, ReadBuffer> commit, CompletionListener completion,
 					ErrorListener error) {
-				Scheduler scheduler = context.get(Scheduler.KEY);
+				Scheduler scheduler = context.get(Scheduler.REF);
 				ColdReader reader = context.get(ColdReader.FACTORY).createColdReader();
 				return new ColdReaderBased(scheduler, reader, commit, completion, error);
 			}
@@ -189,7 +189,7 @@ public interface ColdSource extends FlowControlled<ChannelPartition>, TimeIndexe
 		ColdSource createColdSource(CommitListener<ReadBuffer, ReadBuffer> commit, CompletionListener completion, ErrorListener error);
 	}
 
-	Key<Factory> FACTORY = Key.of(Factory.class, ColdReaderBased.Factory::new);
+	Ref<Factory> FACTORY = Ref.of(Factory.class, ColdReaderBased.Factory::new);
 
 	Promise<?> start(Sequence<ChannelRevision> revisions);
 

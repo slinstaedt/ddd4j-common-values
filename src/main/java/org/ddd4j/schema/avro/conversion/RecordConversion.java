@@ -12,7 +12,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.generic.IndexedRecord;
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public interface RecordConversion<T, P> {
 

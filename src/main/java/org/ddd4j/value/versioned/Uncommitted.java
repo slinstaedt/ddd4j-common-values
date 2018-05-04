@@ -5,11 +5,11 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
-import org.ddd4j.Require;
 import org.ddd4j.infrastructure.domain.header.Headers;
 import org.ddd4j.infrastructure.domain.header.HeaderKey;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
+import org.ddd4j.util.Require;
 
 //TODO rename to Attempt?
 public class Uncommitted<K, V> implements Recorded<K, V> {

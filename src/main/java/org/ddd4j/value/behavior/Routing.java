@@ -4,8 +4,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
 import org.ddd4j.value.collection.Seq;
 
 @FunctionalInterface

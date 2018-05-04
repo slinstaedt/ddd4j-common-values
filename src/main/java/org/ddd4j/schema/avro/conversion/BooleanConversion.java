@@ -5,7 +5,7 @@ import java.util.function.Function;
 import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public class BooleanConversion<T> extends Conversion<T> {
 

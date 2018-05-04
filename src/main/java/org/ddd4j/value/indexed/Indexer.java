@@ -7,7 +7,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.collection.Seq;
 
 public class Indexer<D> {

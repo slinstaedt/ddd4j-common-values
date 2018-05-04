@@ -2,21 +2,20 @@ package org.ddd4j.spi;
 
 import java.util.function.Predicate;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing;
-import org.ddd4j.Throwing.TConsumer;
-import org.ddd4j.value.Named;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing;
+import org.ddd4j.util.Throwing.TConsumer;
+import org.ddd4j.util.value.Named;
+import org.ddd4j.util.value.Value;
 
-//TODO rename to Ref?
-public class Key<T> implements ServiceFactory<T>, Named {
+public class Ref<T> implements ServiceFactory<T>, Named {
 
 	// TODO needed?
-	private static class Child<T> extends Key<T> implements Value<Child<T>> {
+	private static class Child<T> extends Ref<T> implements Value<Child<T>> {
 
-		private final Key<T> parent;
+		private final Ref<T> parent;
 
-		Child(Key<T> parent, String childName) {
+		Child(Ref<T> parent, String childName) {
 			super(parent.name + "." + Require.nonEmpty(childName), parent.creator, parent.destructor, Context.class::isInstance);
 			this.parent = Require.nonNull(parent);
 		}
@@ -33,32 +32,32 @@ public class Key<T> implements ServiceFactory<T>, Named {
 				return false;
 			}
 			Child<?> other = (Child<?>) obj;
-			return this.parent.equals(other.parent) && this.getName().equals(other.getName());
+			return this.parent.equals(other.parent) && this.name().equals(other.name());
 		}
 
 		@Override
 		public int hashCode() {
-			return parent.hashCode() ^ getName().hashCode();
+			return parent.hashCode() ^ name().hashCode();
 		}
 	}
 
-	public static <T> Key<T> of(Class<? extends T> serviceType) {
+	public static <T> Ref<T> of(Class<? extends T> serviceType) {
 		return of(Named.decapitalize(serviceType));
 	}
 
-	public static <T> Key<T> of(Class<? extends T> serviceType, ServiceFactory<? extends T> creator) {
+	public static <T> Ref<T> of(Class<? extends T> serviceType, ServiceFactory<? extends T> creator) {
 		return of(Named.decapitalize(serviceType), creator);
 	}
 
-	public static <T> Key<T> of(String name) {
-		return of(name, ctx -> Throwing.of(AssertionError::new).throwChecked("No factory is bound for key: " + name));
+	public static <T> Ref<T> of(String name) {
+		return of(name, ctx -> Throwing.of(AssertionError::new).throwChecked("No factory is bound for ref: " + name));
 	}
 
-	public static <T> Key<T> of(String name, ServiceFactory<? extends T> creator) {
-		return new Key<>(name, creator, Object::getClass, Object.class::isInstance);
+	public static <T> Ref<T> of(String name, ServiceFactory<? extends T> creator) {
+		return new Ref<>(name, creator, Object::getClass, Object.class::isInstance);
 	}
 
-	public static <T> Key<T> reflective(Class<T> serviceType) {
+	public static <T> Ref<T> reflective(Class<T> serviceType) {
 		return of(serviceType, ctx -> new ReflectiveServiceFactory<>(serviceType, ctx.configuration()).create());
 	}
 
@@ -67,14 +66,14 @@ public class Key<T> implements ServiceFactory<T>, Named {
 	private final TConsumer<? super T> destructor;
 	private final Predicate<Context> precondition;
 
-	private Key(String name, ServiceFactory<? extends T> creator, TConsumer<? super T> destructor, Predicate<Context> precondition) {
+	private Ref(String name, ServiceFactory<? extends T> creator, TConsumer<? super T> destructor, Predicate<Context> precondition) {
 		this.name = Require.nonEmpty(name);
 		this.creator = Require.nonNull(creator);
 		this.destructor = Require.nonNull(destructor);
 		this.precondition = Require.nonNull(precondition);
 	}
 
-	public Key<T> child(String childName) {
+	public Ref<T> child(String childName) {
 		return new Child<>(this, childName);
 	}
 
@@ -90,7 +89,7 @@ public class Key<T> implements ServiceFactory<T>, Named {
 	}
 
 	@Override
-	public String getName() {
+	public String name() {
 		return name;
 	}
 
@@ -99,12 +98,12 @@ public class Key<T> implements ServiceFactory<T>, Named {
 		return name;
 	}
 
-	public Key<T> withChecked(Predicate<Context> check) {
-		return new Key<>(name, creator, destructor, precondition.and(check));
+	public Ref<T> withChecked(Predicate<Context> check) {
+		return new Ref<>(name, creator, destructor, precondition.and(check));
 	}
 
 	@Override
-	public Key<T> withDestructor(TConsumer<? super T> destructor) {
-		return new Key<>(name, creator, destructor, precondition);
+	public Ref<T> withDestructor(TConsumer<? super T> destructor) {
+		return new Ref<>(name, creator, destructor, precondition);
 	}
 }

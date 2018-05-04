@@ -25,9 +25,9 @@ import java.util.function.LongFunction;
 import java.util.function.ObjLongConsumer;
 import java.util.stream.Collectors;
 
-import org.ddd4j.Require;
-import org.ddd4j.Throwing.Producer;
-import org.ddd4j.Throwing.Task;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.Throwing.Producer;
+import org.ddd4j.util.Throwing.Task;
 import org.ddd4j.value.Nothing;
 
 public interface BlockingExecutor extends Executor, AutoCloseable {

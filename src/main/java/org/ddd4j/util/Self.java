@@ -1,4 +1,4 @@
-package org.ddd4j.value;
+package org.ddd4j.util;
 
 /**
  * Marker interface for self types.

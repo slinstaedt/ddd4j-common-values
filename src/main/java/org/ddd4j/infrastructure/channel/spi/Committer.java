@@ -7,7 +7,7 @@ import java.util.function.Function;
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.spi.Key;
+import org.ddd4j.spi.Ref;
 import org.ddd4j.value.versioned.CommitResult;
 import org.ddd4j.value.versioned.Uncommitted;
 
@@ -22,7 +22,7 @@ public interface Committer<K, V> {
 		}
 	}
 
-	Key<Factory> FACTORY = Key.of(Factory.class);
+	Ref<Factory> FACTORY = Ref.of(Factory.class);
 
 	Promise<? extends CommitResult<K, V>> commit(Uncommitted<K, V> attempt);
 

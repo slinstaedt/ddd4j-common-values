@@ -1,4 +1,4 @@
-package org.ddd4j.util;
+package org.ddd4j.util.collection;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -6,9 +6,20 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import org.ddd4j.util.value.Sequence;
+
 public class Array<E> implements Iterable<E>, Sequence<E> {
+
+	public static <E> Array<E> ofSupplied(Supplier<? extends E> supplier, int size) {
+		Array<E> result = new Array<>(size);
+		while (size-- > 0) {
+			result.add(supplier.get());
+		}
+		return result;
+	}
 
 	private final ArrayList<E> elements;
 
@@ -62,6 +73,7 @@ public class Array<E> implements Iterable<E>, Sequence<E> {
 		}
 	}
 
+	@Override
 	public E get(int index) {
 		return elements.get(index);
 	}

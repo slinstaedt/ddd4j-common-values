@@ -27,7 +27,7 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.Opt;
 import org.ddd4j.value.collection.Ref.RefTpl;
 import org.ddd4j.value.collection.Seq.Mapper.Mapping;
@@ -615,7 +615,7 @@ public interface Seq<E> extends Iter.Able<E> {
 		void accept(E entry) throws T;
 	}
 
-	class Value<E> extends org.ddd4j.value.Value.Simple<Value<E>, List<E>> implements Seq<E> {
+	class Value<E> extends org.ddd4j.util.value.Value.Simple<Value<E>, List<E>> implements Seq<E> {
 
 		private final Supplier<Stream<E>> value;
 

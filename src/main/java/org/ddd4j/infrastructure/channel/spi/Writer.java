@@ -9,7 +9,7 @@ import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.domain.header.Headers;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.spi.Key;
+import org.ddd4j.spi.Ref;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Committed.Published;
 import org.ddd4j.value.versioned.Recorded;
@@ -26,7 +26,7 @@ public interface Writer<K, V> {
 		}
 	}
 
-	Key<Factory> FACTORY = Key.of(Factory.class);
+	Ref<Factory> FACTORY = Ref.of(Factory.class);
 
 	default <X, Y> Writer<X, Y> flatMapValue(Function<? super X, K> key,
 			BiFunction<? super Y, Promise<Committed<K, V>>, Promise<V>> value) {

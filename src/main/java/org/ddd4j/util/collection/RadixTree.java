@@ -1,4 +1,4 @@
-package org.ddd4j.util;
+package org.ddd4j.util.collection;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 import org.ddd4j.value.config.Configuration;
 
 public class RadixTree<T> implements Configuration {

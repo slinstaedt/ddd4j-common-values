@@ -39,7 +39,7 @@ public interface ContextProvisioning {
 		}
 	}
 
-	Key<ContextProvisioning> KEY = Key.of(ContextProvisioning.class);
+	Ref<ContextProvisioning> REF = Ref.of(ContextProvisioning.class);
 
 	static ContextProvisioning byJavaServiceLoader() {
 		return new JavaServiceLoader();
@@ -52,7 +52,7 @@ public interface ContextProvisioning {
 	default Context createContext(Configuration configuration) {
 		ClassLoader loader = Thread.currentThread().getContextClassLoader();
 		Registry registry = Registry.create(configuration);
-		registry.bind(KEY).toInstance(this);
+		registry.bind(REF).toInstance(this);
 		loadRegistered(ServiceConfigurer.class, loader).forEach(registry::accept);
 		registry.start();
 		return registry;

@@ -3,10 +3,10 @@ package org.ddd4j.infrastructure.domain.header;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import org.ddd4j.Require;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.util.Array;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.collection.Array;
 
 public class HeaderKey<T> {
 

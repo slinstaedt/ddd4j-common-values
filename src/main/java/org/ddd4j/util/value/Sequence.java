@@ -1,4 +1,4 @@
-package org.ddd4j.util;
+package org.ddd4j.util.value;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,7 +15,7 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 
 public interface Sequence<E> extends Iterable<E> {
 
@@ -57,6 +57,10 @@ public interface Sequence<E> extends Iterable<E> {
 		return () -> stream().flatMap(mapper);
 	}
 
+	default E get(int index) {
+		return stream().skip(index).findFirst().orElseThrow(() -> new IndexOutOfBoundsException(index));
+	}
+
 	default <K, V> Map<K, Sequence<V>> groupBy(Function<? super E, ? extends K> key, Function<? super E, ? extends V> value) {
 		Collector<? super E, ?, List<V>> c1 = Collectors.mapping(value, Collectors.<V>toList());
 		Collector<? super E, ?, Sequence<V>> c2 = Collectors.collectingAndThen(c1, l -> of(l::stream));
@@ -69,6 +73,20 @@ public interface Sequence<E> extends Iterable<E> {
 
 	default Optional<E> head() {
 		return stream().findFirst();
+	}
+
+	default Sequence<E> ifEmpty(Runnable whenEmpty) {
+		if (isEmpty()) {
+			whenEmpty.run();
+		}
+		return this;
+	}
+
+	default Sequence<E> ifNotEmpty(Runnable whenNotEmpty) {
+		if (isNotEmpty()) {
+			whenNotEmpty.run();
+		}
+		return this;
 	}
 
 	default boolean isEmpty() {

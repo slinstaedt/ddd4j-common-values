@@ -1,7 +1,7 @@
 package org.ddd4j.value.behavior;
 
 import org.ddd4j.aggregate.Aggregates;
-import org.ddd4j.value.Named;
+import org.ddd4j.util.value.Named;
 
 public interface AggregateType<ID extends Identifier, T, C, E> extends Named {
 

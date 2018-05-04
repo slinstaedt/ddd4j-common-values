@@ -22,11 +22,11 @@ import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.reflect.ReflectData;
 import org.apache.avro.reflect.ReflectDatumWriter;
 import org.apache.avro.reflect.Union;
-import org.ddd4j.Throwing;
 import org.ddd4j.schema.avro.TestValue.X1;
 import org.ddd4j.schema.avro.TestValue.X2;
 import org.ddd4j.schema.avro.TestValue.X3;
 import org.ddd4j.schema.avro.conversion.UUIDConversions;
+import org.ddd4j.util.Throwing;
 
 public class TestUnionEvolution {
 

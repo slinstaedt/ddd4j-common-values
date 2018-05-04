@@ -16,7 +16,7 @@ import org.ddd4j.infrastructure.domain.value.ChannelName;
 import org.ddd4j.infrastructure.domain.value.ChannelPartition;
 import org.ddd4j.infrastructure.domain.value.ChannelRevision;
 import org.ddd4j.io.ReadBuffer;
-import org.ddd4j.util.Sequence;
+import org.ddd4j.util.value.Sequence;
 import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Position;
 import org.ddd4j.value.versioned.Revision;

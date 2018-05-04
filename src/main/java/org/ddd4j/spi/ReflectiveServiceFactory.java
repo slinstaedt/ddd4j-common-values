@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import org.ddd4j.Require;
+import org.ddd4j.util.Require;
 import org.ddd4j.util.Type;
 import org.ddd4j.value.config.Configuration;
 

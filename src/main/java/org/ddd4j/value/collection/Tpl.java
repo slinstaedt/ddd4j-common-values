@@ -16,8 +16,8 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.ddd4j.Require;
-import org.ddd4j.value.Value;
+import org.ddd4j.util.Require;
+import org.ddd4j.util.value.Value;
 
 @FunctionalInterface
 public interface Tpl<L, R> {
