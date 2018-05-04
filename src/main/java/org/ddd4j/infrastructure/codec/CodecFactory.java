@@ -37,7 +37,7 @@ public class CodecFactory {
 		Require.nonNulls(name, readerType, decoding);
 		return (buf, rev) -> {
 			Lazy<Monad<Supplier<T>>> schemaReader = Lazy.of(() -> context.specific(SchemaCodec.REF) //
-					.withOrFail(buf.getUTF())
+					.withOrFail(buf.getUTF()) // TODO use smaller storage footprint than String
 					.decode(buf, rev, name)
 					.thenApply(s -> s.createReader(readerType).asSupplier(buf)));
 			return decoding.decode(buf, Promise::completed, schemaReader).casted();
@@ -54,7 +54,7 @@ public class CodecFactory {
 		Schema<T> schema = context.get(SchemaFactory.REF).createSchema(writerType);
 		Writer<T> writer = schema.createWriter();
 		return (buf, rev, val) -> {
-			Lazy<Promise<?>> schemaWriter = Lazy.of(() -> codec.encode(buf, rev, name, schema));
+			Lazy<Promise<?>> schemaWriter = Lazy.of(() -> codec.encode(buf.putUTF(codec.name()), rev, name, schema));
 			encoding.encode(val, buf, schemaWriter.<T>asConsumer().andThen(writer.asConsumer(buf)));
 			return schemaWriter.ifPresent(p -> p.thenReturnValue(buf), () -> Promise.completed(buf));
 		};
