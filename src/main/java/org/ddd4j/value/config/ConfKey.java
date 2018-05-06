@@ -4,11 +4,9 @@ import java.net.URI;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.stream.Stream;
 
 import org.ddd4j.util.Require;
 import org.ddd4j.util.Throwing.TFunction;
-import org.ddd4j.util.value.Sequence;
 
 public interface ConfKey<V> {
 
@@ -62,11 +60,11 @@ public interface ConfKey<V> {
 		return c -> c.getString(key).orElse(defaultValue);
 	}
 
-	static <V> ConfKey<Sequence<String>> ofStrings(String key, String... defaultValues) {
+	static <V> ConfKey<String[]> ofStrings(String key, String... defaultValues) {
 		return c -> {
 			String delimiter = c.getString("delimiter").orElse(VALUE_DELIMITER);
-			String[] values = c.getString(key).orElse("").split(delimiter);
-			return Sequence.ofCopied(Stream.of(values).map(String::trim));
+			String[] values = c.getString(key).map(s -> s.split(delimiter)).orElse(defaultValues);
+			return values;
 		};
 	}
 

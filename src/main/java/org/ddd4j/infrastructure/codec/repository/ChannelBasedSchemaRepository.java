@@ -13,6 +13,7 @@ import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
+import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.spi.Context;
 import org.ddd4j.util.Throwing;
 import org.ddd4j.util.collection.Cache;
@@ -34,11 +35,12 @@ class ChannelBasedSchemaRepository implements SchemaRepository {
 
 	ChannelBasedSchemaRepository(Context context) {
 		ChannelName repoName = context.conf(REPO_NAME);
+		String schemaFactoryName = context.specific(SchemaFactory.REF, SchemaFactory.KEY).service().name();
 		Function<Consumer<WriteBuffer>, ReadBuffer> bufferPool = context.get(Pool.BUFFERS).use(WriteBuffer::flip);
 		Reader<Fingerprint, Schema<?>> reader = context.get(Reader.FACTORY).create(repoName).map(Fingerprint::asBuffer,
-				b -> Schema.deserializeFromFactory(context, b));
+				b -> context.specific(SchemaFactory.REF).with(b.getUTF()).readSchema(b));
 		Writer<Fingerprint, Schema<?>> writer = context.get(Writer.FACTORY).createWriterClosingBuffers(repoName).map(Fingerprint::asBuffer,
-				s -> bufferPool.apply(s::serializeWithFactoryName));
+				s -> bufferPool.apply(b -> b.putUTF(schemaFactoryName).accept(s::serialize)));
 		Cache.Aside<Fingerprint, Promise<Schema<?>>> cache = Cache.<Fingerprint, Promise<Schema<?>>>sharedOnEqualKey(
 				a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(context.conf(Cache.MAX_CAPACITY)));
 		this.cache = cache.writeThrough(

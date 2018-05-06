@@ -6,8 +6,6 @@ import java.util.function.Supplier;
 
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
-import org.ddd4j.spi.Context;
-import org.ddd4j.spi.Context.NamedService;
 import org.ddd4j.util.Require;
 import org.ddd4j.util.Throwing;
 import org.ddd4j.util.Type;
@@ -53,15 +51,6 @@ public interface Schema<T> extends Value<Schema<T>> {
 		void writeChecked(WriteBuffer buffer, T value) throws IOException;
 	}
 
-	// TODO remove
-	static Schema<?> deserializeFromFactory(Context context, ReadBuffer buffer) {
-		return deserializeFromFactory(context.specific(SchemaFactory.REF), buffer);
-	}
-
-	static Schema<?> deserializeFromFactory(NamedService<SchemaFactory> factory, ReadBuffer buffer) {
-		return factory.withOrFail(buffer.getUTF()).readSchema(buffer);
-	}
-
 	boolean compatibleWith(Schema<?> existing);
 
 	<X> Reader<X> createReader(Type<X> readerType);
@@ -70,16 +59,10 @@ public interface Schema<T> extends Value<Schema<T>> {
 
 	boolean equal(Object o1, Object o2);
 
-	String getFactoryName();
-
 	Fingerprint getFingerprint();
 
 	int hashCode(Object object);
 
 	@Override
 	void serialize(WriteBuffer buffer);
-
-	default void serializeWithFactoryName(WriteBuffer buffer) {
-		buffer.putUTF(getFactoryName()).accept(this::serialize);
-	}
 }

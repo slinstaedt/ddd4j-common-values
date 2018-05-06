@@ -63,11 +63,6 @@ public class AvroSchema<T> extends Value.Simple<Schema<T>, org.apache.avro.Schem
 	}
 
 	@Override
-	public String getFactoryName() {
-		return factory.name();
-	}
-
-	@Override
 	public Fingerprint getFingerprint() {
 		return factory.getFingerprintAlgorithm().parsingFingerprint(writerSchema);
 	}

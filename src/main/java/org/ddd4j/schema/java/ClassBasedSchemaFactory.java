@@ -47,11 +47,6 @@ public class ClassBasedSchemaFactory implements SchemaFactory {
 		}
 
 		@Override
-		public String getFactoryName() {
-			return name();
-		}
-
-		@Override
 		public Fingerprint getFingerprint() {
 			return new Fingerprint(baseType.getName().getBytes());
 		}

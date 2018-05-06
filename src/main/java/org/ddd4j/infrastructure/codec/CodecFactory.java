@@ -16,12 +16,11 @@ import org.ddd4j.util.Lazy;
 import org.ddd4j.util.Require;
 import org.ddd4j.util.Type;
 import org.ddd4j.util.value.Monad;
-import org.ddd4j.util.value.Sequence;
 import org.ddd4j.value.config.ConfKey;
 
 public class CodecFactory {
 
-	private static final ConfKey<Sequence<String>> SCHEMA_CODECS = ConfKey.ofStrings("schemaCodec", CompressedSchemaCodec.NAME);
+	private static final ConfKey<String[]> SCHEMA_CODECS = ConfKey.ofStrings("schemaCodecs", CompressedSchemaCodec.NAME);
 	public static final Ref<CodecFactory> REF = Ref.of(CodecFactory.class,
 			ctx -> new CodecFactory(ctx.get(SchemaFactory.REF), ctx.specific(SchemaCodec.REF, SCHEMA_CODECS)));
 

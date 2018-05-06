@@ -1,6 +1,5 @@
 package org.ddd4j.spi;
 
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -12,33 +11,42 @@ import org.ddd4j.value.config.Configuration;
 
 public interface Context {
 
-	class IndexedService<T extends Named> {
+	interface IndexedService<T extends Named> {
 
-		private final Sequence<T> services;
+		Sequence<T> all();
 
-		public IndexedService(Sequence<T> services) {
-			this.services = Require.nonEmpty(services);
+		default T get(int index) {
+			return all().get(index);
 		}
 
-		public T get(int index) {
-			return services.get(index);
+		default int index() {
+			return all().size() - 1;
 		}
 
-		public int index() {
-			return services.size() - 1;
-		}
-
-		public T service() {
+		default T service() {
 			return get(index());
 		}
 	}
 
 	interface NamedService<T extends Named> {
 
-		Optional<T> with(String name);
+		default T with(String name) {
+			return withOptional(name).orElseThrow(() -> new IllegalArgumentException("Service with name not registerd: " + name));
+		}
 
-		default T withOrFail(String name) {
-			return with(name).orElseThrow(() -> new IllegalArgumentException("Service with name not registerd: " + name));
+		Optional<T> withOptional(String name);
+	}
+
+	interface Services<T extends Named> {
+
+		int index();
+
+		T indexed(int index);
+
+		T named(String name);
+
+		default T service() {
+			return indexed(index());
 		}
 	}
 
@@ -63,12 +71,13 @@ public interface Context {
 		return name -> specific(ref, name);
 	}
 
-	default <T extends Named> IndexedService<T> specific(Ref<T> ref, ConfKey<Sequence<String>> key) {
-		Sequence<T> services = conf(key).ifEmpty(() -> {
+	default <T extends Named> IndexedService<T> specific(Ref<T> ref, ConfKey<String[]> key) {
+		String[] serviceNames = conf(key);
+		if (serviceNames.length > 0) {
 			throw new IllegalArgumentException("No service names given configured for ref: " + ref);
-		}).map(name -> specific(ref, name)
-				.orElseThrow(() -> new NoSuchElementException("No service with name '" + name + "' registered for ref: " + ref)));
-		return new IndexedService<>(services.copy());
+		}
+		Sequence<T> services = Sequence.of(serviceNames).map(name -> specific(ref).with(name.trim())).copy();
+		return () -> services;
 	}
 
 	<T extends Named> Optional<T> specific(Ref<T> ref, String name);

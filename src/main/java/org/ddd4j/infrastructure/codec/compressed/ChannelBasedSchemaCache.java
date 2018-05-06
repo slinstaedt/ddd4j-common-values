@@ -12,19 +12,19 @@ import org.ddd4j.schema.Fingerprint;
 import org.ddd4j.schema.Schema;
 import org.ddd4j.schema.SchemaFactory;
 import org.ddd4j.spi.Context;
-import org.ddd4j.spi.Context.NamedService;
+import org.ddd4j.spi.Context.IndexedService;
 import org.ddd4j.util.collection.Cache;
 import org.ddd4j.value.versioned.Revision;
 
 class ChannelBasedSchemaCache implements SchemaCache {
 
-	private final NamedService<SchemaFactory> factory;
+	private final IndexedService<SchemaFactory> factory;
 	private final ConcurrentMap<Fingerprint, Revision> locations;
 	private final Cache.Aside<ChannelRevision, Promise<Schema<?>>> cache;
 	private final ColdReader reader;
 
 	ChannelBasedSchemaCache(Context context) {
-		this.factory = context.specific(SchemaFactory.REF);
+		this.factory = context.specific(SchemaFactory.REF, SchemaFactory.KEY);
 		this.locations = new ConcurrentHashMap<>();
 		this.cache = Cache.sharedOnEqualKey(
 				a -> a.evict(Cache.EvictStrategy.LAST_ACQUIRED).withMaximumCapacity(context.conf(Cache.MAX_CAPACITY)).on().evicted(
@@ -36,7 +36,7 @@ class ChannelBasedSchemaCache implements SchemaCache {
 	public Promise<Schema<?>> get(ChannelName name, Revision revision) {
 		return cache.acquire(new ChannelRevision(name, revision),
 				rev -> reader.getCommittedValue(rev).whenCompleteExceptionally(ex -> cache.evictAll(rev)).thenApply(
-						buf -> Schema.deserializeFromFactory(factory, buf)));
+						buf -> factory.get(buf.getUnsignedVarInt()).readSchema(buf)));
 	}
 
 	@Override
