@@ -176,7 +176,7 @@ public interface Registry extends Context, ServiceBinder, AutoCloseable {
 		@SuppressWarnings("unchecked")
 		public <T extends Named> Optional<T> specific(Ref<T> ref, String name) {
 			Context child = child(ref);
-			T service = (T) named.acquire(ref, k -> boundFactories(ref).stream().map(f -> f.createUnchecked(child)).collect(
+			T service = (T) named.acquire(ref, r -> boundFactories(ref).stream().map(f -> f.createUnchecked(child)).collect(
 					Collectors.toMap(Named::name, Function.identity()))).get(name);
 			return Optional.ofNullable(service);
 		}

@@ -21,18 +21,18 @@ public interface SnapshotReader<K, S, C> extends Reader<K, Projectable<S, C>> {
 		private ColdReader state;
 		private ColdReader changes;
 
+		private Promise<Sequence<Committed<ReadBuffer, ReadBuffer>>> fetchChanges(ReadBuffer key, Revision revision) {
+			return changes.get(new ChannelRevision(name, revision)).thenApply(cr -> cr.commits(name, key));
+		}
+
 		@Override
 		public Promise<Committed<ReadBuffer, Projectable<ReadBuffer, ReadBuffer>>> get(ReadBuffer key, Revision revision) {
 			// TODO Auto-generated method stub
 			Promise<CommittedRecords> promise = state.get(new ChannelRevision(name, revision));
-			promise.thenApply(cr -> cr.commits(name, key).last()).thenCompose(o -> fetchChanges(key, revision, o));
+			Promise<Sequence<Committed<ReadBuffer, ReadBuffer>>> thenCompose = promise
+					.thenApply(cr -> cr.commits(name, key).lastOptional().map(Committed::getActual).orElse(revision))
+					.thenCompose(rev -> fetchChanges(key, rev));
 			return null;
-		}
-
-		private Promise<Sequence<Committed<ReadBuffer, ReadBuffer>>> fetchChanges(ReadBuffer key, Revision revision,
-				Optional<Committed<ReadBuffer, ReadBuffer>> lastState) {
-			Revision rev = lastState.map(Committed::getActual).orElse(revision);
-			return changes.get(new ChannelRevision(name, rev)).thenApply(cr -> cr.commits(name, key));
 		}
 	}
 
@@ -54,11 +54,11 @@ public interface SnapshotReader<K, S, C> extends Reader<K, Projectable<S, C>> {
 		}
 	}
 
-	Promise<Committed<K, Projectable<S, C>>> get(K key, Revision revision);
-
 	@Override
 	default Promise<Optional<Committed<K, Projectable<S, C>>>> get(K key) {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+	Promise<Committed<K, Projectable<S, C>>> get(K key, Revision revision);
 }

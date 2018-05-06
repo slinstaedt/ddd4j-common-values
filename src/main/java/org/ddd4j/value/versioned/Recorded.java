@@ -44,4 +44,8 @@ public interface Recorded<K, V> {
 	}
 
 	int partition(ToIntFunction<? super K> partitioner);
+
+	default <X, Y> Recorded<X, Y> withKeyValue(X key, Y value) {
+		return map(k -> key, v -> value);
+	}
 }

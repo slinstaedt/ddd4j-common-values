@@ -12,5 +12,9 @@ public interface CommitResult<K, V> {
 
 	<X> X onCommitted(Function<Committed<K, V>, ? extends X> committed, X ignore);
 
-	<X, Y> CommitResult<X, Y> withKeyValueFrom(Recorded<X, Y> recorded);
+	<X, Y> CommitResult<X, Y> withKeyValue(X key, Y value);
+
+	default <X, Y> CommitResult<X, Y> withKeyValueFrom(Recorded<X, Y> recorded) {
+		return withKeyValue(recorded.getKey(), recorded.getValue());
+	}
 }

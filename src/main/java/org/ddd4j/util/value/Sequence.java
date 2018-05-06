@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.ddd4j.util.Require;
+import org.ddd4j.util.collection.Array;
 
 public interface Sequence<E> extends Iterable<E> {
 
@@ -37,8 +39,8 @@ public interface Sequence<E> extends Iterable<E> {
 		return new ArrayList<>(collection)::stream;
 	}
 
-	static <E> Sequence<E> ofCopied(Supplier<Stream<E>> source) {
-		return source.get().collect(Collectors.toList())::stream;
+	static <E> Sequence<E> ofCopied(Stream<E> stream) {
+		return stream.collect(Collectors.toList())::stream;
 	}
 
 	default boolean contains(Object candidate) {
@@ -46,7 +48,7 @@ public interface Sequence<E> extends Iterable<E> {
 	}
 
 	default Sequence<E> copy() {
-		return toList()::stream;
+		return new Array<E>(size()).addAll(iterator());
 	}
 
 	default Sequence<E> filter(Predicate<? super E> predicate) {
@@ -58,7 +60,11 @@ public interface Sequence<E> extends Iterable<E> {
 	}
 
 	default E get(int index) {
-		return stream().skip(index).findFirst().orElseThrow(() -> new IndexOutOfBoundsException(index));
+		return getOptional(index).orElseThrow(() -> new IndexOutOfBoundsException(index));
+	}
+
+	default Optional<E> getOptional(int index) {
+		return stream().skip(index).findFirst();
 	}
 
 	default <K, V> Map<K, Sequence<V>> groupBy(Function<? super E, ? extends K> key, Function<? super E, ? extends V> value) {
@@ -71,7 +77,11 @@ public interface Sequence<E> extends Iterable<E> {
 		return groupBy(key, Function.identity());
 	}
 
-	default Optional<E> head() {
+	default E head() {
+		return headOptional().orElseThrow(NoSuchElementException::new);
+	}
+
+	default Optional<E> headOptional() {
 		return stream().findFirst();
 	}
 
@@ -102,7 +112,11 @@ public interface Sequence<E> extends Iterable<E> {
 		return stream().iterator();
 	}
 
-	default Optional<E> last() {
+	default E last() {
+		return lastOptional().orElseThrow(NoSuchElementException::new);
+	}
+
+	default Optional<E> lastOptional() {
 		return stream().reduce((e1, e2) -> e2);
 	}
 

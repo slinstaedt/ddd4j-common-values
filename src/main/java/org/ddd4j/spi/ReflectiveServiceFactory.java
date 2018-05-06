@@ -28,7 +28,18 @@ public class ReflectiveServiceFactory<T> {
 		this.conf = Require.nonNull(configuration);
 	}
 
-	protected Optional<?> configration(Class<?> type, String key) {
+	protected Object[] configration(Parameter[] parameters) {
+		Object[] values = new Object[parameters.length];
+		for (int i = 0; i < values.length; i++) {
+			values[i] = configuration(parameters[i].getType(), PARAM_VALUE_KEY + i).orElse(null);
+			if (values[i] == null) {
+				values[i] = configuration(parameters[i].getType(), parameters[i].getName()).orElse(null);
+			}
+		}
+		return values;
+	}
+
+	protected Optional<?> configuration(Class<?> type, String key) {
 		if (type == String.class) {
 			return conf.getString(key);
 		} else if (type == boolean.class || type == Boolean.class) {
@@ -42,17 +53,6 @@ public class ReflectiveServiceFactory<T> {
 		} else {
 			return Optional.empty();
 		}
-	}
-
-	protected Object[] configration(Parameter[] parameters) {
-		Object[] values = new Object[parameters.length];
-		for (int i = 0; i < values.length; i++) {
-			values[i] = configration(parameters[i].getType(), PARAM_VALUE_KEY + i).orElse(null);
-			if (values[i] == null) {
-				values[i] = configration(parameters[i].getType(), parameters[i].getName()).orElse(null);
-			}
-		}
-		return values;
 	}
 
 	protected Constructor<? extends T> constructor(Class<? extends T> type) throws Exception {

@@ -4,7 +4,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.function.BiConsumer;
 
 import org.ddd4j.io.ReadBuffer;
@@ -30,7 +29,7 @@ public class CommittedRecords {
 	}
 
 	public Committed<ReadBuffer, ReadBuffer> commit(ChannelName name, Revision actual) {
-		return commits(name).filter(c -> c.getActual().equals(actual)).head().orElseThrow(NoSuchElementException::new);
+		return commits(name).filter(c -> c.getActual().equals(actual)).head();
 	}
 
 	public Committed<ReadBuffer, ReadBuffer> commit(ChannelRevision spec) {

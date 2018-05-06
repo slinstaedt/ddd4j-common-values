@@ -16,15 +16,13 @@ import org.ddd4j.infrastructure.publisher.ChannelPublisher;
 import org.ddd4j.infrastructure.publisher.FlowSubscription;
 import org.ddd4j.infrastructure.publisher.Publisher;
 import org.ddd4j.infrastructure.publisher.RevisionCallback;
+import org.ddd4j.infrastructure.scheduler.Scheduler;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.spi.Context;
 import org.ddd4j.spi.Ref;
 import org.ddd4j.util.Require;
-import org.ddd4j.util.Throwing;
-import org.ddd4j.util.Throwing.TFunction;
 import org.ddd4j.value.versioned.CommitResult;
-import org.ddd4j.value.versioned.Committed;
 import org.ddd4j.value.versioned.Recorded;
 import org.ddd4j.value.versioned.Revision;
 
@@ -36,9 +34,6 @@ public class Channels {
 	}
 
 	public static final Ref<Channels> REF = Ref.of(Channels.class, Channels::new);
-
-	private static final TFunction<CommitResult<?, ?>, Revision> COMMITTER_REVISION = r -> r.foldResult(Committed::getActual,
-			c -> Throwing.unchecked(new IllegalStateException(c.toString())));
 
 	private static <R extends Recorded<ReadBuffer, ReadBuffer>> R withBuffers(R recorded, Consumer<ReadBuffer> fn) {
 		fn.accept(recorded.getKey());
@@ -56,19 +51,15 @@ public class Channels {
 		return context.get(Pool.BUFFERS).get();
 	}
 
-	public <K, V> Committer<K, V> createCommitter(ChannelSpec<K, V> spec) {
-		return createCommitter(spec, Encoder.Extender.none());
+	private CodecFactory codecFactory() {
+		return context.get(CodecFactory.REF);
 	}
 
-	public <K, V, T> Committer<K, T> createCommitter(ChannelSpec<K, V> spec, Encoder.Extender<? super T, ? extends V> extender) {
-		return encodingCommitter(spec, extender, context.get(Committer.FACTORY).createCommitterClosingBuffers(spec.getName()));
+	public <K, V> Committer<K, V> createCommitter(ChannelSpec<K, V> spec) {
+		return encodingCommitter(spec, context.get(Committer.FACTORY).createCommitterClosingBuffers(spec.getName()));
 	}
 
 	public <K, V> Committer<K, V> createSubmitter(ChannelSpec<K, V> spec) {
-		return createSubmitter(spec, Encoder.Extender.none());
-	}
-
-	public <K, V, T> Committer<K, T> createSubmitter(ChannelSpec<K, V> spec, Encoder.Extender<? super T, ? extends V> extender) {
 		Committer<ReadBuffer, ReadBuffer> committer = context.get(Committer.FACTORY).createCommitter(spec.getName());
 		Writer<ReadBuffer, ReadBuffer> writer = context.get(Writer.FACTORY).createWriter(spec.getName());
 		Committer<ReadBuffer, ReadBuffer> submitter = attempt -> committer.commit(withBuffers(attempt, ReadBuffer::mark))
@@ -76,34 +67,35 @@ public class Channels {
 				// compiler's type inference failed
 				.thenCompose(r -> r.<Promise<? extends CommitResult<ReadBuffer, ReadBuffer>>>onCommitted(writer::put, Promise.completed(r)))
 				.thenRun(() -> withBuffers(attempt, ReadBuffer::reset));
-		return encodingCommitter(spec, extender, submitter);
+		return encodingCommitter(spec, submitter);
 	}
 
 	public <K, V> Writer<K, V> createWriter(ChannelSpec<K, V> spec) {
-		return createWriter(spec, Encoder.Extender.none());
-	}
-
-	public <K, V, T> Writer<K, T> createWriter(ChannelSpec<K, V> spec, Encoder.Extender<? super T, ? extends V> extender) {
-		return encodingWriter(spec, extender, context.get(Writer.FACTORY).createWriterClosingBuffers(spec.getName()));
+		return encodingWriter(spec, context.get(Writer.FACTORY).createWriterClosingBuffers(spec.getName()));
 	}
 
 	public <K, V> DecodingFactory<K, V> decodingFactory(ChannelSpec<K, V> spec) {
-		Decoder<V> decoder = context.get(CodecFactory.REF).decoder(spec.getName(), spec.getValueType());
-		return (c, e) -> c.mapPromised(spec::deserializeKey, decoder::decode, e);
+		Decoder<K> key = spec.getKeyType().decoder(codecFactory());
+		Decoder<V> value = spec.getValueType().decoder(codecFactory());
+		return (c, e) -> c.mapPromised(key::decode, value::decode, e);
 	}
 
-	public <K, V, T> Committer<K, T> encodingCommitter(ChannelSpec<K, V> spec, Encoder.Extender<? super T, ? extends V> extender,
-			Committer<ReadBuffer, ReadBuffer> committer) {
-		Encoder<T> encoder = context.get(CodecFactory.REF).encoder(spec.getName(), spec.getValueType()).extend(extender);
-		return committer.flatMapValue(k -> buf().accept(b -> spec.serializeKey(k, b)).flip(),
-				(v, p) -> encoder.encode(buf(), p.thenApply(COMMITTER_REVISION), v).thenApply(WriteBuffer::flip));
+	public <K, V> Committer<K, V> encodingCommitter(ChannelSpec<K, V> spec, Committer<ReadBuffer, ReadBuffer> committer) {
+		Encoder<K> key = spec.getKeyType().encoder(codecFactory());
+		Encoder<V> value = spec.getValueType().encoder(codecFactory());
+		Promise.Deferred<Revision> revision = context.get(Scheduler.REF).createDeferredPromise();
+		return committer.mapPromised(revision, //
+				k -> key.encode(buf(), revision, k).thenApply(WriteBuffer::flip),
+				v -> value.encode(buf(), revision, v).thenApply(WriteBuffer::flip));
 	}
 
-	public <K, V, T> Writer<K, T> encodingWriter(ChannelSpec<K, V> spec, Encoder.Extender<? super T, ? extends V> extender,
-			Writer<ReadBuffer, ReadBuffer> writer) {
-		Encoder<T> encoder = context.get(CodecFactory.REF).encoder(spec.getName(), spec.getValueType()).extend(extender);
-		return writer.flatMapValue(k -> buf().accept(b -> spec.serializeKey(k, b)).flip(),
-				(v, p) -> encoder.encode(buf(), p.thenApply(Committed::getActual), v).thenApply(WriteBuffer::flip));
+	public <K, V> Writer<K, V> encodingWriter(ChannelSpec<K, V> spec, Writer<ReadBuffer, ReadBuffer> writer) {
+		Encoder<K> key = spec.getKeyType().encoder(codecFactory());
+		Encoder<V> value = spec.getValueType().encoder(codecFactory());
+		Promise.Deferred<Revision> revision = context.get(Scheduler.REF).createDeferredPromise();
+		return writer.mapPromised(revision, //
+				k -> key.encode(buf(), revision, k).thenApply(WriteBuffer::flip),
+				v -> value.encode(buf(), revision, v).thenApply(WriteBuffer::flip));
 	}
 
 	public <K, V> Publisher<K, V, RevisionCallback> publisher(ChannelSpec<K, V> spec) {

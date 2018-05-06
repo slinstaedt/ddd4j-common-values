@@ -1,7 +1,6 @@
 package org.ddd4j.infrastructure.channel.api;
 
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import org.ddd4j.infrastructure.Promise;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
@@ -16,13 +15,15 @@ public interface CommitListener<K, V> {
 
 	CommitListener<ReadBuffer, ReadBuffer> VOID = (n, c) -> Promise.completed(c);
 
-	default <X, Y> CommitListener<X, Y> mapPromised(Function<? super X, K> key, BiFunction<? super Y, Revision, Promise<V>> value,
-			ErrorListener error) {
+	default <X, Y> CommitListener<X, Y> mapPromised(BiFunction<? super X, Revision, Promise<K>> key,
+			BiFunction<? super Y, Revision, Promise<V>> value, ErrorListener error) {
 		Require.nonNulls(key, value, error);
-		return (n, cx) -> value.apply(cx.getValue(), cx.getActual())
-				.thenApply(v -> cx.mapKey(key, v))
-				.thenCompose(cv -> onNext(n, cv))
-				.whenCompleteExceptionally(error::onError);
+		return (name, cxy) -> {
+			return key.apply(cxy.getKey(), cxy.getActual())
+					.thenCombine(value.apply(cxy.getValue(), cxy.getActual()), cxy::withKeyValue)
+					.thenCompose(ckv -> onNext(name, ckv))
+					.whenCompleteExceptionally(error::onError);
+		};
 	}
 
 	Promise<?> onNext(ChannelName name, Committed<K, V> committed);

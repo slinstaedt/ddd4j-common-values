@@ -79,7 +79,7 @@ public class AvroSchemaFactory implements SchemaFactory {
 	}
 
 	AvroFingerprintAlgorithm getFingerprintAlgorithm() {
-		return configuration.get(FINGERPRINT);
+		return FINGERPRINT.valueOf(configuration);
 	}
 
 	@Override

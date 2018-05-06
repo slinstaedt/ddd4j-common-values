@@ -12,10 +12,6 @@ public interface Configuration {
 
 	String KEY_DELIMITER = ".";
 
-	default <V> V get(ConfKey<V> key) {
-		return key.valueOf(this);
-	}
-
 	default Optional<Boolean> getBoolean(String key) {
 		return getString(key).map(Boolean::valueOf);
 	}
@@ -44,14 +40,6 @@ public interface Configuration {
 		return getString(key).map(Long::valueOf);
 	}
 
-	default Properties getPropertiesOf(String... keys) {
-		Properties properties = new Properties();
-		for (String key : keys) {
-			getString(key).ifPresent(v -> properties.setProperty(key, v));
-		}
-		return properties;
-	}
-
 	Optional<String> getString(String key);
 
 	default Configuration prefixed(String keyPrefix) {
@@ -60,5 +48,13 @@ public interface Configuration {
 			Optional<String> prefixed = Configuration.this.getString(keyPrefix + KEY_DELIMITER + key);
 			return prefixed.isPresent() ? prefixed : Configuration.this.getString(key);
 		};
+	}
+
+	default Properties propertiesOf(String... keys) {
+		Properties properties = new Properties();
+		for (String key : keys) {
+			getString(key).ifPresent(v -> properties.setProperty(key, v));
+		}
+		return properties;
 	}
 }

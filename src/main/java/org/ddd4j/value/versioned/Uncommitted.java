@@ -5,8 +5,8 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
-import org.ddd4j.infrastructure.domain.header.Headers;
 import org.ddd4j.infrastructure.domain.header.HeaderKey;
+import org.ddd4j.infrastructure.domain.header.Headers;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.io.WriteBuffer;
 import org.ddd4j.util.Require;
@@ -86,5 +86,10 @@ public class Uncommitted<K, V> implements Recorded<K, V> {
 
 	public Uncommitted<K, V> withHeader(String headerKey, ReadBuffer headerValue) {
 		return new Uncommitted<>(key, value, headers.with(headerKey, headerValue), timestamp, revisionOfPartition);
+	}
+
+	@Override
+	public <X, Y> Uncommitted<X, Y> withKeyValue(X key, Y value) {
+		return map(k -> key, v -> value);
 	}
 }
