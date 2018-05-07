@@ -4,18 +4,17 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
-import org.ddd4j.infrastructure.channel.Channels;
 import org.ddd4j.infrastructure.channel.Channels.DecodingFactory;
 import org.ddd4j.infrastructure.channel.api.CommitListener;
 import org.ddd4j.infrastructure.channel.api.ErrorListener;
 import org.ddd4j.infrastructure.domain.value.ChannelName;
-import org.ddd4j.infrastructure.domain.value.ChannelSpec;
 import org.ddd4j.io.ReadBuffer;
 import org.ddd4j.util.Require;
 import org.ddd4j.util.Throwing.Closeable;
 
 public class ChannelPublisher<C> implements Closeable {
 
+	@FunctionalInterface
 	public interface ListenerFactory<C> {
 
 		ChannelListener create(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error, C callback);
@@ -52,11 +51,9 @@ public class ChannelPublisher<C> implements Closeable {
 		return (s, c) -> channels.subscribe(name, s, FlowSubscription.createListener(listenerFactory, c, s, unsubscriber(name)));
 	}
 
-	public <K, V> Publisher<K, V, C> publisher(Channels channels, ChannelSpec<K, V> spec) {
-		Consumer<Object> unsubscriber = unsubscriber(spec.getName());
-		DecodingFactory<K, V> decodingFactory = channels.decodingFactory(spec);
-		return (s, c) -> this.channels.subscribe(spec.getName(), s,
-				FlowSubscription.createListener(listenerFactory, c, s, unsubscriber, decodingFactory));
+	public <K, V> Publisher<K, V, C> publisher(ChannelName name, DecodingFactory<K, V> decodingFactory) {
+		Consumer<Object> unsubscriber = unsubscriber(name);
+		return (s, c) -> channels.subscribe(name, s, FlowSubscription.createListener(listenerFactory, c, s, unsubscriber, decodingFactory));
 	}
 
 	public void subscribe(ChannelName name, CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error, C callback) {

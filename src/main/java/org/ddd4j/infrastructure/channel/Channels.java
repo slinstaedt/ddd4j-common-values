@@ -12,8 +12,6 @@ import org.ddd4j.infrastructure.codec.CodecFactory;
 import org.ddd4j.infrastructure.codec.Decoder;
 import org.ddd4j.infrastructure.codec.Encoder;
 import org.ddd4j.infrastructure.domain.value.ChannelSpec;
-import org.ddd4j.infrastructure.publisher.ChannelPublisher;
-import org.ddd4j.infrastructure.publisher.FlowSubscription;
 import org.ddd4j.infrastructure.publisher.Publisher;
 import org.ddd4j.infrastructure.publisher.RevisionCallback;
 import org.ddd4j.infrastructure.scheduler.Scheduler;
@@ -99,13 +97,7 @@ public class Channels {
 	}
 
 	public <K, V> Publisher<K, V, RevisionCallback> publisher(ChannelSpec<K, V> spec) {
-		ChannelPublisher<RevisionCallback> publisher = context.get(RevisionCallback.PUBLISHER);
-		Consumer<Object> unsubscriber = publisher.unsubscriber(spec.getName());
-		DecodingFactory<K, V> decodingFactory = decodingFactory(spec);
-		// TODO
-		return (s, c) -> {
-			publisher.subscribe(spec.getName(), s, FlowSubscription.createListener(listenerFactory, c, s, unsubscriber, decodingFactory));
-		};
+		return context.get(RevisionCallback.PUBLISHER).publisher(spec.getName(), decodingFactory(spec));
 	}
 
 	public <K, V> void subscribe(ChannelSpec<K, V> spec, CommitListener<K, V> commit, ErrorListener error, RevisionCallback callback) {

@@ -7,6 +7,7 @@ import java.util.function.Function;
 import org.ddd4j.util.Require;
 import org.ddd4j.value.versioned.Committed;
 
+@FunctionalInterface
 public interface Publisher<K, V, C> {
 
 	default Flow.Publisher<Committed<K, V>> forCallback(C callback) {

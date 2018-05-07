@@ -32,7 +32,7 @@ public interface RevisionCallback {
 			private final ChannelRevisions state;
 			private final Lazy<ColdSource> coldSource;
 
-			public RevisionAwareListener(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error, RevisionCallback callback) {
+			RevisionAwareListener(CommitListener<ReadBuffer, ReadBuffer> commit, ErrorListener error, RevisionCallback callback) {
 				this.commit = Require.nonNull(commit);
 				this.error = Require.nonNull(error);
 				this.callback = Require.nonNull(callback);

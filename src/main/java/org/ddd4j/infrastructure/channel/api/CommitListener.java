@@ -13,17 +13,15 @@ import org.ddd4j.value.versioned.Revision;
 @FunctionalInterface
 public interface CommitListener<K, V> {
 
-	CommitListener<ReadBuffer, ReadBuffer> VOID = (n, c) -> Promise.completed(c);
+	CommitListener<ReadBuffer, ReadBuffer> VOID = (n, c) -> Promise.completed();
 
 	default <X, Y> CommitListener<X, Y> mapPromised(BiFunction<? super X, Revision, Promise<K>> key,
 			BiFunction<? super Y, Revision, Promise<V>> value, ErrorListener error) {
 		Require.nonNulls(key, value, error);
-		return (name, cxy) -> {
-			return key.apply(cxy.getKey(), cxy.getActual())
-					.thenCombine(value.apply(cxy.getValue(), cxy.getActual()), cxy::withKeyValue)
-					.thenCompose(ckv -> onNext(name, ckv))
-					.whenCompleteExceptionally(error::onError);
-		};
+		return (name, cxy) -> key.apply(cxy.getKey(), cxy.getActual())
+				.thenCombine(value.apply(cxy.getValue(), cxy.getActual()), cxy::withKeyValue)
+				.thenCompose(ckv -> onNext(name, ckv))
+				.whenCompleteExceptionally(error::onError);
 	}
 
 	Promise<?> onNext(ChannelName name, Committed<K, V> committed);
